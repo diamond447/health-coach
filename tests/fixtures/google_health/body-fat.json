@@ -1,0 +1,13 @@
+{
+  "dataPoints": [
+    {
+      "name": "users/me/dataTypes/body-fat/dataPoints/bf-1",
+      "bodyFat": {
+        "sampleTime": {
+          "physicalTime": "2026-10-01T06:45:00Z"
+        },
+        "percentage": 16.8
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "dataPoints": [
+    {
+      "name": "users/me/dataTypes/exercise/dataPoints/ex-run-1",
+      "exercise": {
+        "interval": {
+          "startTime": "2026-10-01T07:00:00Z",
+          "endTime": "2026-10-01T07:45:00Z"
+        },
+        "exerciseType": "RUNNING",
+        "activeDuration": "2700s",
+        "metricsSummary": {
+          "averageHeartRateBeatsPerMinute": "148",
+          "caloriesKcal": 450.0,
+          "distanceMillimeters": 7500000.0,
+          "heartRateZoneDurations": {
+            "moderateTime": "900s",
+            "vigorousTime": "1800s"
+          }
+        },
+        "notes": "Morning run around the park"
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "dataPoints": [
+    {
+      "dailySleepTemperatureDerivations": {
+        "date": {"year": 2026, "month": 10, "day": 1},
+        "nightlyTemperatureCelsius": 36.1,
+        "baselineTemperatureCelsius": 36.35
+      }
+    }
+  ]
+}

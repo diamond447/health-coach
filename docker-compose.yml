@@ -1,0 +1,131 @@
+name: health-coach
+
+x-app: &app
+  image: ${HC_IMAGE:-health-coach:dev}
+  build: .
+  restart: unless-stopped
+  # No shared env_file: each service gets only the variables it needs, so the
+  # internet-facing mcp never sees the superuser password or the token key.
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+
+x-db-url: &db-url postgresql+psycopg://health:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/health
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: health
+      POSTGRES_USER: health
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      TZ: UTC
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - ${HC_DB_PUBLISH:-127.0.0.1:5432}:5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U health -d health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    mem_limit: 512m
+
+  # Applies migrations and role logins, then exits. Other services wait for it.
+  migrate:
+    <<: *app
+    restart: "no"
+    entrypoint: ["sh", "-c", "health-coach db upgrade && health-coach db sync-roles"]
+    environment:
+      HC_DATABASE_URL: *db-url
+      HC_RO_DATABASE_URL: postgresql+psycopg://coach_ro:${HC_COACH_RO_PASSWORD:?}@db:5432/health
+      HC_RW_DATABASE_URL: postgresql+psycopg://coach_rw:${HC_COACH_RW_PASSWORD:?}@db:5432/health
+      HC_INGEST_DATABASE_URL: postgresql+psycopg://ingest:${HC_INGEST_PASSWORD:?}@db:5432/health
+      HC_GRAFANA_DB_PASSWORD: ${HC_GRAFANA_DB_PASSWORD:-}
+      HC_TIMEZONE: ${HC_TIMEZONE:-UTC}
+    depends_on:
+      db:
+        condition: service_healthy
+    mem_limit: 256m
+
+  worker:
+    <<: *app
+    command: ["worker"]
+    environment:
+      HC_INGEST_DATABASE_URL: postgresql+psycopg://ingest:${HC_INGEST_PASSWORD:?}@db:5432/health
+      HC_TIMEZONE: ${HC_TIMEZONE:-UTC}
+      HC_LOG_LEVEL: ${HC_LOG_LEVEL:-INFO}
+      HC_TOKEN_KEY: ${HC_TOKEN_KEY:-}
+      HC_GOOGLE_CLIENT_ID: ${HC_GOOGLE_CLIENT_ID:-}
+      HC_GOOGLE_CLIENT_SECRET: ${HC_GOOGLE_CLIENT_SECRET:-}
+      HC_GOOGLE_REDIRECT_URI: ${HC_GOOGLE_REDIRECT_URI:-http://localhost:8765/callback}
+      HC_OPENGYM_URL: ${HC_OPENGYM_URL:-}
+      HC_OPENGYM_VERSION: ${HC_OPENGYM_VERSION:-1.4.1}
+      HC_NTFY_URL: ${HC_NTFY_URL:-https://ntfy.sh}
+      HC_NTFY_TOPIC: ${HC_NTFY_TOPIC:-}
+    mem_limit: 384m
+
+  mcp:
+    <<: *app
+    command: ["mcp"]
+    environment:
+      HC_RO_DATABASE_URL: postgresql+psycopg://coach_ro:${HC_COACH_RO_PASSWORD:?}@db:5432/health
+      HC_RW_DATABASE_URL: postgresql+psycopg://coach_rw:${HC_COACH_RW_PASSWORD:?}@db:5432/health
+      HC_MCP_HOST: 0.0.0.0
+      HC_MCP_PORT: "8080"
+      HC_MCP_ALLOWED_HOSTS: ${HC_MCP_ALLOWED_HOSTS:-["localhost:*","127.0.0.1:*"]}
+      HC_TIMEZONE: ${HC_TIMEZONE:-UTC}
+      HC_LOG_LEVEL: ${HC_LOG_LEVEL:-INFO}
+      HC_PUBLIC_URL: ${HC_PUBLIC_URL:-}
+      HC_AUTH_ISSUER: ${HC_AUTH_ISSUER:-}
+      HC_AUTH_AUDIENCE: ${HC_AUTH_AUDIENCE:-}
+      HC_AUTH_JWKS_URL: ${HC_AUTH_JWKS_URL:-}
+      HC_AUTH_ALLOWED_SUBJECTS: ${HC_AUTH_ALLOWED_SUBJECTS:-[]}
+      HC_AUTH_DISABLED: ${HC_AUTH_DISABLED:-false}
+      HC_NTFY_URL: ${HC_NTFY_URL:-https://ntfy.sh}
+      HC_NTFY_TOPIC: ${HC_NTFY_TOPIC:-}
+      HC_OFF_BASE_URL: ${HC_OFF_BASE_URL:-https://world.openfoodfacts.org}
+    ports:
+      - ${HC_MCP_PUBLISH:-127.0.0.1:8080}:8080
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    mem_limit: 384m
+
+  fit:
+    image: ${HC_IMAGE:-health-coach:dev}
+    build: .
+    restart: unless-stopped
+    command: ["fit-mcp"]
+    environment:
+      FIT_OPENGYM_URL: ${FIT_OPENGYM_URL:-}
+      FIT_OPENGYM_VERSION: ${FIT_OPENGYM_VERSION:-1.4.1}
+      FIT_DB_PATH: ${FIT_DB_PATH:-/data/fit.db}
+      FIT_TOKEN_KEY: ${FIT_TOKEN_KEY:-}
+      FIT_PUBLIC_URL: ${FIT_PUBLIC_URL:-}
+      FIT_AUTH_ISSUER: ${FIT_AUTH_ISSUER:-}
+      FIT_AUTH_AUDIENCE: ${FIT_AUTH_AUDIENCE:-[]}
+      FIT_AUTH_JWKS_URL: ${FIT_AUTH_JWKS_URL:-}
+      FIT_AUTH_DISABLED: ${FIT_AUTH_DISABLED:-false}
+      FIT_MCP_HOST: 0.0.0.0
+      FIT_MCP_PORT: "8081"
+      FIT_MCP_ALLOWED_HOSTS: ${FIT_MCP_ALLOWED_HOSTS:-["localhost:*","127.0.0.1:*","localhost:8081","127.0.0.1:8081"]}
+      FIT_TIMEZONE: ${FIT_TIMEZONE:-UTC}
+    volumes:
+      - fit-data:/data
+    ports:
+      - ${FIT_MCP_PUBLISH:-127.0.0.1:8081}:8081
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    mem_limit: 384m
+
+volumes:
+  db-data:
+  fit-data:
+

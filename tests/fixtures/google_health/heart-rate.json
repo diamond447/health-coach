@@ -1,0 +1,20 @@
+{
+  "dataPoints": [
+    {
+      "heartRate": {
+        "sampleTime": {
+          "physicalTime": "2026-10-01T08:15:00Z"
+        },
+        "beatsPerMinute": "68"
+      }
+    },
+    {
+      "heartRate": {
+        "sampleTime": {
+          "physicalTime": "2026-10-01T08:16:00Z"
+        },
+        "beatsPerMinute": "71"
+      }
+    }
+  ]
+}

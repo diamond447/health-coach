@@ -1,0 +1,68 @@
+{
+  "dataPoints": [
+    {
+      "name": "users/me/dataTypes/sleep/dataPoints/main-sleep-1",
+      "sleep": {
+        "interval": {
+          "startTime": "2026-09-30T22:30:00Z",
+          "endTime": "2026-10-01T06:30:00Z"
+        },
+        "type": "STAGES",
+        "summary": {
+          "minutesAsleep": "420",
+          "minutesInSleepPeriod": "480",
+          "stagesSummary": [
+            {"type": "DEEP", "minutes": "75"},
+            {"type": "LIGHT", "minutes": "225"},
+            {"type": "REM", "minutes": "120"},
+            {"type": "AWAKE", "minutes": "60"}
+          ]
+        },
+        "metadata": {
+          "mainSleep": true,
+          "nap": false
+        },
+        "stages": [
+          {
+            "startTime": "2026-09-30T22:30:00Z",
+            "endTime": "2026-09-30T23:45:00Z",
+            "type": "DEEP"
+          },
+          {
+            "startTime": "2026-09-30T23:45:00Z",
+            "endTime": "2026-10-01T03:30:00Z",
+            "type": "LIGHT"
+          },
+          {
+            "startTime": "2026-10-01T03:30:00Z",
+            "endTime": "2026-10-01T05:30:00Z",
+            "type": "REM"
+          },
+          {
+            "startTime": "2026-10-01T05:30:00Z",
+            "endTime": "2026-10-01T06:30:00Z",
+            "type": "AWAKE"
+          }
+        ]
+      }
+    },
+    {
+      "name": "users/me/dataTypes/sleep/dataPoints/nap-1",
+      "sleep": {
+        "interval": {
+          "startTime": "2026-10-01T13:00:00Z",
+          "endTime": "2026-10-01T13:45:00Z"
+        },
+        "type": "CLASSIC",
+        "summary": {
+          "minutesAsleep": "40",
+          "minutesInSleepPeriod": "45"
+        },
+        "metadata": {
+          "mainSleep": false,
+          "nap": true
+        }
+      }
+    }
+  ]
+}

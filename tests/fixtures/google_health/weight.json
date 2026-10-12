@@ -1,0 +1,14 @@
+{
+  "dataPoints": [
+    {
+      "name": "users/me/dataTypes/weight/dataPoints/wt-1",
+      "weight": {
+        "sampleTime": {
+          "physicalTime": "2026-10-01T06:45:00Z"
+        },
+        "weightGrams": 80000.0,
+        "notes": "Morning scale"
+      }
+    }
+  ]
+}

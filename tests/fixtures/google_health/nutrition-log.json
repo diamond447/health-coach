@@ -1,0 +1,43 @@
+{
+  "dataPoints": [
+    {
+      "name": "users/me/dataTypes/nutrition-log/dataPoints/nutr-1",
+      "nutritionLog": {
+        "interval": {
+          "startTime": "2026-10-01T12:00:00Z",
+          "endTime": "2026-10-01T12:30:00Z"
+        },
+        "mealType": "LUNCH",
+        "foodDisplayName": "Chicken Rice Bowl",
+        "energy": {
+          "kcal": 650.0
+        },
+        "totalCarbohydrate": {
+          "grams": 70.0
+        },
+        "totalFat": {
+          "grams": 15.0
+        },
+        "nutrients": [
+          {
+            "nutrient": "PROTEIN",
+            "quantity": {
+              "grams": 45.0
+            }
+          },
+          {
+            "nutrient": "DIETARY_FIBER",
+            "quantity": {
+              "grams": 6.0
+            }
+          }
+        ],
+        "serving": {
+          "amount": 400.0,
+          "foodMeasurementUnitDisplayName": "g"
+        },
+        "food": "users/me/foods/chicken-rice-bowl"
+      }
+    }
+  ]
+}
