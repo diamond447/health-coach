@@ -365,6 +365,8 @@ async def test_two_subjects_isolated(
 ) -> None:
     settings, store = fit_env
     server = create_fit_server(settings, with_auth=False, store=store)
+    # A few days ahead, so the date stays inside get_planned's window whenever the test runs.
+    plan_date = (dt.datetime.now(dt.UTC).date() + dt.timedelta(days=3)).isoformat()
 
     async with Client(server) as client:
         # Subject 1 (alice) pairs with ALICE
@@ -382,7 +384,7 @@ async def test_two_subjects_isolated(
         await client.call_tool(
             "plan_session",
             {
-                "date": "2026-10-18",
+                "date": plan_date,
                 "name": "Alice Workout",
                 "exercises": [{"exercise_id": "curl", "sets": 3, "reps": 10, "weight_kg": 15.0}],
             },
@@ -395,9 +397,9 @@ async def test_two_subjects_isolated(
 
         b_plan = await client.call_tool("get_planned", {"days": 14})
         b_sched = b_plan.structured_content["schedule"]
-        day_18 = next((d for d in b_sched if d["date"] == "2026-10-18"), None)
-        assert day_18 is not None
-        assert day_18["planned"] == "rest" or day_18.get("source") == "none"
+        planned_day = next((d for d in b_sched if d["date"] == plan_date), None)
+        assert planned_day is not None
+        assert planned_day["planned"] == "rest" or planned_day.get("source") == "none"
 
         # Bob unlinks; Alice remains linked
         await client.call_tool("unlink_opengym", {})
