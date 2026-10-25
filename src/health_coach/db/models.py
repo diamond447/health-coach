@@ -467,6 +467,34 @@ class TdeeEstimate(Timestamps, Base):
     source: Mapped[str] = mapped_column(Text, server_default="worker")
 
 
+class DailyScore(Timestamps, Base):
+    __tablename__ = "daily_scores"
+
+    local_date: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    recovery: Mapped[int | None] = mapped_column(SmallInteger)
+    recovery_z: Mapped[Decimal | None] = mapped_column(Numeric(4, 2))
+    recovery_components: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+    flags: Mapped[list[str]] = mapped_column(server_default="{}")
+    strain: Mapped[Decimal | None] = mapped_column(Numeric(3, 1))
+    cardio_load: Mapped[Decimal | None] = mapped_column(Numeric(6, 1))
+    muscular_load: Mapped[Decimal | None] = mapped_column(Numeric(6, 1))
+    zone_minutes: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    activities: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+    strain_target_low: Mapped[Decimal | None] = mapped_column(Numeric(3, 1))
+    strain_target_high: Mapped[Decimal | None] = mapped_column(Numeric(3, 1))
+    sleep_need_min: Mapped[int | None] = mapped_column(Integer)
+    sleep_actual_min: Mapped[int | None] = mapped_column(Integer)
+    sleep_debt_min: Mapped[int | None] = mapped_column(Integer)
+    sleep_performance: Mapped[int | None] = mapped_column(SmallInteger)
+    sleep_efficiency: Mapped[int | None] = mapped_column(SmallInteger)
+    sleep_consistency: Mapped[int | None] = mapped_column(SmallInteger)
+    planned_bedtime: Mapped[dt.datetime | None]
+    planned_wake: Mapped[dt.datetime | None]
+    inputs: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    algo_version: Mapped[int] = mapped_column(SmallInteger)
+    source: Mapped[str] = mapped_column(Text, server_default="worker")
+
+
 class McpAudit(Base):
     __tablename__ = "mcp_audit"
     __table_args__ = (Index("ix_mcp_audit_ts", "ts"),)

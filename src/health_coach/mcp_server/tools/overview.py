@@ -226,7 +226,84 @@ def get_weekly_summary(
     }
 
 
+def _fmt_duration(minutes: int | None) -> str | None:
+    if minutes is None:
+        return None
+    h, m = divmod(minutes, 60)
+    return f"{h}h {m:02d}m"
+
+
+def get_scores(start: DateArg = None, end: DateArg = None) -> dict[str, Any]:
+    """Daily WHOOP-style recovery score (0-100), day strain (0-21) and sleep need/performance.
+
+    Default: last 7 days. Returns rows with recovery score, zone ('green' >= 67, 'yellow' 34-66,
+    'red' <= 33), z-score, component breakdown, flags, strain, target range, cardio/muscular loads,
+    zone minutes, activities, and sleep need/actual/debt/performance/efficiency/consistency.
+    """
+    s, e = date_range(start, end)
+    from health_coach.analytics.scores import recovery_zone
+
+    with get_engine(Role.ro).connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT local_date, recovery, recovery_z, recovery_components, flags, "
+                "       strain, cardio_load, muscular_load, zone_minutes, activities, "
+                "       strain_target_low, strain_target_high, sleep_need_min, "
+                "       sleep_actual_min, sleep_debt_min, sleep_performance, "
+                "       sleep_efficiency, sleep_consistency, planned_bedtime, "
+                "       planned_wake, inputs, algo_version "
+                "FROM daily_scores WHERE local_date BETWEEN :s AND :e "
+                "ORDER BY local_date"
+            ),
+            {"s": s, "e": e},
+        ).all()
+
+        formatted_rows: list[dict[str, Any]] = []
+        for r in rows:
+            formatted_rows.append(
+                {
+                    "local_date": r.local_date.isoformat(),
+                    "recovery": r.recovery,
+                    "recovery_zone": recovery_zone(r.recovery),
+                    "recovery_z": jsonable(r.recovery_z),
+                    "recovery_components": r.recovery_components,
+                    "flags": r.flags,
+                    "strain": jsonable(r.strain),
+                    "strain_target": (
+                        [jsonable(r.strain_target_low), jsonable(r.strain_target_high)]
+                        if r.strain_target_low is not None
+                        else None
+                    ),
+                    "cardio_load": jsonable(r.cardio_load),
+                    "muscular_load": jsonable(r.muscular_load),
+                    "zone_minutes": r.zone_minutes,
+                    "activities": r.activities,
+                    "sleep_performance": r.sleep_performance,
+                    "sleep_need_min": r.sleep_need_min,
+                    "sleep_need": _fmt_duration(r.sleep_need_min),
+                    "sleep_actual_min": r.sleep_actual_min,
+                    "sleep_actual": _fmt_duration(r.sleep_actual_min),
+                    "sleep_debt_min": r.sleep_debt_min,
+                    "sleep_debt": _fmt_duration(r.sleep_debt_min),
+                    "sleep_efficiency": r.sleep_efficiency,
+                    "sleep_consistency": r.sleep_consistency,
+                    "planned_bedtime": jsonable(r.planned_bedtime),
+                    "planned_wake": jsonable(r.planned_wake),
+                    "algo_version": r.algo_version,
+                }
+            )
+
+        return {
+            "start": s.isoformat(),
+            "end": e.isoformat(),
+            "rows": formatted_rows,
+            "as_of": quality.as_of(conn),
+            "warnings": quality.all_warnings(conn),
+        }
+
+
 def register(server: MCPServer) -> None:
     server.tool(annotations=READ)(audited(get_daily_overview))
     server.tool(annotations=READ)(audited(get_weekly_summary))
     server.tool(annotations=READ)(audited(get_weight_trend))
+    server.tool(annotations=READ)(audited(get_scores))

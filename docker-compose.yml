@@ -64,6 +64,10 @@ services:
       HC_OPENGYM_VERSION: ${HC_OPENGYM_VERSION:-1.4.1}
       HC_NTFY_URL: ${HC_NTFY_URL:-https://ntfy.sh}
       HC_NTFY_TOPIC: ${HC_NTFY_TOPIC:-}
+      HC_HR_MAX: ${HC_HR_MAX:-}
+      HC_BIRTH_YEAR: ${HC_BIRTH_YEAR:-}
+      HC_SEX: ${HC_SEX:-}
+      HC_SLEEP_NEED_BASE_MIN: ${HC_SLEEP_NEED_BASE_MIN:-480}
     mem_limit: 384m
 
   mcp:

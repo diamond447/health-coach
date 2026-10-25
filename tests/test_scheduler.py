@@ -11,9 +11,11 @@ def test_scheduler_uses_local_timezone() -> None:
 
 
 def test_opengym_jobs_only_when_configured() -> None:
-    assert [j.id for j in build_scheduler(Settings(opengym_url=None)).get_jobs()] == [
-        "derived_snapshot"
-    ]
+    assert {j.id for j in build_scheduler(Settings(opengym_url=None)).get_jobs()} == {
+        "derived_snapshot",
+        "scores_recent",
+        "scores_week",
+    }
     configured = Settings(
         opengym_url="http://localhost:3000",
         token_key=SecretStr("MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="),
@@ -21,3 +23,5 @@ def test_opengym_jobs_only_when_configured() -> None:
     ids = {j.id for j in build_scheduler(configured).get_jobs()}
     assert "opengym_workouts" in ids
     assert "opengym_catalogue" in ids
+    assert "scores_recent" in ids
+    assert "scores_week" in ids

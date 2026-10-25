@@ -31,10 +31,15 @@ TABLE_DOCS: dict[str, str] = {
     "goals": "Goals such as 'bench 100 kg x 5' with deadline and status.",
     "coach_log": "Coach memory: decisions, observations, plans, reviews, notes, questions.",
     "tdee_estimates": "Nightly adaptive TDEE estimates with confidence.",
+    "daily_scores": "Recovery (0-100), day strain (0-21) and sleep need/debt/performance.",
     "sync_state": "Last sync per source and data type, errors.",
 }
 
 EXAMPLES: dict[str, list[str]] = {
+    "daily_scores": [
+        "SELECT local_date, recovery, strain, sleep_performance FROM daily_scores "
+        "ORDER BY local_date DESC LIMIT 7",
+    ],
     "v_daily": [
         "SELECT local_date, kcal_in, protein_g, weight_kg, sleep_min, resting_hr "
         "FROM v_daily WHERE local_date >= current_date - 13 ORDER BY local_date",
@@ -259,6 +264,34 @@ def get_context_snapshot() -> dict[str, Any]:
         from health_coach.mcp_server.tools.analytics import get_recovery_snapshot
 
         recovery = get_recovery_snapshot(conn, day)
+        score_row = conn.execute(
+            text(
+                "SELECT recovery, flags, strain, strain_target_low, strain_target_high, "
+                "       sleep_performance, sleep_need_min, sleep_debt_min "
+                "FROM daily_scores WHERE local_date = :d"
+            ),
+            {"d": day},
+        ).first()
+
+        scores_today = None
+        if score_row:
+            from health_coach.analytics.scores import recovery_zone
+
+            scores_today = {
+                "recovery": score_row.recovery,
+                "recovery_zone": recovery_zone(score_row.recovery),
+                "flags": score_row.flags,
+                "strain": jsonable(score_row.strain),
+                "strain_target": (
+                    [jsonable(score_row.strain_target_low), jsonable(score_row.strain_target_high)]
+                    if score_row.strain_target_low is not None
+                    else None
+                ),
+                "sleep_performance": score_row.sleep_performance,
+                "sleep_need_min": score_row.sleep_need_min,
+                "sleep_debt_min": score_row.sleep_debt_min,
+            }
+
         log = conn.execute(
             text(
                 "SELECT id, ts, kind, title, left(body, 300) AS body, tags FROM coach_log "
@@ -278,6 +311,7 @@ def get_context_snapshot() -> dict[str, Any]:
             "last_7_days": tabular(daily, SNAPSHOT_DAILY_COLUMNS),
             "tdee": {k: jsonable(v) for k, v in tdee._mapping.items()} if tdee else None,
             "recovery_today": recovery,
+            "scores_today": scores_today,
             "coach_log_recent": tabular(log),
             "open_goals": tabular(goals),
             "as_of": quality.as_of(conn),
