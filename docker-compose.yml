@@ -100,6 +100,26 @@ services:
       retries: 3
     mem_limit: 384m
 
+  web:
+    <<: *app
+    command: ["web"]
+    environment:
+      HC_RO_DATABASE_URL: postgresql+psycopg://coach_ro:${HC_COACH_RO_PASSWORD:?}@db:5432/health
+      HC_TIMEZONE: ${HC_TIMEZONE:-UTC}
+      HC_LOG_LEVEL: ${HC_LOG_LEVEL:-INFO}
+      HC_WEB_HOST: 0.0.0.0
+      HC_WEB_PORT: "8090"
+      HC_WEB_ALLOWED_USERS: ${HC_WEB_ALLOWED_USERS:-[]}
+      HC_WEB_USER_HEADER: ${HC_WEB_USER_HEADER:-X-authentik-username}
+    ports:
+      - ${HC_WEB_PUBLISH:-127.0.0.1:8090}:8090
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    mem_limit: 192m
+
   fit:
     image: ${HC_IMAGE:-health-coach:dev}
     build: .

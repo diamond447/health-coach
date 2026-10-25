@@ -9,6 +9,7 @@
 | `worker` | `health-coach worker` | APScheduler daemon: ingest, derived metrics, alerts. Connects as `ingest`. |
 | `mcp` | `health-coach mcp` | health-coach MCP server (Streamable HTTP, `/mcp`). Connects as `coach_ro` and `coach_rw`. |
 | `fit` | `health-coach fit-mcp` | Multi-user openGym MCP server ([fit.md](fit.md)). Own SQLite file, no access to Postgres. |
+| `web` | `health-coach web` | Read-only WHOOP-style stats PWA ([web.md](web.md)). Connects as `coach_ro`. |
 
 All services run from one image. Each service gets only the environment variables it
 needs: the internet-facing `mcp` never sees the Postgres superuser password or the token

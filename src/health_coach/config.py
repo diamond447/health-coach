@@ -88,6 +88,12 @@ class Settings(BaseSettings):
     ntfy_topic: SecretStr | None = None
     notify_lang: Literal["en", "cs"] = "en"
 
+    # Healthstats web app
+    web_host: str = "127.0.0.1"
+    web_port: int = 8090
+    web_allowed_users: list[str] = Field(default_factory=list)
+    web_user_header: str = "X-authentik-username"
+
     @property
     def tz(self) -> ZoneInfo:
         return ZoneInfo(self.timezone)
