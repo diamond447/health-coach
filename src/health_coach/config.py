@@ -86,6 +86,8 @@ class Settings(BaseSettings):
     # ntfy push notifications.
     ntfy_url: str = "https://ntfy.sh"
     ntfy_topic: SecretStr | None = None
+    # Access token for servers that require auth (HC_NTFY_TOKEN), sent as a bearer token.
+    ntfy_token: SecretStr | None = None
     notify_lang: Literal["en", "cs"] = "en"
 
     # Healthstats web app
