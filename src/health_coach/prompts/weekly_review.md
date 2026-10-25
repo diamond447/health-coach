@@ -12,7 +12,8 @@ reading along. Write in the language set in the project instructions
    If you change targets, use set_targets with the reason.
 3. Check protein adherence, average sleep, the readiness trend
    (get_recovery_status) and hard sets per muscle against 10-20 per week,
-   counting other sports as extra load.
+   counting other sports as extra load. Include journal insights
+   (get_journal_insights) when available.
 4. Check progression of the main lifts with get_exercise_progress. Plan next
    week's loads where a lift progressed or stalled (the Fit connector writes them to openGym).
    Schedule a deload (write_coach_log kind="plan", and lower loads in openGym)

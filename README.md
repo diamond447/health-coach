@@ -143,6 +143,7 @@ curl http://127.0.0.1:8080/healthz   # {"status":"ok",...}
 
 - [Architecture](docs/architecture.md): components, database, roles, security model, schedule.
 - [Daily scores](docs/scores.md): WHOOP-style recovery, strain and sleep scoring.
+- [Habit journal & sleep settings](docs/journal.md): tracked behaviours, recovery insights, sleep settings.
 - [Google Health API](docs/google-health.md): OAuth setup, backfill, mapping notes.
 - [openGym](docs/opengym.md): data model, pairing, how planned sessions are written.
 - [Fit MCP server](docs/fit.md): multi-user connector for Claude, ChatGPT and Gemini.
@@ -180,6 +181,7 @@ lists them with comments.
 | `HC_MCP_ALLOWED_HOSTS` | loopback | Accepted `Host` headers (DNS rebinding protection). |
 | `HC_MCP_PUBLISH`, `HC_DB_PUBLISH` | `127.0.0.1:8080`, `127.0.0.1:5432` | Published host ports. |
 | `HC_NTFY_URL`, `HC_NTFY_TOPIC` | `https://ntfy.sh`, empty | Push notifications. |
+| `HC_NOTIFY_LANG` | `en` | Language for push notifications (`en` or `cs`). |
 | `HC_OFF_BASE_URL` | `https://world.openfoodfacts.org` | Open Food Facts for food search. |
 | `HC_HR_MAX` | empty | Maximum heart rate. Fallback: Tanaka 208 - 0.7*age; if age unknown, 190. |
 | `HC_BIRTH_YEAR` | empty | Birth year to estimate age (current year - birth_year). |
@@ -198,6 +200,7 @@ lists them with comments.
 | Analytics | `estimate_tdee`, `get_nutrition_summary`, `get_recovery_status`, `get_sleep_analysis`, `get_training_load`, `get_exercise_progress`, `get_personal_records`, `compare_periods` |
 | SQL | `query_sql`: one read-only `SELECT`, checked by sqlglot, run as `coach_ro` with a timeout and row cap |
 | Logging | `search_food`, `save_food`, `log_meal`, `update_nutrition_entry`, `delete_nutrition_entry`, `log_body_metric`, `log_checkin`, `log_exercise_session` |
+| Journal & settings | `log_journal`, `get_journal`, `delete_journal_entry`, `get_journal_insights`, `set_sleep_settings`, `get_sleep_settings` |
 | Training (read) | `search_exercises`, `get_workout_log` |
 | Coaching state | `get_targets`, `set_targets`, `read_coach_log`, `write_coach_log`, `manage_goal` |
 | Notifications | `send_notification` |

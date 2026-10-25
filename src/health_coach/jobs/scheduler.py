@@ -76,6 +76,18 @@ def data_quality() -> None:
     run_job("worker", "data_quality", lambda: check_and_notify(get_engine(Role.ingest)))
 
 
+def morning_recovery() -> None:
+    from health_coach.jobs.pushes import run_morning_recovery
+
+    run_job("worker", "morning_recovery", lambda: run_morning_recovery(get_engine(Role.ingest)))
+
+
+def bedtime_reminder() -> None:
+    from health_coach.jobs.pushes import run_bedtime_reminder
+
+    run_job("worker", "bedtime_reminder", lambda: run_bedtime_reminder(get_engine(Role.ingest)))
+
+
 def _alert(title: str, body: str) -> None:
     from health_coach.notify.ntfy import NtfyClient
 
@@ -115,6 +127,20 @@ def build_scheduler(settings: Settings) -> BlockingScheduler:
         log.warning("openGym not configured: openGym jobs disabled")
     if settings.ntfy_topic:
         scheduler.add_job(data_quality, "cron", hour=9, minute=0, id="data_quality")
+        scheduler.add_job(
+            morning_recovery,
+            "cron",
+            hour="5-11",
+            minute="*/10",
+            id="morning_recovery",
+        )
+        scheduler.add_job(
+            bedtime_reminder,
+            "interval",
+            minutes=5,
+            id="bedtime_reminder",
+            next_run_time=now,
+        )
     else:
         log.warning("ntfy not configured: alerts and data-quality notifications disabled")
     if settings.google_client_id and settings.google_client_secret and settings.token_key:

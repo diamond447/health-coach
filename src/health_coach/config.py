@@ -86,6 +86,7 @@ class Settings(BaseSettings):
     # ntfy push notifications.
     ntfy_url: str = "https://ntfy.sh"
     ntfy_topic: SecretStr | None = None
+    notify_lang: Literal["en", "cs"] = "en"
 
     @property
     def tz(self) -> ZoneInfo:

@@ -33,11 +33,11 @@ Conventions:
 
 | Group | Tables |
 | --- | --- |
-| Raw and sync state | `raw_payloads`, `sync_state`, `oauth_tokens` (Fernet-encrypted) |
+| Raw and sync state | `raw_payloads`, `sync_state`, `oauth_tokens` (Fernet-encrypted), `notifications_sent` |
 | Wearable | `daily_activity`, `daily_vitals`, `heart_rate_samples`, `sleep_sessions`, `sleep_stages`, `exercise_sessions` |
 | Body and nutrition | `body_metrics`, `foods`, `nutrition_entries`, `checkins` |
 | Strength (mirror of openGym) | `exercises`, `strength_sessions`, `strength_sets` |
-| Coaching state | `targets`, `goals`, `coach_log`, `tdee_estimates`, `daily_scores` |
+| Coaching state | `targets`, `goals`, `coach_log`, `tdee_estimates`, `daily_scores`, `journal_entries`, `app_settings` |
 | Audit | `mcp_audit` (tool, subject, duration, error; kept 180 days) |
 
 Views: `v_daily` (one row per day across all domains), `v_body_daily`, `v_weight_trend`
@@ -52,10 +52,10 @@ the passwords from `.env`.
 
 | Role | Used by | Access |
 | --- | --- | --- |
-| `coach_ro` | `query_sql` and read tools | `SELECT` on typed tables and views; no `oauth_tokens`, `raw_payloads` or `mcp_audit`. Read-only transactions, statement timeout. |
-| `coach_rw` | logging and coaching tools | Writes nutrition, body metrics, check-ins, foods, targets, goals, coach log; appends to `mcp_audit`. |
-| `ingest` | worker | Wearable, strength and derived tables, sync state, OAuth tokens, raw payloads. |
-| `grafana_ro` | Grafana | What `coach_ro` sees plus `sync_state` and `mcp_audit`. Disabled unless `HC_GRAFANA_DB_PASSWORD` is set. |
+| `coach_ro` | `query_sql` and read tools | `SELECT` on typed tables and views; no `oauth_tokens`, `raw_payloads`, `mcp_audit` or `notifications_sent`. Read-only transactions, statement timeout. |
+| `coach_rw` | logging and coaching tools | Writes nutrition, body metrics, check-ins, foods, targets, goals, coach log, journal entries, app settings; appends to `mcp_audit`. |
+| `ingest` | worker | Wearable, strength and derived tables, sync state, OAuth tokens, raw payloads, notifications sent. |
+| `grafana_ro` | Grafana | What `coach_ro` sees plus `sync_state`, `mcp_audit` and `notifications_sent`. Disabled unless `HC_GRAFANA_DB_PASSWORD` is set. |
 
 ## Security model
 
@@ -96,6 +96,8 @@ front of it can fail.
 | `scores_recent` | every 30 min | Daily scores (recovery, strain, sleep): yesterday and today (offset 10 min after google_recent) |
 | `scores_week` | daily 04:45 | Daily scores (recovery, strain, sleep): last 7 days |
 | `data_quality` | daily 09:00 | ntfy alert for stale syncs and logging gaps |
+| `morning_recovery` | every 10 min 05:00–11:50 | ntfy push with recovery %, zone, strain target, and sleep duration |
+| `bedtime_reminder` | every 5 min | ntfy push reminder starting 30 min before planned bedtime |
 
 Google and openGym jobs run only when they are configured. See
 [scores.md](scores.md) for score algorithms and formulas, and

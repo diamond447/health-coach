@@ -39,7 +39,9 @@ def test_downgrade_and_upgrade_again(owner: Engine) -> None:
         assert conn.execute(text("SELECT count(*) FROM v_daily")).scalar_one() == 0
 
 
-@pytest.mark.parametrize("table", ["oauth_tokens", "raw_payloads", "mcp_audit"])
+@pytest.mark.parametrize(
+    "table", ["oauth_tokens", "raw_payloads", "mcp_audit", "notifications_sent"]
+)
 def test_coach_ro_cannot_read_secrets(owner: Engine, table: str) -> None:
     with get_engine(Role.ro).connect() as conn, pytest.raises(DBAPIError, match="permission"):
         conn.execute(text(f"SELECT * FROM {table}"))
@@ -81,6 +83,19 @@ def test_coach_rw_writes_logs_but_not_wearables(owner: Engine) -> None:
     with get_engine(Role.rw).begin() as conn:
         conn.execute(text("INSERT INTO checkins (local_date, energy) VALUES (current_date, 3)"))
         conn.execute(text("INSERT INTO mcp_audit (tool, duration_ms) VALUES ('x', 1)"))
+        conn.execute(
+            text(
+                "INSERT INTO journal_entries (local_date, behavior) VALUES (current_date, 'sauna')"
+            )
+        )
+        conn.execute(
+            text(
+                "INSERT INTO app_settings (key, value) VALUES ('sleep_need_base_min', '480'::jsonb)"
+            )
+        )
+    with get_engine(Role.ro).connect() as conn:
+        assert conn.execute(text("SELECT count(*) FROM journal_entries")).scalar_one() == 1
+        assert conn.execute(text("SELECT count(*) FROM app_settings")).scalar_one() == 1
     with get_engine(Role.rw).connect() as conn, pytest.raises(DBAPIError, match="permission"):
         conn.execute(
             text("INSERT INTO daily_activity (local_date, steps) VALUES (current_date, 1)")
@@ -92,12 +107,19 @@ def test_ingest_writes_wearables_but_not_coaching_state(owner: Engine) -> None:
         conn.execute(
             text("INSERT INTO daily_activity (local_date, steps) VALUES (current_date, 1)")
         )
+        conn.execute(
+            text("INSERT INTO notifications_sent (local_date, kind) VALUES (current_date, 'test')")
+        )
     with get_engine(Role.ingest).connect() as conn, pytest.raises(DBAPIError, match="permission"):
         conn.execute(
             text(
                 "INSERT INTO targets (effective_from, phase, kcal, protein_g, reason) "
                 "VALUES (current_date, 'bulk', 2700, 150, 'x')"
             )
+        )
+    with get_engine(Role.ingest).connect() as conn, pytest.raises(DBAPIError, match="permission"):
+        conn.execute(
+            text("INSERT INTO journal_entries (local_date, behavior) VALUES (current_date, 'cold')")
         )
 
 

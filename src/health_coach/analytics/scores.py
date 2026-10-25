@@ -657,6 +657,7 @@ def calculate_bedtime_plan(
     today_naps: int = 0,
     recent_efficiencies: Sequence[float] = (),
     recent_wake_times: Sequence[dt.time] = (),
+    alarm_time: dt.time | None = None,
 ) -> tuple[dt.datetime, dt.datetime]:
     """Calculate (planned_bedtime, planned_wake) for tonight."""
     strain_bonus = max(0.0, (today_strain or 0.0) - 7.0) * 3.0
@@ -673,15 +674,15 @@ def calculate_bedtime_plan(
 
     in_bed_min = need_tonight / mean_eff
 
-    if recent_wake_times:
+    if alarm_time is not None:
+        wake_min = alarm_time.hour * 60 + alarm_time.minute + alarm_time.second / 60.0
+    elif recent_wake_times:
         wake_mins = [t.hour * 60 + t.minute + t.second / 60.0 for t in recent_wake_times]
-        median_wake_min = float(statistics.median(wake_mins))
+        wake_min = float(statistics.median(wake_mins))
     else:
-        median_wake_min = 7.0 * 60.0  # default 07:00
+        wake_min = 7.0 * 60.0  # default 07:00
 
     tomorrow = today_date + dt.timedelta(days=1)
-    wake_dt = dt.datetime.combine(tomorrow, dt.time(0, 0), tz) + dt.timedelta(
-        minutes=median_wake_min
-    )
+    wake_dt = dt.datetime.combine(tomorrow, dt.time(0, 0), tz) + dt.timedelta(minutes=wake_min)
     bedtime_dt = wake_dt - dt.timedelta(minutes=in_bed_min)
     return bedtime_dt, wake_dt
