@@ -153,9 +153,9 @@ Values outside the lowest and highest anchor points are held flat at the endpoin
 
 ## 3. Demographics and Sex Resolution
 
-- Chronological age is derived from `HC_BIRTH_YEAR`. If `HC_BIRTH_YEAR` is not configured, $\text{delta\_years}$ is still computed, but `age` and `biological_age` remain `null`.
-- Biological sex is resolved from `HC_SEX` (`"male"` or `"female"`).
-- If `HC_SEX` is unset (`None`), factors that depend on sex (VO2max and Body Composition) compute the male and female results independently and take the **arithmetic mean** of the two.
+- Chronological age is derived from the profile birth year (`set_profile`, fallback `HC_BIRTH_YEAR`). Without a birth year, $\text{delta\_years}$ is still computed, but `age` and `biological_age` remain `null`.
+- Biological sex comes from the profile (`set_profile`, fallback `HC_SEX`; `"male"` or `"female"`).
+- If no sex is set (`None`), factors that depend on sex (VO2max and Body Composition) compute the male and female results independently and take the **arithmetic mean** of the two.
 
 ---
 

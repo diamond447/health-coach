@@ -46,6 +46,15 @@ the following standardized keys to maintain consistency, though any valid custom
   Configures personal sleep scoring settings in `app_settings`.
 - `get_sleep_settings()`:
   Retrieves the current sleep scoring settings.
+- `set_profile(hr_max=None, birth_year=None, sex=None, clear=None)`:
+  Stores the scoring profile in `app_settings` (`hr_max` 120-230 bpm, `birth_year`,
+  `sex` `male`/`female`); `clear` removes keys. Stored values take precedence over
+  `HC_HR_MAX`, `HC_BIRTH_YEAR` and `HC_SEX`. New values apply to recent days at the next
+  scores refresh (within 30 minutes, the last 7 days nightly); run
+  `health-coach scores backfill` to recompute older days.
+- `get_profile()`:
+  Returns the profile, the age, and the max heart rate the scores use with its source
+  (measured, estimated from age, or default).
 
 ---
 

@@ -33,7 +33,7 @@ TABLE_DOCS: dict[str, str] = {
     "tdee_estimates": "Nightly adaptive TDEE estimates with confidence.",
     "daily_scores": "Recovery (0-100), day strain (0-21) and sleep need/debt/performance.",
     "journal_entries": "Daily tracked behaviours (alcohol, late caffeine, etc.) with amounts.",
-    "app_settings": "Application settings (sleep need baseline, alarm time).",
+    "app_settings": "Application settings (sleep need baseline, alarm time, profile: hr_max, birth_year, sex).",
     "sync_state": "Last sync per source and data type, errors.",
 }
 

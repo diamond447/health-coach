@@ -5,7 +5,7 @@ import json
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import text
+from sqlalchemy import Engine, text
 from starlette.testclient import TestClient
 
 from health_coach.config import Settings
@@ -251,7 +251,7 @@ def _seed_test_data(conn: Any, day: dt.date) -> None:
     )
 
 
-def test_web_endpoints(migrated_db: str) -> None:
+def test_web_endpoints(migrated_db: str, owner: Engine) -> None:
     """Verify all API endpoints with synthetic data in migrated_db."""
     today_d = dt.date(2026, 10, 25)
     with get_engine(Role.owner).connect() as conn:
@@ -360,7 +360,7 @@ def test_web_endpoints(migrated_db: str) -> None:
     assert data["coach_review"] is not None
 
 
-def test_web_auth_and_public_routes(migrated_db: str) -> None:
+def test_web_auth_and_public_routes(migrated_db: str, owner: Engine) -> None:
     """Test header check: 403 on disallowed, 200 on allowed, public path bypass, SPA fallback."""
     settings = Settings(
         database_url=migrated_db,
@@ -406,7 +406,7 @@ def test_web_auth_and_public_routes(migrated_db: str) -> None:
     assert "text/html" in res.headers["content-type"]
 
 
-def test_web_input_validation(migrated_db: str) -> None:
+def test_web_input_validation(migrated_db: str, owner: Engine) -> None:
     """Test 400 JSON errors for malformed date, month, period, and days clamping/validation."""
     today_d = dt.date(2026, 10, 25)
     with get_engine(Role.owner).connect() as conn:
@@ -479,7 +479,7 @@ def test_web_input_validation(migrated_db: str) -> None:
     assert res.json()["error"] == "bad_request"
 
 
-def test_api_healthspan(migrated_db: str) -> None:
+def test_api_healthspan(migrated_db: str, owner: Engine) -> None:
     engine = get_engine(Role.owner)
     app = create_app(Settings())
     client = TestClient(app)

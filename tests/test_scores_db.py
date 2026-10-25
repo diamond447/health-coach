@@ -297,3 +297,23 @@ def test_refresh_scores_uses_app_settings(owner: Engine) -> None:
     assert row.planned_wake is not None
     wake_local = row.planned_wake.astimezone(PRAGUE)
     assert wake_local.time() == dt.time(6, 0)
+
+
+async def test_compute_scores_uses_stored_profile(owner: Engine) -> None:
+    day = today()
+    with owner.begin() as conn:
+        _seed_synthetic_data(conn, day)
+        conn.execute(
+            text(
+                "INSERT INTO app_settings (key, value) VALUES "
+                "('hr_max', '205'::jsonb), ('sex', '\"female\"'::jsonb)"
+            )
+        )
+
+    compute_scores(get_engine(Role.ingest), day)
+
+    with get_engine(Role.ro).connect() as conn:
+        inputs = conn.execute(
+            text("SELECT inputs FROM daily_scores WHERE local_date = :d"), {"d": day}
+        ).scalar_one()
+    assert inputs["hr_max"] == 205.0

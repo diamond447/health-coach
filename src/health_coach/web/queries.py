@@ -21,6 +21,7 @@ from health_coach.config import get_settings
 from health_coach.mcp_server import quality
 from health_coach.mcp_server.common import jsonable, today
 from health_coach.mcp_server.tools.discovery import current_targets
+from health_coach.profile import load_profile
 
 CZECH_WEEKDAYS = ["po", "út", "st", "čt", "pá", "so", "ne"]
 CZECH_MONTHS = [
@@ -668,10 +669,11 @@ def query_strain(conn: Connection, date_str: str | None = None) -> dict[str, Any
     if isinstance(inputs_data, str):
         inputs_data = json.loads(inputs_data)
     rest_hr = float(inputs_data.get("rest_hr", 60.0)) if isinstance(inputs_data, dict) else 60.0
+    fallback_hr_max = load_profile(conn, settings).effective_hr_max(target_date.year)
     hr_max = (
-        float(inputs_data.get("hr_max", settings.effective_hr_max()))
+        float(inputs_data.get("hr_max", fallback_hr_max))
         if isinstance(inputs_data, dict)
-        else float(settings.effective_hr_max())
+        else float(fallback_hr_max)
     )
     hrr = max(1.0, hr_max - rest_hr)
 

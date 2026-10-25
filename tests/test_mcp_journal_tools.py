@@ -218,3 +218,38 @@ async def test_sleep_settings_tools(owner: Engine) -> None:
     res_cleared = await call("set_sleep_settings", {"clear_alarm": True})
     assert res_cleared["sleep_need_base_min"] == 510
     assert res_cleared["alarm_time"] is None
+
+
+async def test_profile_tools(owner: Engine) -> None:
+    # 1. Validation
+    assert "at least one" in await call_error("set_profile", {})
+    assert "hr_max" in await call_error("set_profile", {"hr_max": 300})
+    assert "birth_year" in await call_error("set_profile", {"birth_year": today().year + 1})
+    err = await call_error("set_profile", {"hr_max": 195, "clear": ["hr_max"]})
+    assert "same key" in err
+
+    # 2. Nothing stored: server configuration (unset in tests) and the defaults
+    empty = await call("get_profile")
+    assert empty["stored_keys"] == []
+    assert empty["effective_hr_max"] == 190
+    assert empty["hr_max_source"] == "default"
+
+    # 3. Birth year only: Tanaka estimate
+    year = today().year
+    res = await call("set_profile", {"birth_year": year - 40, "sex": "female"})
+    assert res["age"] == 40
+    assert res["sex"] == "female"
+    assert res["effective_hr_max"] == 180
+    assert res["hr_max_source"] == "estimated from age (Tanaka)"
+
+    # 4. Measured HRmax wins
+    res = await call("set_profile", {"hr_max": 197})
+    assert res["effective_hr_max"] == 197
+    assert res["hr_max_source"] == "measured"
+    assert res["stored_keys"] == ["birth_year", "hr_max", "sex"]
+
+    # 5. Clear
+    res = await call("set_profile", {"clear": ["hr_max", "sex"]})
+    assert res["hr_max"] is None
+    assert res["sex"] is None
+    assert res["stored_keys"] == ["birth_year"]

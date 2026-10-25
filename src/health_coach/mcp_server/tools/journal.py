@@ -1,10 +1,10 @@
-"""Group: habit/behaviour journaling and sleep settings."""
+"""Group: habit/behaviour journaling, sleep settings and the scoring profile."""
 
 import datetime as dt
 import json
 import re
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
@@ -22,6 +22,13 @@ from health_coach.mcp_server.common import (
     date_range,
     jsonable,
     today,
+)
+from health_coach.profile import (
+    HR_MAX_RANGE,
+    MIN_BIRTH_YEAR,
+    PROFILE_KEYS,
+    load_profile,
+    valid_birth_year,
 )
 
 KNOWN_BEHAVIORS: tuple[tuple[str, str], ...] = (
@@ -334,6 +341,92 @@ def get_sleep_settings() -> dict[str, Any]:
     }
 
 
+def set_profile(
+    hr_max: Annotated[
+        int | None,
+        Field(
+            ge=HR_MAX_RANGE[0],
+            le=HR_MAX_RANGE[1],
+            description="Measured maximum heart rate in bpm (e.g. from a max-effort test).",
+        ),
+    ] = None,
+    birth_year: Annotated[
+        int | None,
+        Field(ge=MIN_BIRTH_YEAR, description="Birth year, for age-based estimates."),
+    ] = None,
+    sex: Annotated[
+        Literal["male", "female"] | None,
+        Field(description="Biological sex, for the TRIMP weighting and healthspan references."),
+    ] = None,
+    clear: Annotated[
+        list[Literal["hr_max", "birth_year", "sex"]] | None,
+        Field(description="Profile keys to remove (falls back to the server configuration)."),
+    ] = None,
+) -> dict[str, Any]:
+    """Store the user's scoring profile (max heart rate, birth year, sex).
+
+    Strain, heart-rate zones and healthspan use it. New values apply to the recent days
+    at the next scores refresh (within 30 minutes, the last 7 days nightly); older days
+    keep the values they were computed with.
+    """
+    values = {"hr_max": hr_max, "birth_year": birth_year, "sex": sex}
+    to_clear = set(clear or [])
+    if all(v is None for v in values.values()) and not to_clear:
+        raise ToolError("specify at least one of hr_max, birth_year, sex or clear")
+    if overlap := sorted(k for k in to_clear if values[k] is not None):
+        raise ToolError(f"cannot set and clear the same key: {', '.join(overlap)}")
+    if birth_year is not None and valid_birth_year(birth_year, today().year) is None:
+        raise ToolError(f"birth_year must be between {MIN_BIRTH_YEAR} and {today().year}")
+
+    with get_engine(Role.rw).begin() as conn:
+        for key, value in values.items():
+            if value is not None:
+                conn.execute(
+                    text(
+                        "INSERT INTO app_settings (key, value, updated_at) "
+                        "VALUES (:key, CAST(:val AS jsonb), now()) "
+                        "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()"
+                    ),
+                    {"key": key, "val": json.dumps(value)},
+                )
+        if to_clear:
+            conn.execute(
+                text("DELETE FROM app_settings WHERE key = ANY(:keys)"),
+                {"keys": sorted(to_clear)},
+            )
+
+    return get_profile()
+
+
+def get_profile() -> dict[str, Any]:
+    """Retrieve the scoring profile and the max heart rate the scores use."""
+    with get_engine(Role.ro).connect() as conn:
+        stored = {
+            r.key
+            for r in conn.execute(
+                text("SELECT key FROM app_settings WHERE key = ANY(:keys)"),
+                {"keys": list(PROFILE_KEYS)},
+            )
+        }
+        profile = load_profile(conn)
+    year = today().year
+    if profile.hr_max is not None:
+        hr_max_source = "measured"
+    elif profile.birth_year is not None:
+        hr_max_source = "estimated from age (Tanaka)"
+    else:
+        hr_max_source = "default"
+    return {
+        "hr_max": profile.hr_max,
+        "birth_year": profile.birth_year,
+        "age": profile.age(year),
+        "sex": profile.sex,
+        "effective_hr_max": profile.effective_hr_max(year),
+        "hr_max_source": hr_max_source,
+        "stored_keys": sorted(stored),
+    }
+
+
 def register(server: MCPServer) -> None:
     server.tool(annotations=UPSERT)(audited(log_journal))
     server.tool(annotations=READ)(audited(get_journal))
@@ -341,3 +434,5 @@ def register(server: MCPServer) -> None:
     server.tool(annotations=READ)(audited(get_journal_insights))
     server.tool(annotations=UPSERT)(audited(set_sleep_settings))
     server.tool(annotations=READ)(audited(get_sleep_settings))
+    server.tool(annotations=UPSERT)(audited(set_profile))
+    server.tool(annotations=READ)(audited(get_profile))

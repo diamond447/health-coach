@@ -35,6 +35,7 @@ from health_coach.analytics.sleep import sleep_midpoint_minutes
 from health_coach.config import get_settings
 from health_coach.ingest import state
 from health_coach.jobs.runner import run_job
+from health_coach.profile import Profile, load_profile, profile_from
 
 log = logging.getLogger(__name__)
 
@@ -491,9 +492,13 @@ def compute_scores(
     day: dt.date,
     base_need_min: int | None = None,
     alarm_time: dt.time | None = None,
+    profile: Profile | None = None,
 ) -> None:
     """Compute and upsert daily score row for local_date `day`."""
     settings = get_settings()
+    if profile is None:
+        with engine.connect() as conn:
+            profile = load_profile(conn, settings)
     tz = settings.tz
     today = dt.datetime.now(tz).date()
     is_today = day == today
@@ -529,14 +534,14 @@ def compute_scores(
         )
 
         # Day strain calculation
-        hr_max = float(settings.effective_hr_max(day.year))
+        hr_max = float(profile.effective_hr_max(day.year))
         has_strain_data = bool(minute_hr or strength_sessions)
         if has_strain_data:
             strain_res = calculate_day_strain(
                 minute_hr=minute_hr,
                 rest_hr=vitals.rest_hr_anchor,
                 hr_max=hr_max,
-                sex=settings.sex,
+                sex=profile.sex,
                 exercise_sessions=exercise_sessions,
                 strength_sessions=strength_sessions,
                 caps=caps,
@@ -638,6 +643,7 @@ def refresh_scores(engine: Engine, days_back: int) -> int:
         nonlocal count
         with engine.connect() as conn:
             app_settings = load_app_settings(conn)
+        profile = profile_from(app_settings, settings)
 
         base_need_val = app_settings.get("sleep_need_base_min")
         base_need = (
@@ -659,6 +665,7 @@ def refresh_scores(engine: Engine, days_back: int) -> int:
                 current,
                 base_need_min=base_need,
                 alarm_time=alarm_time,
+                profile=profile,
             )
             count += 1
             current += dt.timedelta(days=1)

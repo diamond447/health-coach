@@ -109,7 +109,7 @@ Strain measures cardiovascular and muscular exertion over the local calendar day
 1. Intraday heart rate samples are resampled to 1-minute means. Minutes without samples inside gaps
    longer than 5 minutes get nothing.
 2. **Resting HR anchor**: Median resting HR over the 7 days ending $D$ (fallback 60 bpm).
-3. **Heart rate max ($HR_{\max}$)**: From `HC_HR_MAX`, or estimated via Tanaka ($208 - 0.7 \cdot \text{age}$), fallback 190.
+3. **Heart rate max ($HR_{\max}$)**: From the profile (`set_profile`, stored in `app_settings`; fallback `HC_HR_MAX`), or estimated via Tanaka ($208 - 0.7 \cdot \text{age}$), fallback 190.
 4. **Heart Rate Reserve fraction**: $x = \text{clamp}\left(\frac{hr - \text{rest}}{HR_{\max} - \text{rest}}, 0, 1\right)$.
 5. **Gating filter**:
    - $x < 0.30 \implies 0$ (sedentary noise filtered out)
@@ -192,8 +192,9 @@ $$\text{consistency} = \text{clamp}\left(100 - \text{SD} \cdot \frac{100}{120}, 
    stretching past midnight contribute to the day each minute falls on.
 2. **No intraday HRV**: The Google Health API currently provides nighttime resting HRV (RMSSD).
    Intraday stress / HRV spikes are not tracked.
-3. **Estimated HR max**: When `HC_HR_MAX` is unset, the Tanaka formula ($208 - 0.7 \cdot \text{age}$)
-   or 190 bpm is used. Setting personal `HC_HR_MAX` provides the most accurate %HRR strain.
+3. **Estimated HR max**: Without a measured max heart rate (`set_profile` or `HC_HR_MAX`), the
+   Tanaka formula ($208 - 0.7 \cdot \text{age}$) or 190 bpm is used. A measured value gives the
+   most accurate %HRR strain.
 
 ---
 

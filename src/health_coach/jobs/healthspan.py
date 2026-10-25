@@ -27,6 +27,7 @@ from health_coach.analytics.healthspan import (
 from health_coach.config import Settings, get_settings
 from health_coach.db.engine import Role, get_engine
 from health_coach.jobs.runner import run_job
+from health_coach.profile import load_profile
 
 log = logging.getLogger(__name__)
 
@@ -60,6 +61,7 @@ def compute_healthspan_for_week(
 ) -> HealthspanResult:
     """Compute and persist healthspan for a single Monday-aligned week_start."""
     app_settings = settings or get_settings()
+    profile = load_profile(conn, app_settings)
 
     # Align to Monday
     week_start = _to_week_start(week_start)
@@ -72,9 +74,7 @@ def compute_healthspan_for_week(
     window_8_start = week_start - dt.timedelta(weeks=7)
 
     # Chronological age as of this week
-    age: int | None = None
-    if app_settings.birth_year is not None:
-        age = max(0, week_start.year - app_settings.birth_year)
+    age = profile.age(week_start.year)
 
     # 1. Daily scores: sleep consistency, sleep actual minutes, zone minutes
     score_rows = conn.execute(
@@ -220,7 +220,7 @@ def compute_healthspan_for_week(
     ).all()
     vo2_vals = [float(r.cardio_fitness) for r in vo2_rows]
     median_vo2 = float(statistics.median(vo2_vals)) if vo2_vals else None
-    f_vo2 = vo2max_factor(median_vo2, age=age, sex=app_settings.sex)
+    f_vo2 = vo2max_factor(median_vo2, age=age, sex=profile.sex)
 
     # Factor 9: Body composition (latest 8-week median)
     fat_rows = conn.execute(
@@ -233,7 +233,7 @@ def compute_healthspan_for_week(
     ).all()
     fat_vals = [float(r.body_fat_pct) for r in fat_rows]
     median_fat = float(statistics.median(fat_vals)) if fat_vals else None
-    f_fat = body_composition_factor(median_fat, sex=app_settings.sex)
+    f_fat = body_composition_factor(median_fat, sex=profile.sex)
 
     factors: list[FactorResult] = [
         f_sleep_reg,
