@@ -83,6 +83,7 @@ async def test_tools_are_listed_with_annotations() -> None:
         "get_daily_overview",
         "get_weekly_summary",
         "get_weight_trend",
+        "get_scores",
     }
     assert read_tools <= set(tools)
     for tool in tools.values():

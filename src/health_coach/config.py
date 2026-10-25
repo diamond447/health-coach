@@ -1,6 +1,8 @@
 """Runtime settings, read from the environment (and `.env` in development)."""
 
+import datetime as dt
 from functools import lru_cache
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 from pydantic import Field, SecretStr
@@ -71,6 +73,16 @@ class Settings(BaseSettings):
     # Open Food Facts API base URL.
     off_base_url: str = "https://world.openfoodfacts.org"
 
+    # Daily WHOOP-style scoring settings.
+    # Maximum heart rate (HC_HR_MAX). Fallback: Tanaka 208 - 0.7*age; if age unknown, 190.
+    hr_max: int | None = None
+    # Birth year (HC_BIRTH_YEAR). Age = current year - birth_year.
+    birth_year: int | None = None
+    # Biological sex (HC_SEX). Selects Banister coefficients; None uses the mean of both curves.
+    sex: Literal["male", "female"] | None = None
+    # Baseline sleep need in minutes (HC_SLEEP_NEED_BASE_MIN).
+    sleep_need_base_min: int = 480
+
     # ntfy push notifications.
     ntfy_url: str = "https://ntfy.sh"
     ntfy_topic: SecretStr | None = None
@@ -78,6 +90,16 @@ class Settings(BaseSettings):
     @property
     def tz(self) -> ZoneInfo:
         return ZoneInfo(self.timezone)
+
+    def effective_hr_max(self, as_of_year: int | None = None) -> int:
+        """Resolve maximum heart rate, falling back to Tanaka formula or 190 bpm."""
+        if self.hr_max is not None:
+            return self.hr_max
+        if self.birth_year is not None:
+            year = as_of_year or dt.datetime.now(self.tz).year
+            age = max(0, year - self.birth_year)
+            return round(208 - 0.7 * age)
+        return 190
 
 
 @lru_cache

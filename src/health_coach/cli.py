@@ -14,6 +14,8 @@ sync_app = typer.Typer(no_args_is_help=True, help="Run an ingest job once.")
 app.add_typer(sync_app, name="sync")
 auth_app = typer.Typer(no_args_is_help=True, help="Connect data sources.")
 app.add_typer(auth_app, name="auth")
+scores_app = typer.Typer(no_args_is_help=True, help="Compute recovery, strain and sleep scores.")
+app.add_typer(scores_app, name="scores")
 
 
 @app.callback()
@@ -183,3 +185,16 @@ def remap_cmd(source: str = typer.Argument(..., help="google")) -> None:
         raise typer.BadParameter("only 'google' is supported")
     for data_type, rows in remap(get_engine(Role.ingest)).items():
         typer.echo(f"{data_type}: {rows} rows")
+
+
+@scores_app.command("backfill")
+def scores_backfill(
+    days: Annotated[int, typer.Option("--days", "-d", help="Days back from today")] = 60,
+) -> None:
+    """Recompute daily scores for the last N days."""
+    from health_coach.db.engine import Role, get_engine
+    from health_coach.jobs.scores import refresh_scores
+
+    engine = get_engine(Role.ingest)
+    count = refresh_scores(engine, days_back=days)
+    typer.echo(f"scores: {count} days computed")

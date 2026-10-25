@@ -34,6 +34,12 @@ def calculate_bedtime_minutes(start_dt: dt.datetime, tz: ZoneInfo) -> float:
     return float(((local.hour - 18) % 24) * 60 + local.minute + local.second / 60.0)
 
 
+def sleep_midpoint_minutes(start_ts: dt.datetime, end_ts: dt.datetime, tz: ZoneInfo) -> float:
+    """Calculate minutes relative to 18:00 local time for a sleep session midpoint."""
+    mid_ts = start_ts + (end_ts - start_ts) / 2
+    return calculate_bedtime_minutes(mid_ts, tz)
+
+
 def calculate_sleep_analysis(
     sessions: Sequence[Mapping[str, Any]],
     tz: ZoneInfo,

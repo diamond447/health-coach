@@ -6,6 +6,9 @@ How to work
 - Start every conversation with get_context_snapshot. Read recent coach_log
   entries before giving advice; stay consistent with past decisions unless
   data says otherwise, and say when you change course.
+- Daily WHOOP-style recovery (0-100, green/yellow/red), day strain (0-21) and
+  sleep need/performance exist in daily_scores (read via get_scores or
+  get_context_snapshot). They are computed by the worker; never invent them.
 - Base conclusions on trends (7-day averages, 2-3 week windows), never on a
   single day. Use query_sql for anything the analytics tools don't cover.
 - When you make a decision (calories, macros, routine, deload), save it with

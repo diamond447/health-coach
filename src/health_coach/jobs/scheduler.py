@@ -56,6 +56,20 @@ def derived_snapshot() -> None:
     run_job("worker", "derived", lambda: snapshot_tdee(engine, today()))
 
 
+def scores_recent() -> None:
+    from health_coach.jobs.scores import refresh_scores
+
+    engine = get_engine(Role.ingest)
+    refresh_scores(engine, days_back=1)
+
+
+def scores_week() -> None:
+    from health_coach.jobs.scores import refresh_scores
+
+    engine = get_engine(Role.ingest)
+    refresh_scores(engine, days_back=7)
+
+
 def data_quality() -> None:
     from health_coach.jobs.quality import check_and_notify
 
@@ -78,9 +92,17 @@ def build_scheduler(settings: Settings) -> BlockingScheduler:
         timezone=settings.tz,
         job_defaults={"coalesce": True, "max_instances": 1, "misfire_grace_time": 600},
     )
+    now = dt.datetime.now(settings.tz)
     scheduler.add_job(derived_snapshot, "cron", hour=4, minute=30, id="derived_snapshot")
+    scheduler.add_job(
+        scores_recent,
+        "interval",
+        minutes=30,
+        id="scores_recent",
+        next_run_time=now + dt.timedelta(minutes=10),
+    )
+    scheduler.add_job(scores_week, "cron", hour=4, minute=45, id="scores_week")
     if settings.opengym_url and settings.token_key:
-        now = dt.datetime.now(settings.tz)
         scheduler.add_job(
             opengym_workouts,
             "interval",

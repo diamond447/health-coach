@@ -37,7 +37,7 @@ Conventions:
 | Wearable | `daily_activity`, `daily_vitals`, `heart_rate_samples`, `sleep_sessions`, `sleep_stages`, `exercise_sessions` |
 | Body and nutrition | `body_metrics`, `foods`, `nutrition_entries`, `checkins` |
 | Strength (mirror of openGym) | `exercises`, `strength_sessions`, `strength_sets` |
-| Coaching state | `targets`, `goals`, `coach_log`, `tdee_estimates` |
+| Coaching state | `targets`, `goals`, `coach_log`, `tdee_estimates`, `daily_scores` |
 | Audit | `mcp_audit` (tool, subject, duration, error; kept 180 days) |
 
 Views: `v_daily` (one row per day across all domains), `v_body_daily`, `v_weight_trend`
@@ -93,7 +93,10 @@ front of it can fail.
 | `opengym_workouts` | every 15 min | openGym workouts and body weight |
 | `opengym_catalogue` | daily 03:30 | openGym exercise catalogue and custom exercises |
 | `derived_snapshot` | daily 04:30 | TDEE estimate snapshot, `mcp_audit` cleanup |
+| `scores_recent` | every 30 min | Daily scores (recovery, strain, sleep): yesterday and today (offset 10 min after google_recent) |
+| `scores_week` | daily 04:45 | Daily scores (recovery, strain, sleep): last 7 days |
 | `data_quality` | daily 09:00 | ntfy alert for stale syncs and logging gaps |
 
 Google and openGym jobs run only when they are configured. See
+[scores.md](scores.md) for score algorithms and formulas, and
 [weekly-review.md](weekly-review.md) for alerts and the weekly review.

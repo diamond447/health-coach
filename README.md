@@ -142,6 +142,7 @@ curl http://127.0.0.1:8080/healthz   # {"status":"ok",...}
 ## Documentation
 
 - [Architecture](docs/architecture.md): components, database, roles, security model, schedule.
+- [Daily scores](docs/scores.md): WHOOP-style recovery, strain and sleep scoring.
 - [Google Health API](docs/google-health.md): OAuth setup, backfill, mapping notes.
 - [openGym](docs/opengym.md): data model, pairing, how planned sessions are written.
 - [Fit MCP server](docs/fit.md): multi-user connector for Claude, ChatGPT and Gemini.
@@ -180,6 +181,10 @@ lists them with comments.
 | `HC_MCP_PUBLISH`, `HC_DB_PUBLISH` | `127.0.0.1:8080`, `127.0.0.1:5432` | Published host ports. |
 | `HC_NTFY_URL`, `HC_NTFY_TOPIC` | `https://ntfy.sh`, empty | Push notifications. |
 | `HC_OFF_BASE_URL` | `https://world.openfoodfacts.org` | Open Food Facts for food search. |
+| `HC_HR_MAX` | empty | Maximum heart rate. Fallback: Tanaka 208 - 0.7*age; if age unknown, 190. |
+| `HC_BIRTH_YEAR` | empty | Birth year to estimate age (current year - birth_year). |
+| `HC_SEX` | empty | Biological sex (`male` or `female`) for Banister coefficients. |
+| `HC_SLEEP_NEED_BASE_MIN` | `480` | Baseline sleep need in minutes (default 8 hours). |
 | `FIT_*` | | Same meaning for the fit server; see [docs/fit.md](docs/fit.md). |
 
 ## MCP tools
@@ -189,7 +194,7 @@ lists them with comments.
 | Area | Tools |
 | --- | --- |
 | Orientation | `get_context_snapshot`, `get_schema`, `get_data_coverage` |
-| Overviews | `get_daily_overview`, `get_weekly_summary`, `get_weight_trend` |
+| Overviews | `get_daily_overview`, `get_weekly_summary`, `get_weight_trend`, `get_scores` |
 | Analytics | `estimate_tdee`, `get_nutrition_summary`, `get_recovery_status`, `get_sleep_analysis`, `get_training_load`, `get_exercise_progress`, `get_personal_records`, `compare_periods` |
 | SQL | `query_sql`: one read-only `SELECT`, checked by sqlglot, run as `coach_ro` with a timeout and row cap |
 | Logging | `search_food`, `save_food`, `log_meal`, `update_nutrition_entry`, `delete_nutrition_entry`, `log_body_metric`, `log_checkin`, `log_exercise_session` |
