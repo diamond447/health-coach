@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "TZ=Europe/Prague vitest run"
   },
   "dependencies": {
     "preact": "10.25.4"
