@@ -65,10 +65,14 @@ class NtfyClient:
         if tags:
             payload["tags"] = tags
 
+        headers = {}
+        if settings.ntfy_token and settings.ntfy_token.get_secret_value():
+            headers["Authorization"] = f"Bearer {settings.ntfy_token.get_secret_value()}"
+
         client = self._get_client()
         should_close = client is not self._injected_client and client is not _custom_client
         try:
-            resp = client.post(self.url, json=payload)
+            resp = client.post(self.url, json=payload, headers=headers)
             resp.raise_for_status()
         except httpx.HTTPError as exc:
             raise NotifyError(f"ntfy notification failed: {exc}") from exc

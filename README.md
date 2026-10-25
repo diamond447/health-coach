@@ -123,7 +123,8 @@ curl http://127.0.0.1:8080/healthz   # {"status":"ok",...}
    docker compose run --rm worker sync opengym --catalogue
    ```
 3. **Notifications** (optional): set `HC_NTFY_TOPIC` to a long random topic name
-   (and `HC_NTFY_URL` if you run your own ntfy server).
+   (and `HC_NTFY_URL` if you run your own ntfy server, plus `HC_NTFY_TOKEN` when it
+   requires auth).
 
 ### Connect the assistant
 
@@ -183,6 +184,7 @@ lists them with comments.
 | `HC_MCP_ALLOWED_HOSTS` | loopback | Accepted `Host` headers (DNS rebinding protection). |
 | `HC_MCP_PUBLISH`, `HC_DB_PUBLISH` | `127.0.0.1:8080`, `127.0.0.1:5432` | Published host ports. |
 | `HC_NTFY_URL`, `HC_NTFY_TOPIC` | `https://ntfy.sh`, empty | Push notifications. |
+| `HC_NTFY_TOKEN` | empty | ntfy access token, sent as `Authorization: Bearer`. |
 | `HC_NOTIFY_LANG` | `en` | Language for push notifications (`en` or `cs`). |
 | `HC_OFF_BASE_URL` | `https://world.openfoodfacts.org` | Open Food Facts for food search. |
 | `HC_HR_MAX` | empty | Maximum heart rate. Fallback: Tanaka 208 - 0.7*age; if age unknown, 190. |

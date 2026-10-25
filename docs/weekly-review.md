@@ -9,7 +9,7 @@
 | Bedtime reminder | every 5 min | ntfy reminder starting 30 min before planned bedtime with bedtime, sleep need, and alarm/wake time |
 | Failure alerts | on failure | ntfy alert after 3 failures in a row of one sync; a revoked Google grant alerts at once with the re-auth command |
 
-Notifications need `HC_NTFY_TOPIC` (and `HC_NTFY_URL` if not ntfy.sh). Message language is set via `HC_NOTIFY_LANG` (`en` default, `cs`).
+Notifications need `HC_NTFY_TOPIC` (and `HC_NTFY_URL` if not ntfy.sh, plus `HC_NTFY_TOKEN` if the server requires auth). Message language is set via `HC_NOTIFY_LANG` (`en` default, `cs`).
 
 ## Weekly review in Claude (recommended runner)
 
