@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from mcp import Client
-from sqlalchemy import text
+from sqlalchemy import Engine, text
 
 from health_coach.config import Settings
 from health_coach.db.engine import Role, get_engine
@@ -103,7 +103,7 @@ def _seed_synthetic_healthspan_data(conn: Any, week_start: dt.date) -> None:
             )
 
 
-def test_compute_healthspan_persists_to_db(migrated_db: str) -> None:
+def test_compute_healthspan_persists_to_db(owner: Engine) -> None:
     engine = get_engine(Role.owner)
     week_start = dt.date(2026, 10, 19)  # Monday
     settings = Settings(birth_year=1984, sex="male")
@@ -134,7 +134,7 @@ def test_compute_healthspan_persists_to_db(migrated_db: str) -> None:
         assert row.algo_version == 1
 
 
-def test_refresh_healthspan_backfill_and_pace(migrated_db: str) -> None:
+def test_refresh_healthspan_backfill_and_pace(owner: Engine) -> None:
     engine = get_engine(Role.owner)
     week_start = dt.date(2026, 10, 19)
     settings = Settings(birth_year=1984, sex="male", timezone="Europe/Prague")
@@ -158,7 +158,7 @@ def test_refresh_healthspan_backfill_and_pace(migrated_db: str) -> None:
         assert 0.5 <= float(latest_row.pace) <= 1.5
 
 
-async def test_mcp_get_healthspan_tool(migrated_db: str) -> None:
+async def test_mcp_get_healthspan_tool(owner: Engine) -> None:
     engine = get_engine(Role.owner)
     week_start = dt.date(2026, 10, 19)
     settings = Settings(birth_year=1984, sex="male")
