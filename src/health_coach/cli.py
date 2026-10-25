@@ -50,6 +50,14 @@ def worker() -> None:
     run()
 
 
+@app.command()
+def web() -> None:
+    """Run the healthstats web server."""
+    from health_coach.web.server import run
+
+    run()
+
+
 @db_app.command("upgrade")
 def db_upgrade(revision: str = "head") -> None:
     """Apply migrations up to REVISION."""

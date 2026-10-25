@@ -400,3 +400,25 @@ def test_bedtime_plan() -> None:
     assert bedtime.date() == dt.date(2026, 10, 25)
     assert bedtime.hour == 21
     assert bedtime < wake
+
+
+def test_bedtime_plan_with_alarm_time() -> None:
+    today_date = dt.date(2026, 10, 25)
+    # alarm_time is 06:15; recent wake times are 08:00
+    bedtime, wake = calculate_bedtime_plan(
+        today_date=today_date,
+        tz=PRAGUE,
+        base_need=480,
+        debt_with_last_night=0,
+        today_strain=0.0,
+        today_naps=0,
+        recent_efficiencies=[100.0],
+        recent_wake_times=[dt.time(8, 0), dt.time(8, 30)],
+        alarm_time=dt.time(6, 15),
+    )
+    # Wake time must use alarm_time (06:15), ignoring recent_wake_times
+    assert wake.date() == dt.date(2026, 10, 26)
+    assert wake.hour == 6 and wake.minute == 15
+    # With 100% efficiency and 480 min need (8h), bedtime is 22:15 on previous night
+    assert bedtime == wake - dt.timedelta(minutes=480)
+    assert bedtime.hour == 22 and bedtime.minute == 15

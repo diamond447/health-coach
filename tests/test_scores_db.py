@@ -266,3 +266,34 @@ def test_compute_scores_missing_data_stores_nulls(owner: Engine) -> None:
 
     # Recovery is None since both HRV and resting HR are missing
     assert row.recovery is None
+
+
+def test_refresh_scores_uses_app_settings(owner: Engine) -> None:
+    """refresh_scores reads sleep_need_base_min and alarm_time from app_settings."""
+    t = today()
+    engine = get_engine(Role.ingest)
+
+    with get_engine(Role.rw).begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO app_settings (key, value) VALUES "
+                "('sleep_need_base_min', '540'::jsonb), "
+                "('alarm_time', '\"06:00\"'::jsonb) "
+                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value"
+            )
+        )
+
+    refresh_scores(engine, days_back=0)
+
+    with get_engine(Role.ro).connect() as conn:
+        row = conn.execute(
+            text("SELECT sleep_need_min, planned_wake FROM daily_scores WHERE local_date = :d"),
+            {"d": t},
+        ).one()
+
+    # Base need should be 540
+    assert row.sleep_need_min == 540
+    # Planned wake should be tomorrow at 06:00
+    assert row.planned_wake is not None
+    wake_local = row.planned_wake.astimezone(PRAGUE)
+    assert wake_local.time() == dt.time(6, 0)

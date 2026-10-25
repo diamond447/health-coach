@@ -5,9 +5,11 @@
 | Job | When | What |
 | --- | --- | --- |
 | Data-quality check | daily 09:00 | ntfy message "Data check" when a source has not synced for 24 h, a sync keeps failing, nutrition was logged on fewer than 5 of the last 7 days, or there were fewer than 3 weigh-ins |
+| Morning recovery | every 10 min 05:00–11:50 | ntfy push with recovery %, zone, strain target, and sleep duration once scores and main sleep exist |
+| Bedtime reminder | every 5 min | ntfy reminder starting 30 min before planned bedtime with bedtime, sleep need, and alarm/wake time |
 | Failure alerts | on failure | ntfy alert after 3 failures in a row of one sync; a revoked Google grant alerts at once with the re-auth command |
 
-Both need `HC_NTFY_TOPIC` (and `HC_NTFY_URL` if not ntfy.sh).
+Notifications need `HC_NTFY_TOPIC` (and `HC_NTFY_URL` if not ntfy.sh). Message language is set via `HC_NOTIFY_LANG` (`en` default, `cs`).
 
 ## Weekly review in Claude (recommended runner)
 

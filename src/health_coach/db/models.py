@@ -495,6 +495,43 @@ class DailyScore(Timestamps, Base):
     source: Mapped[str] = mapped_column(Text, server_default="worker")
 
 
+class JournalEntry(Timestamps, Base):
+    __tablename__ = "journal_entries"
+    __table_args__ = (
+        Index("ix_journal_entries_local_date", "local_date"),
+        Index(
+            "uq_journal_entries_local_date_behavior",
+            "local_date",
+            "behavior",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[int] = _bigid()
+    local_date: Mapped[dt.date] = mapped_column(Date)
+    behavior: Mapped[str] = mapped_column(Text)
+    amount: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
+    note: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(Text, server_default="chat")
+    deleted_at: Mapped[dt.datetime | None]
+
+
+class AppSetting(Timestamps, Base):
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(Text, primary_key=True)
+    value: Mapped[Any] = mapped_column(JSONB)
+
+
+class NotificationSent(Base):
+    __tablename__ = "notifications_sent"
+
+    local_date: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    kind: Mapped[str] = mapped_column(Text, primary_key=True)
+    sent_at: Mapped[dt.datetime] = mapped_column(server_default=func.now())
+
+
 class McpAudit(Base):
     __tablename__ = "mcp_audit"
     __table_args__ = (Index("ix_mcp_audit_ts", "ts"),)

@@ -32,10 +32,19 @@ TABLE_DOCS: dict[str, str] = {
     "coach_log": "Coach memory: decisions, observations, plans, reviews, notes, questions.",
     "tdee_estimates": "Nightly adaptive TDEE estimates with confidence.",
     "daily_scores": "Recovery (0-100), day strain (0-21) and sleep need/debt/performance.",
+    "journal_entries": "Daily tracked behaviours (alcohol, late caffeine, etc.) with amounts.",
+    "app_settings": "Application settings (sleep need baseline, alarm time).",
     "sync_state": "Last sync per source and data type, errors.",
 }
 
 EXAMPLES: dict[str, list[str]] = {
+    "journal_entries": [
+        "SELECT local_date, behavior, amount, note FROM journal_entries "
+        "WHERE local_date >= current_date - 14 ORDER BY local_date DESC",
+    ],
+    "app_settings": [
+        "SELECT key, value FROM app_settings ORDER BY key",
+    ],
     "daily_scores": [
         "SELECT local_date, recovery, strain, sleep_performance FROM daily_scores "
         "ORDER BY local_date DESC LIMIT 7",

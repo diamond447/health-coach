@@ -25,3 +25,11 @@ def test_opengym_jobs_only_when_configured() -> None:
     assert "opengym_catalogue" in ids
     assert "scores_recent" in ids
     assert "scores_week" in ids
+
+
+def test_ntfy_push_jobs_when_configured() -> None:
+    settings = Settings(ntfy_topic=SecretStr("test-topic"))
+    ids = {j.id for j in build_scheduler(settings).get_jobs()}
+    assert "data_quality" in ids
+    assert "morning_recovery" in ids
+    assert "bedtime_reminder" in ids

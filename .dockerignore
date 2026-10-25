@@ -7,3 +7,5 @@
 .pytest_cache
 tests
 docs
+web/node_modules
+src/health_coach/web/static

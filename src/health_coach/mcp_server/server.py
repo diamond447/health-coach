@@ -13,13 +13,14 @@ from health_coach.mcp_server.tools import (
     coaching,
     discovery,
     entries,
+    journal,
     notify,
     overview,
     query,
     training,
 )
 
-TOOL_GROUPS = [discovery, query, overview, analytics, entries, training, coaching, notify]
+TOOL_GROUPS = [discovery, query, overview, analytics, entries, training, coaching, journal, notify]
 
 INSTRUCTIONS = """\
 Health and training data of one person, plus their coaching log.

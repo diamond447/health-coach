@@ -1,4 +1,11 @@
 # syntax=docker/dockerfile:1
+FROM node:20-alpine AS web-build
+WORKDIR /app/web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build
+
 FROM python:3.12-slim-bookworm AS build
 COPY --from=ghcr.io/astral-sh/uv:0.9 /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
@@ -6,6 +13,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY src ./src
+COPY --from=web-build /app/src/health_coach/web/static ./src/health_coach/web/static
 COPY README.md LICENSE ./
 RUN uv sync --frozen --no-dev
 

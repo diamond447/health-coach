@@ -6,3 +6,5 @@ __pycache__/
 .env
 *.egg-info/
 dist/
+src/health_coach/web/static/
+web/node_modules/

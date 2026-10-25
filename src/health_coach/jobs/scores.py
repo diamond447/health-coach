@@ -6,6 +6,7 @@ import logging
 import math
 import statistics
 from dataclasses import dataclass
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import Connection, Engine, text
@@ -479,12 +480,24 @@ def _load_strength(
     return strength_sessions, caps
 
 
-def compute_scores(engine: Engine, day: dt.date) -> None:
+def load_app_settings(conn: Connection) -> dict[str, Any]:
+    """Read app_settings into a dict."""
+    rows = conn.execute(text("SELECT key, value FROM app_settings")).all()
+    return {r.key: r.value for r in rows}
+
+
+def compute_scores(
+    engine: Engine,
+    day: dt.date,
+    base_need_min: int | None = None,
+    alarm_time: dt.time | None = None,
+) -> None:
     """Compute and upsert daily score row for local_date `day`."""
     settings = get_settings()
     tz = settings.tz
     today = dt.datetime.now(tz).date()
     is_today = day == today
+    base_need = base_need_min if base_need_min is not None else settings.sleep_need_base_min
 
     prev_day = day - dt.timedelta(days=1)
     d30 = day - dt.timedelta(days=30)
@@ -494,9 +507,7 @@ def compute_scores(engine: Engine, day: dt.date) -> None:
 
     with engine.begin() as conn:
         vitals = _load_vitals(conn, day, prev_day, d30, d6)
-        sleep = _load_sleep(
-            conn, day, prev_day, d14, d6, d13, tz, settings.sleep_need_base_min, is_today
-        )
+        sleep = _load_sleep(conn, day, prev_day, d14, d6, d13, tz, base_need, is_today)
         minute_hr = _load_hr_minutes(conn, day, tz)
         exercise_sessions = _load_exercise(conn, day)
         strength_sessions, caps = _load_strength(conn, day, prev_day, d30)
@@ -556,19 +567,18 @@ def compute_scores(engine: Engine, day: dt.date) -> None:
                     0, SleepNightData(k=1, need=sleep.sleep_need, actual=sleep.actual_min)
                 )
 
-            debt_tonight = calculate_sleep_debt(
-                extended_debt_history, base_need=settings.sleep_need_base_min
-            )
+            debt_tonight = calculate_sleep_debt(extended_debt_history, base_need=base_need)
 
             planned_bedtime, planned_wake = calculate_bedtime_plan(
                 today_date=day,
                 tz=tz,
-                base_need=settings.sleep_need_base_min,
+                base_need=base_need,
                 debt_with_last_night=debt_tonight,
                 today_strain=strain_val,
                 today_naps=sleep.today_naps,
                 recent_efficiencies=sleep.recent_effs,
                 recent_wake_times=sleep.recent_wakes,
+                alarm_time=alarm_time,
             )
 
         # Inputs JSON payload
@@ -626,9 +636,30 @@ def refresh_scores(engine: Engine, days_back: int) -> int:
 
     def _do_refresh() -> None:
         nonlocal count
+        with engine.connect() as conn:
+            app_settings = load_app_settings(conn)
+
+        base_need_val = app_settings.get("sleep_need_base_min")
+        base_need = (
+            int(base_need_val) if base_need_val is not None else settings.sleep_need_base_min
+        )
+
+        alarm_str = app_settings.get("alarm_time")
+        alarm_time: dt.time | None = None
+        if alarm_str:
+            try:
+                alarm_time = dt.time.fromisoformat(str(alarm_str))
+            except ValueError:
+                log.warning("invalid alarm_time setting: %r", alarm_str)
+
         current = start_date
         while current <= today:
-            compute_scores(engine, current)
+            compute_scores(
+                engine,
+                current,
+                base_need_min=base_need,
+                alarm_time=alarm_time,
+            )
             count += 1
             current += dt.timedelta(days=1)
         with engine.begin() as conn:
