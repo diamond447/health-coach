@@ -213,3 +213,57 @@ export function sleepColor(perf: number | null | undefined): string {
 export function foodColor(): string {
   return "#FFB15C";
 }
+
+/**
+ * Format pace of aging multiplier, e.g. 0.82 -> "0,8×".
+ */
+export function formatPace(pace: number | null | undefined): string {
+  if (pace === null || pace === undefined || isNaN(pace)) return "—";
+  return `${formatDecimal(pace, 1)}×`;
+}
+
+/**
+ * Format factor effect in years with Czech label and color.
+ * Blue for younger, orange for older, gray for no data.
+ */
+export function formatFactorEffect(years: number | null | undefined): { text: string; color: string } {
+  if (years === null || years === undefined || isNaN(years)) {
+    return { text: "—", color: "#9BA3AF" };
+  }
+  const absFormatted = Math.abs(years).toFixed(1).replace(".", ",");
+  if (years < 0) {
+    return { text: `−${absFormatted} r.`, color: "#7DB8FF" };
+  }
+  if (years > 0) {
+    return { text: `+${absFormatted} r.`, color: "#FFB15C" };
+  }
+  return { text: "0,0 r.", color: "#9BA3AF" };
+}
+
+/**
+ * Format factor value according to its type/unit for display in healthspan screen.
+ */
+export function formatFactorValue(key: string, val: number | null | undefined, unit: string): string {
+  if (val === null || val === undefined || isNaN(val)) return "zatím bez dat";
+  switch (key) {
+    case "sleep_regularity":
+      return `${Math.round(val)} %`;
+    case "sleep_duration":
+      return formatDurationShort(Math.round(val * 60));
+    case "moderate_activity":
+    case "vigorous_activity":
+      return `${formatNumber(Math.round(val))} ${unit}`;
+    case "strength_training":
+      return `${formatDecimal(val, 1)} ${unit}`;
+    case "steps":
+      return `${formatNumber(Math.round(val))}${unit}`;
+    case "resting_hr":
+      return `${Math.round(val)} ${unit}`;
+    case "vo2max":
+      return `${formatDecimal(val, 1)} ${unit}`;
+    case "body_composition":
+      return `${formatDecimal(val, 1)} ${unit}`;
+    default:
+      return `${formatDecimal(val, 1)} ${unit}`;
+  }
+}

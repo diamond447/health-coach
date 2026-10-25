@@ -143,6 +143,7 @@ curl http://127.0.0.1:8080/healthz   # {"status":"ok",...}
 
 - [Architecture](docs/architecture.md): components, database, roles, security model, schedule.
 - [Daily scores](docs/scores.md): WHOOP-style recovery, strain and sleep scoring.
+- [Healthspan](docs/healthspan.md): estimated biological age, pace of aging, factor curves.
 - [Healthstats web app](docs/web.md): read-only WHOOP-style stats PWA.
 - [Habit journal & sleep settings](docs/journal.md): tracked behaviours, recovery insights, sleep settings.
 - [Google Health API](docs/google-health.md): OAuth setup, backfill, mapping notes.

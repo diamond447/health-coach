@@ -226,6 +226,16 @@ def api_report(request: Request) -> Response:
     return JSONResponse(jsonable(data))
 
 
+def api_healthspan(request: Request) -> Response:
+    try:
+        weeks = _parse_days(request.query_params.get("weeks"), default=26, min_val=1, max_val=52)
+    except ValueError as e:
+        return _bad_request(str(e))
+    with get_engine(Role.ro).connect() as conn:
+        data = queries.query_healthspan(conn, weeks=weeks)
+    return JSONResponse(jsonable(data))
+
+
 def healthz(request: Request) -> Response:
     return JSONResponse({"status": "ok", "version": __version__})
 
@@ -282,6 +292,7 @@ def create_app(settings: Settings | None = None) -> Starlette:
         Route("/api/calendar", api_calendar, methods=["GET"]),
         Route("/api/journal", api_journal, methods=["GET"]),
         Route("/api/report", api_report, methods=["GET"]),
+        Route("/api/healthspan", api_healthspan, methods=["GET"]),
         # Catch-all for static assets and SPA routes
         Route("/{path:path}", spa_and_static_handler, methods=["GET"]),
     ]

@@ -33,10 +33,14 @@ durations (`7 h 12 min`), and standard WHOOP-style color coding:
   (protein, carbohydrates, fat, fiber), energy balance card (intake vs TDEE, 14-day mean,
   expected vs actual weight change), meals list grouped by meal time, and 7-day calorie chart
   highlighting protein target achievement.
-- **Trendy (`/trendy`)**: Sub-navigation tiles (Kalendář, Deník, Přehled), 7/30/90-day time
-  range selector, daily recovery bars, HRV & RHR trend chart, sleep duration bars, strain
-  bars with acute-to-chronic workload ratio (ACWR), raw and 7-day smoothed weight trend,
-  and calorie intake vs target.
+- **Trendy (`/trendy`)**: Sub-navigation tiles in a 2x2 grid (Kalendář, Deník, Přehled,
+  Healthspan), 7/30/90-day time range selector, daily recovery bars, HRV & RHR trend chart,
+  sleep duration bars, strain bars with acute-to-chronic workload ratio (ACWR), raw and
+  7-day smoothed weight trend, and calorie intake vs target.
+- **Healthspan (`/healthspan`)**: Estimated biological age and pace of aging (see
+  [healthspan.md](healthspan.md)). Displays biological age delta (e.g. `−2,6 roku`), pace of
+  aging (`0,8×`), signal coverage count ("8 z 9 signálů s daty"), and a 6-month breakdown of
+  what rejuvenates or ages you across 9 physiological and lifestyle factors.
 - **Kalendář (`/kalendar`)**: Interactive month calendar with metric toggle (Recovery,
   Spánek, Strain), color-coded daily tiles, month statistics (average recovery, green/yellow/red
   counts, average sleep, ending sleep debt, total workouts).

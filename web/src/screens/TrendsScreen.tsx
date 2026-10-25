@@ -81,8 +81,8 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
         isRefreshing={refreshing}
       />
 
-      {/* Sub-nav tiles: Kalendář, Deník, Týdenní přehled (EXCLUDING Healthspan) */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "8px" }}>
+      {/* Sub-nav tiles: Kalendář, Deník, Přehled, Healthspan (2x2 grid) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px" }}>
         <a
           href={`/kalendar${query}`}
           style={{
@@ -90,7 +90,7 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
             color: "#F2F4F7",
             background: "#16191E",
             borderRadius: "14px",
-            padding: "12px 10px",
+            padding: "12px",
             minHeight: "44px",
             display: "flex",
             flexDirection: "column",
@@ -98,7 +98,7 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
           }}
         >
           <span style={{ fontSize: "14px", fontWeight: 700 }}>Kalendář</span>
-          <span style={{ fontSize: "11px", color: "#9BA3AF" }}>měsíc přehled</span>
+          <span style={{ fontSize: "12px", color: "#9BA3AF" }}>měsíc přehled</span>
         </a>
         <a
           href={`/denik${query}`}
@@ -107,7 +107,7 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
             color: "#F2F4F7",
             background: "#16191E",
             borderRadius: "14px",
-            padding: "12px 10px",
+            padding: "12px",
             minHeight: "44px",
             display: "flex",
             flexDirection: "column",
@@ -115,7 +115,7 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
           }}
         >
           <span style={{ fontSize: "14px", fontWeight: 700 }}>Deník</span>
-          <span style={{ fontSize: "11px", color: "#9BA3AF" }}>vliv návyků</span>
+          <span style={{ fontSize: "12px", color: "#9BA3AF" }}>vliv návyků</span>
         </a>
         <a
           href={`/prehled${query}`}
@@ -124,7 +124,7 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
             color: "#F2F4F7",
             background: "#16191E",
             borderRadius: "14px",
-            padding: "12px 10px",
+            padding: "12px",
             minHeight: "44px",
             display: "flex",
             flexDirection: "column",
@@ -132,7 +132,24 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
           }}
         >
           <span style={{ fontSize: "14px", fontWeight: 700 }}>Přehled</span>
-          <span style={{ fontSize: "11px", color: "#9BA3AF" }}>týden / měsíc</span>
+          <span style={{ fontSize: "12px", color: "#9BA3AF" }}>týden / měsíc</span>
+        </a>
+        <a
+          href={`/healthspan${query}`}
+          style={{
+            textDecoration: "none",
+            color: "#F2F4F7",
+            background: "#16191E",
+            borderRadius: "14px",
+            padding: "12px",
+            minHeight: "44px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px",
+          }}
+        >
+          <span style={{ fontSize: "14px", fontWeight: 700 }}>Healthspan</span>
+          <span style={{ fontSize: "12px", color: "#9BA3AF" }}>biologický věk</span>
         </a>
       </div>
 

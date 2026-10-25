@@ -96,6 +96,7 @@ front of it can fail.
 | `derived_snapshot` | daily 04:30 | TDEE estimate snapshot, `mcp_audit` cleanup |
 | `scores_recent` | every 30 min | Daily scores (recovery, strain, sleep): yesterday and today (offset 10 min after google_recent) |
 | `scores_week` | daily 04:45 | Daily scores (recovery, strain, sleep): last 7 days |
+| `healthspan_recent` | daily 05:00 | Estimated biological age (healthspan) and pace: current and previous week |
 | `data_quality` | daily 09:00 | ntfy alert for stale syncs and logging gaps |
 | `morning_recovery` | every 10 min 05:00–11:50 | ntfy push with recovery %, zone, strain target, and sleep duration |
 | `bedtime_reminder` | every 5 min | ntfy push reminder starting 30 min before planned bedtime |

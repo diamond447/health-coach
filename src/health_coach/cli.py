@@ -16,6 +16,8 @@ auth_app = typer.Typer(no_args_is_help=True, help="Connect data sources.")
 app.add_typer(auth_app, name="auth")
 scores_app = typer.Typer(no_args_is_help=True, help="Compute recovery, strain and sleep scores.")
 app.add_typer(scores_app, name="scores")
+healthspan_app = typer.Typer(no_args_is_help=True, help="Compute weekly estimated biological age.")
+app.add_typer(healthspan_app, name="healthspan")
 
 
 @app.callback()
@@ -206,3 +208,16 @@ def scores_backfill(
     engine = get_engine(Role.ingest)
     count = refresh_scores(engine, days_back=days)
     typer.echo(f"scores: {count} days computed")
+
+
+@healthspan_app.command("backfill")
+def healthspan_backfill(
+    weeks: Annotated[int, typer.Option("--weeks", "-w", help="Weeks back from current week")] = 26,
+) -> None:
+    """Recompute weekly healthspan for the last N weeks."""
+    from health_coach.db.engine import Role, get_engine
+    from health_coach.jobs.healthspan import refresh_healthspan
+
+    engine = get_engine(Role.ingest)
+    count = refresh_healthspan(engine, weeks_back=weeks)
+    typer.echo(f"healthspan: {count} weeks computed")

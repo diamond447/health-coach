@@ -391,3 +391,33 @@ export interface ReportResponse {
   } | null;
   as_of: string | null;
 }
+
+export interface HealthspanFactor {
+  key: string;
+  name: string;
+  value: number | null;
+  unit: string;
+  goal: string;
+  hr: number | null;
+  years: number | null;
+  has_data: boolean;
+}
+
+export interface HealthspanResponse {
+  has_enough_data: boolean;
+  latest: {
+    week_start: string;
+    delta_years: number | null;
+    pace: number | null;
+    age: number | null;
+    biological_age: number | null;
+    factors_with_data: number;
+    factors: HealthspanFactor[];
+    algo_version: number;
+  } | null;
+  history: {
+    week_start: string;
+    delta_years: number | null;
+  }[];
+  as_of: string | null;
+}

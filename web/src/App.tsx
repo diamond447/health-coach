@@ -5,6 +5,7 @@ import { SessionExpiryBanner } from "./components/SessionExpiryBanner";
 import { TabBar } from "./components/TabBar";
 import { getTodayString } from "./helpers";
 import { CalendarScreen } from "./screens/CalendarScreen";
+import { HealthspanScreen } from "./screens/HealthspanScreen";
 import { JournalScreen } from "./screens/JournalScreen";
 import { MainScreen } from "./screens/MainScreen";
 import { NutritionScreen } from "./screens/NutritionScreen";
@@ -118,6 +119,9 @@ export function App() {
       break;
     case "/prehled":
       content = <ReportScreen date={route.date} />;
+      break;
+    case "/healthspan":
+      content = <HealthspanScreen date={route.date} />;
       break;
     default:
       content = <MainScreen date={route.date} onDateChange={handleDateChange} />;

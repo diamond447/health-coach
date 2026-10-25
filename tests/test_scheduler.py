@@ -15,6 +15,7 @@ def test_opengym_jobs_only_when_configured() -> None:
         "derived_snapshot",
         "scores_recent",
         "scores_week",
+        "healthspan_recent",
     }
     configured = Settings(
         opengym_url="http://localhost:3000",
@@ -25,6 +26,7 @@ def test_opengym_jobs_only_when_configured() -> None:
     assert "opengym_catalogue" in ids
     assert "scores_recent" in ids
     assert "scores_week" in ids
+    assert "healthspan_recent" in ids
 
 
 def test_ntfy_push_jobs_when_configured() -> None:
