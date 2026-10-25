@@ -70,6 +70,12 @@ def scores_week() -> None:
     refresh_scores(engine, days_back=7)
 
 
+def healthspan_recent() -> None:
+    from health_coach.jobs.healthspan import healthspan_recent as _healthspan_recent
+
+    _healthspan_recent()
+
+
 def data_quality() -> None:
     from health_coach.jobs.quality import check_and_notify
 
@@ -114,6 +120,7 @@ def build_scheduler(settings: Settings) -> BlockingScheduler:
         next_run_time=now + dt.timedelta(minutes=10),
     )
     scheduler.add_job(scores_week, "cron", hour=4, minute=45, id="scores_week")
+    scheduler.add_job(healthspan_recent, "cron", hour=5, minute=0, id="healthspan_recent")
     if settings.opengym_url and settings.token_key:
         scheduler.add_job(
             opengym_workouts,

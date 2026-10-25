@@ -524,6 +524,19 @@ class AppSetting(Timestamps, Base):
     value: Mapped[Any] = mapped_column(JSONB)
 
 
+class HealthspanWeekly(Timestamps, Base):
+    __tablename__ = "healthspan_weekly"
+
+    week_start: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    delta_years: Mapped[Decimal | None] = mapped_column(Numeric(4, 1))
+    pace: Mapped[Decimal | None] = mapped_column(Numeric(3, 2))
+    factors: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
+    factors_with_data: Mapped[int] = mapped_column(SmallInteger)
+    age: Mapped[int | None] = mapped_column(SmallInteger)
+    algo_version: Mapped[int] = mapped_column(SmallInteger)
+    source: Mapped[str] = mapped_column(Text, server_default="worker")
+
+
 class NotificationSent(Base):
     __tablename__ = "notifications_sent"
 

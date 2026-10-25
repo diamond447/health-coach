@@ -477,3 +477,143 @@ def test_web_input_validation(migrated_db: str) -> None:
     res = client.get("/api/journal?days=bad")
     assert res.status_code == 400
     assert res.json()["error"] == "bad_request"
+
+
+def test_api_healthspan(migrated_db: str) -> None:
+    engine = get_engine(Role.owner)
+    app = create_app(Settings())
+    client = TestClient(app)
+
+    # 1. Empty state
+    res = client.get("/api/healthspan")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["has_enough_data"] is False
+    assert data["latest"] is None
+    assert data["history"] == []
+
+    # 2. Seed healthspan_weekly rows
+    week1 = dt.date(2026, 10, 19)
+    factors_data = [
+        {
+            "key": "sleep_regularity",
+            "name": "Pravidelnost spánku",
+            "value": 78.0,
+            "unit": "%",
+            "goal": "≥ 85 %",
+            "hr": 0.95,
+            "years": -0.3,
+            "has_data": True,
+        },
+        {
+            "key": "sleep_duration",
+            "name": "Délka spánku",
+            "value": 7.1,
+            "unit": "h",
+            "goal": "7\u20139 h",
+            "hr": 1.0,
+            "years": 0.0,
+            "has_data": True,
+        },
+        {
+            "key": "moderate_activity",
+            "name": "Minuty v zónách 1\u20133",
+            "value": 210.0,
+            "unit": "min/týden",
+            "goal": "≥ 150 min",
+            "hr": 0.85,
+            "years": -1.9,
+            "has_data": True,
+        },
+        {
+            "key": "vigorous_activity",
+            "name": "Minuty v zónách 4\u20135",
+            "value": 22.0,
+            "unit": "min/týden",
+            "goal": "≥ 75 min",
+            "hr": 1.0,
+            "years": 0.0,
+            "has_data": True,
+        },
+        {
+            "key": "strength_training",
+            "name": "Posilování",
+            "value": 3.2,
+            "unit": "h/týden",
+            "goal": "1\u20132,5 h",
+            "hr": 0.92,
+            "years": -0.9,
+            "has_data": True,
+        },
+        {
+            "key": "steps",
+            "name": "Kroky",
+            "value": 8900.0,
+            "unit": "/den",
+            "goal": "≥ 8 000/den",
+            "hr": 0.85,
+            "years": -1.9,
+            "has_data": True,
+        },
+        {
+            "key": "resting_hr",
+            "name": "Klidový tep",
+            "value": 54.0,
+            "unit": "bpm",
+            "goal": "≤ 60 bpm",
+            "hr": 0.95,
+            "years": -0.6,
+            "has_data": True,
+        },
+        {
+            "key": "vo2max",
+            "name": "VO2max",
+            "value": None,
+            "unit": "ml/kg/min",
+            "goal": "\u2014",
+            "hr": None,
+            "years": None,
+            "has_data": False,
+        },
+        {
+            "key": "body_composition",
+            "name": "Podíl svalové hmoty",
+            "value": 16.5,
+            "unit": "%",
+            "goal": "podle věku",
+            "hr": 1.0,
+            "years": 0.0,
+            "has_data": True,
+        },
+    ]
+    with engine.begin() as conn:
+        for i in range(4):
+            w = week1 - dt.timedelta(weeks=3 - i)
+            conn.execute(
+                text(
+                    "INSERT INTO healthspan_weekly (week_start, delta_years, pace, factors, "
+                    "factors_with_data, age, algo_version, source) VALUES "
+                    "(:w, -2.6, 0.80, CAST(:f AS jsonb), 8, 42, 1, 'worker') "
+                    "ON CONFLICT (week_start) DO UPDATE SET delta_years = EXCLUDED.delta_years"
+                ),
+                {"w": w, "f": json.dumps(factors_data)},
+            )
+
+    # 3. Successful fetch with data
+    res = client.get("/api/healthspan")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["has_enough_data"] is True
+    assert data["latest"] is not None
+    assert data["latest"]["delta_years"] == -2.6
+    assert data["latest"]["pace"] == 0.80
+    assert data["latest"]["age"] == 42
+    assert data["latest"]["biological_age"] == 39.4
+    assert data["latest"]["factors_with_data"] == 8
+    assert len(data["latest"]["factors"]) == 9
+    assert len(data["history"]) == 4
+
+    # 4. Bad request validation
+    res = client.get("/api/healthspan?weeks=bad")
+    assert res.status_code == 400
+    assert res.json()["error"] == "bad_request"

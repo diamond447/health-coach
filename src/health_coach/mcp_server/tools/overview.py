@@ -302,8 +302,67 @@ def get_scores(start: DateArg = None, end: DateArg = None) -> dict[str, Any]:
         }
 
 
+def get_healthspan(
+    weeks: Annotated[
+        int, Field(ge=1, le=52, description="How many trailing weeks of history to return")
+    ] = 12,
+) -> dict[str, Any]:
+    """Estimated biological age (healthspan) and pace of aging.
+
+    This is an estimate based on published epidemiological studies, not a medical measurement;
+    never present it as a clinical diagnosis or medical evaluation.
+
+    Returns the latest computed weekly estimate, factor breakdown, and history up to `weeks` weeks.
+    """
+    with get_engine(Role.ro).connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT week_start, delta_years, pace, factors, "
+                "       factors_with_data, age, algo_version "
+                "FROM healthspan_weekly ORDER BY week_start DESC LIMIT :w"
+            ),
+            {"w": weeks},
+        ).all()
+
+        formatted_rows: list[dict[str, Any]] = []
+        for r in reversed(rows):
+            age_val = r.age
+            delta_val = float(r.delta_years) if r.delta_years is not None else None
+            bio_age = (
+                round(age_val + delta_val, 1)
+                if age_val is not None and delta_val is not None
+                else None
+            )
+            formatted_rows.append(
+                {
+                    "week_start": r.week_start.isoformat(),
+                    "delta_years": jsonable(r.delta_years),
+                    "pace": jsonable(r.pace),
+                    "age": r.age,
+                    "biological_age": bio_age,
+                    "factors": r.factors,
+                    "factors_with_data": r.factors_with_data,
+                    "algo_version": r.algo_version,
+                }
+            )
+
+        latest = formatted_rows[-1] if formatted_rows else None
+
+        return {
+            "latest": latest,
+            "history": formatted_rows,
+            "disclaimer": (
+                "Estimated biological age is based on published epidemiological studies, "
+                "not a medical measurement."
+            ),
+            "as_of": quality.as_of(conn),
+            "warnings": quality.all_warnings(conn),
+        }
+
+
 def register(server: MCPServer) -> None:
     server.tool(annotations=READ)(audited(get_daily_overview))
     server.tool(annotations=READ)(audited(get_weekly_summary))
     server.tool(annotations=READ)(audited(get_weight_trend))
     server.tool(annotations=READ)(audited(get_scores))
+    server.tool(annotations=READ)(audited(get_healthspan))

@@ -207,3 +207,9 @@ independently without copying code):
 - **Atria** ([github.com/adidshaft/atria](https://github.com/adidshaft/atria), MIT): Cardiovascular load concepts and zone computations.
 - **Banister TRIMP** (Banister, E.W., 1991): Heart rate training impulse and exponential weighting.
 - **Plews et al. 2013**: $\ln(\text{RMSSD})$ transformation and rolling baseline dynamics for athlete recovery.
+
+---
+
+## See Also
+
+- [Healthspan](healthspan.md): Weekly estimated biological age, pace of aging, and factor curves.

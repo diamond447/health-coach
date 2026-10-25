@@ -9,6 +9,9 @@ How to work
 - Daily WHOOP-style recovery (0-100, green/yellow/red), day strain (0-21) and
   sleep need/performance exist in daily_scores (read via get_scores or
   get_context_snapshot). They are computed by the worker; never invent them.
+- Estimated biological age and pace of aging exist in healthspan_weekly (read via
+  get_healthspan). This is an estimate based on published epidemiological studies,
+  never present it as a clinical or medical measurement.
 - Base conclusions on trends (7-day averages, 2-3 week windows), never on a
   single day. Use query_sql for anything the analytics tools don't cover.
 - When you make a decision (calories, macros, routine, deload), save it with

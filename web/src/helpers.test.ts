@@ -7,7 +7,10 @@ import {
   formatDecimal,
   formatDuration,
   formatDurationShort,
+  formatFactorEffect,
+  formatFactorValue,
   formatNumber,
+  formatPace,
   formatTime,
   getTodayString,
   isToday,
@@ -137,5 +140,30 @@ describe("zone colors", () => {
     expect(foodColor()).toBe("#FFB15C");
     expect(sleepColor(90)).toBe("#9C8CFF");
     expect(sleepColor(70)).toBe("#5D5499");
+  });
+});
+
+describe("healthspan helpers", () => {
+  it("formats pace correctly", () => {
+    expect(formatPace(0.8)).toBe("0,8×");
+    expect(formatPace(1.0)).toBe("1,0×");
+    expect(formatPace(1.25)).toBe("1,3×");
+    expect(formatPace(null)).toBe("—");
+    expect(formatPace(undefined)).toBe("—");
+  });
+
+  it("formats factor effect with color", () => {
+    expect(formatFactorEffect(-0.6)).toEqual({ text: "−0,6 r.", color: "#7DB8FF" });
+    expect(formatFactorEffect(0.2)).toEqual({ text: "+0,2 r.", color: "#FFB15C" });
+    expect(formatFactorEffect(0.0)).toEqual({ text: "0,0 r.", color: "#9BA3AF" });
+    expect(formatFactorEffect(null)).toEqual({ text: "—", color: "#9BA3AF" });
+  });
+
+  it("formats factor values", () => {
+    expect(formatFactorValue("sleep_regularity", 78, "%")).toBe("78 %");
+    expect(formatFactorValue("sleep_duration", 7.066, "h")).toBe("7 h 04");
+    expect(formatFactorValue("moderate_activity", 210, "min/týden")).toBe("210 min/týden");
+    expect(formatFactorValue("steps", 8900, "/den")).toBe("8 900/den");
+    expect(formatFactorValue("vo2max", null, "ml/kg/min")).toBe("zatím bez dat");
   });
 });
