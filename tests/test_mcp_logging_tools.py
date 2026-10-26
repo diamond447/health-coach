@@ -69,6 +69,8 @@ async def test_search_food_personal_and_off(owner: Engine) -> None:
                             "carbohydrates_100g": 6.7,
                             "fat_100g": 3.0,
                             "fiber_100g": 0.8,
+                            "sodium_100g": 0.1,
+                            "vitamin-d_100g": 0.0000011,
                         },
                         "serving_quantity": 250,
                     },
@@ -88,6 +90,7 @@ async def test_search_food_personal_and_off(owner: Engine) -> None:
         assert off_row[3] == "Oatly"
         assert off_row[5] == 59
         assert off_row[6] == 1.1
+        assert off_row[11] == {"sodium": 0.1, "vitamin_d": 0.0000011}
     finally:
         openfoodfacts.set_client(None)
 
@@ -134,6 +137,7 @@ async def test_save_food_happy_path_and_validation(owner: Engine) -> None:
             "fat_100g": 3.6,
             "brand": "Butcher",
             "default_serving_g": 150.0,
+            "micros_100g": {"iron": 0.001, "zinc": 0.001},
         },
     )
     food_id = res["id"]
@@ -142,11 +146,12 @@ async def test_save_food_happy_path_and_validation(owner: Engine) -> None:
     # Verify saved in DB
     with owner.connect() as conn:
         row = conn.execute(
-            text("SELECT name, kcal_100g, protein_100g FROM foods WHERE id = :id"),
+            text("SELECT name, kcal_100g, protein_100g, micros_100g FROM foods WHERE id = :id"),
             {"id": food_id},
         ).one()
     assert row.name == "Chicken Breast"
     assert float(row.kcal_100g) == 165.0
+    assert row.micros_100g == {"iron": 0.001, "zinc": 0.001}
 
     # Validation: kcal > 950
     msg = await call_error(
@@ -185,6 +190,7 @@ async def test_log_meal_with_food_id_and_without(owner: Engine) -> None:
             "protein_100g": 2.7,
             "carbs_100g": 28.0,
             "fat_100g": 0.3,
+            "micros_100g": {"magnesium": 0.05, "vitamin_b6": 0.001},
         },
     )
     food_id = food_res["id"]
@@ -202,8 +208,14 @@ async def test_log_meal_with_food_id_and_without(owner: Engine) -> None:
     assert res1["daily_totals"] is not None
     assert res1["daily_totals"]["kcal"] == 260
     assert res1["daily_totals"]["carbs_g"] == 56.0
+    with owner.connect() as conn:
+        entry_row = conn.execute(
+            text("SELECT micros FROM nutrition_entries WHERE id = :id"),
+            {"id": res1["entry_ids"][0]},
+        ).one()
+    assert entry_row.micros == {"magnesium": 0.1, "vitamin_b6": 0.002}
 
-    # 2. Log without food_id: requires kcal, protein_g, carbs_g, fat_g
+    # 2. Log without food_id: requires kcal, protein_g, carbs_g, fat_g; no micros
     res2 = await call(
         "log_meal",
         {
@@ -223,6 +235,12 @@ async def test_log_meal_with_food_id_and_without(owner: Engine) -> None:
     )
     assert len(res2["entry_ids"]) == 1
     assert res2["daily_totals"]["kcal"] == 710  # 260 + 450
+    with owner.connect() as conn:
+        entry_row2 = conn.execute(
+            text("SELECT micros FROM nutrition_entries WHERE id = :id"),
+            {"id": res2["entry_ids"][0]},
+        ).one()
+    assert entry_row2.micros is None
 
     # 3. Validation: missing macros without food_id
     msg = await call_error(
@@ -288,6 +306,7 @@ async def test_update_nutrition_entry_macro_scaling(owner: Engine) -> None:
             "protein_100g": 25.0,
             "carbs_100g": 20.0,
             "fat_100g": 50.0,
+            "micros_100g": {"potassium": 0.6, "vitamin_e": 0.008},
         },
     )
     # Log 50 g (half)
@@ -299,13 +318,20 @@ async def test_update_nutrition_entry_macro_scaling(owner: Engine) -> None:
         },
     )
     entry_id = meal["entry_ids"][0]
+    with owner.connect() as conn:
+        e1 = conn.execute(
+            text("SELECT micros FROM nutrition_entries WHERE id = :id"),
+            {"id": entry_id},
+        ).one()
+    assert e1.micros == {"potassium": 0.3, "vitamin_e": 0.004}
 
-    # Update grams to 100 g -> should rescale to 100g macros (600 kcal, 25g protein, 50g fat)
+    # Update grams to 100 g -> should rescale to 100g macros and micros
     updated = await call("update_nutrition_entry", {"entry_id": entry_id, "grams": 100.0})
     assert updated["grams"] == 100.0
     assert updated["kcal"] == 600.0
     assert updated["protein_g"] == 25.0
     assert updated["fat_g"] == 50.0
+    assert updated["micros"] == {"potassium": 0.6, "vitamin_e": 0.008}
 
     # Non-existent entry
     msg = await call_error("update_nutrition_entry", {"entry_id": 999999, "grams": 50.0})

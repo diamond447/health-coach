@@ -114,10 +114,11 @@ async def test_get_nutrition_summary(owner: Engine) -> None:
             conn.execute(
                 text(
                     "INSERT INTO nutrition_entries (ts, local_date, meal, description, "
-                    "kcal, protein_g, carbs_g, fat_g, confidence) VALUES "
-                    "(:ts, :d, 'breakfast', 'oats', 600, 30, 90, 10, 'exact'), "
-                    "(:ts, :d, 'lunch', 'chicken', 1000, 80, 100, 20, 'exact'), "
-                    "(:ts, :d, 'dinner', 'salmon', 900, 50, 70, 30, 'exact')"
+                    "kcal, protein_g, carbs_g, fat_g, confidence, micros) VALUES "
+                    "(:ts, :d, 'breakfast', 'oats', 600, 30, 90, 10, 'exact', NULL), "
+                    "(:ts, :d, 'lunch', 'chicken', 1000, 80, 100, 20, 'exact', NULL), "
+                    "(:ts, :d, 'dinner', 'salmon', 900, 50, 70, 30, 'exact', "
+                    ' \'{"potassium": 0.5, "sodium": 0.4}\'::jsonb)'
                 ),
                 {"ts": dt.datetime.combine(d, dt.time(8), dt.UTC), "d": d},
             )
@@ -133,6 +134,23 @@ async def test_get_nutrition_summary(owner: Engine) -> None:
     assert res["completeness"]["days_logged"] == 7
     assert res["meal_distribution_pct"]["lunch"] == 40.0
     assert len(res["top_foods"]["rows"]) == 3
+    assert res["micros"] is None
+    assert res["micros_coverage"] is None
+
+    # Single day query includes micros and micros_coverage
+    res_single = await call(
+        "get_nutrition_summary",
+        {"start": day.isoformat(), "end": day.isoformat()},
+    )
+    assert res_single["micros"] is not None
+    assert len(res_single["micros"]) == 2
+    assert res_single["micros_coverage"] == {"entries_with": 1, "entries_total": 3}
+    potassium = next(m for m in res_single["micros"] if m["key"] == "potassium")
+    assert potassium["amount"] == 500.0  # 0.5 g -> 500 mg
+    assert potassium["unit"] == "mg"
+    assert potassium["reference"] == 2000.0
+    assert potassium["kind"] == "target"
+    assert potassium["pct"] == 25
 
 
 # --- Recovery readiness tests ---------------------------------------------------------

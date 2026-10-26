@@ -124,5 +124,121 @@
     }
   ],
   "protein_hits_days": 0,
+  "micros": [
+    {
+      "key": "potassium",
+      "name": "Draslík",
+      "group": "minerály",
+      "unit": "mg",
+      "amount": 600.0,
+      "reference": 2000.0,
+      "kind": "target",
+      "pct": 30
+    },
+    {
+      "key": "calcium",
+      "name": "Vápník",
+      "group": "minerály",
+      "unit": "mg",
+      "amount": 150.0,
+      "reference": 800.0,
+      "kind": "target",
+      "pct": 19
+    },
+    {
+      "key": "magnesium",
+      "name": "Hořčík",
+      "group": "minerály",
+      "unit": "mg",
+      "amount": 60.0,
+      "reference": 375.0,
+      "kind": "target",
+      "pct": 16
+    },
+    {
+      "key": "iron",
+      "name": "Železo",
+      "group": "minerály",
+      "unit": "mg",
+      "amount": 2.0,
+      "reference": 14.0,
+      "kind": "target",
+      "pct": 14
+    },
+    {
+      "key": "zinc",
+      "name": "Zinek",
+      "group": "minerály",
+      "unit": "mg",
+      "amount": 3.0,
+      "reference": 10.0,
+      "kind": "target",
+      "pct": 30
+    },
+    {
+      "key": "sodium",
+      "name": "Sodík",
+      "group": "minerály",
+      "unit": "mg",
+      "amount": 750.0,
+      "reference": 2000.0,
+      "kind": "limit",
+      "pct": 38
+    },
+    {
+      "key": "vitamin_c",
+      "name": "Vitamín C",
+      "group": "vitamíny",
+      "unit": "mg",
+      "amount": 25.0,
+      "reference": 80.0,
+      "kind": "target",
+      "pct": 31
+    },
+    {
+      "key": "thiamin",
+      "name": "Thiamin (B1)",
+      "group": "vitamíny",
+      "unit": "mg",
+      "amount": 0.3,
+      "reference": 1.1,
+      "kind": "target",
+      "pct": 27
+    },
+    {
+      "key": "vitamin_b12",
+      "name": "Vitamín B12",
+      "group": "vitamíny",
+      "unit": "µg",
+      "amount": 1.8,
+      "reference": 2.5,
+      "kind": "target",
+      "pct": 72
+    },
+    {
+      "key": "sugar",
+      "name": "Cukry",
+      "group": "ostatní",
+      "unit": "g",
+      "amount": 4.0,
+      "reference": 50.0,
+      "kind": "limit",
+      "pct": 8
+    },
+    {
+      "key": "saturated_fat",
+      "name": "Nasycené tuky",
+      "group": "ostatní",
+      "unit": "g",
+      "amount": 3.8,
+      "reference": 22.0,
+      "kind": "limit",
+      "pct": 17
+    }
+  ],
+  "micros_coverage": {
+    "entries_with": 2,
+    "entries_total": 2
+  },
   "as_of": "2026-10-25T12:00+01:00"
 }

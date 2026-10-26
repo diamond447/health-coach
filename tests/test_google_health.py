@@ -525,7 +525,7 @@ def test_mappers_typed_tables(owner: Engine) -> None:
             conn.execute(
                 text(
                     "SELECT external_id, local_date, meal, food_id, description, grams, "
-                    "kcal, protein_g, carbs_g, fat_g, fiber_g, source, deleted_at "
+                    "kcal, protein_g, carbs_g, fat_g, fiber_g, source, deleted_at, micros "
                     "FROM nutrition_entries "
                     "WHERE external_id = 'users/me/dataTypes/nutrition-log/dataPoints/nutr-1'"
                 )
@@ -544,6 +544,14 @@ def test_mappers_typed_tables(owner: Engine) -> None:
         assert n_row["fiber_g"] == Decimal("6.0")
         assert n_row["source"] == "google_health"
         assert n_row["deleted_at"] is None
+        assert n_row["micros"] is not None
+        assert n_row["micros"]["sodium"] == 1.2
+        assert n_row["micros"]["potassium"] == 0.8
+        assert n_row["micros"]["vitamin_c"] == 0.04
+        assert n_row["micros"]["folate"] == 0.0001  # max of FOLATE and FOLIC_ACID
+        assert n_row["micros"]["sugar"] == 4.0
+        assert n_row["micros"]["saturated_fat"] == 3.0
+        assert "caffeine" not in n_row["micros"]
 
         food_id = n_row["food_id"]
         assert food_id is not None
@@ -551,7 +559,7 @@ def test_mappers_typed_tables(owner: Engine) -> None:
             conn.execute(
                 text(
                     "SELECT name, kcal_100g, protein_100g, carbs_100g, fat_100g, "
-                    "fiber_100g, source FROM foods WHERE id = :id"
+                    "fiber_100g, source, micros_100g FROM foods WHERE id = :id"
                 ),
                 {"id": food_id},
             )
@@ -564,6 +572,10 @@ def test_mappers_typed_tables(owner: Engine) -> None:
         assert f_row["kcal_100g"] == Decimal("162.5")
         # 45g protein in 400g -> 11.2g / 100g (or 11.25 -> 11.2 or 11.3)
         assert f_row["protein_100g"] in (Decimal("11.2"), Decimal("11.3"))
+        assert f_row["micros_100g"] is not None
+        assert f_row["micros_100g"]["sodium"] == 0.3
+        assert f_row["micros_100g"]["potassium"] == 0.2
+        assert f_row["micros_100g"]["folate"] == 0.000025
 
 
 def test_mappers_idempotent_and_deletion(owner: Engine) -> None:

@@ -39,6 +39,7 @@ from health_coach.mcp_server.common import (
     tabular,
     today,
 )
+from health_coach.nutrients import format_micros_summary
 
 DateArg = Annotated[dt.date | None, Field(description="YYYY-MM-DD, local date")]
 
@@ -91,7 +92,8 @@ def get_nutrition_summary(
     end: DateArg = None,
 ) -> dict[str, Any]:
     """Nutritional summary over a date range: daily intake vs targets, averages,
-    protein per kg bodyweight, meal distribution (% kcal), top 10 foods, and logging completeness.
+    protein per kg bodyweight, meal distribution (% kcal), top 10 foods, logging completeness,
+    and micronutrients with coverage for single-day summaries.
     """
     s, e = date_range(start, end)
     days_in_range = (e - s).days + 1
@@ -136,6 +138,37 @@ def get_nutrition_summary(
 
         completeness = calculate_logging_completeness(len(daily_rows), days_in_range)
 
+        micros_list = None
+        micros_coverage = None
+        if s == e:
+            day_entries = conn.execute(
+                text(
+                    "SELECT micros FROM nutrition_entries "
+                    "WHERE local_date = :d AND deleted_at IS NULL"
+                ),
+                {"d": s},
+            ).all()
+            entries_total = len(day_entries)
+            entries_with = 0
+            total_micros: dict[str, float] = {}
+            for r in day_entries:
+                m_micros = r.micros
+                has_positive = (
+                    m_micros
+                    and isinstance(m_micros, dict)
+                    and any(v and float(v) > 0 for v in m_micros.values())
+                )
+                if has_positive:
+                    entries_with += 1
+                    for k, v in m_micros.items():
+                        if v and float(v) > 0:
+                            total_micros[k] = total_micros.get(k, 0.0) + float(v)
+            micros_list = format_micros_summary(total_micros)
+            micros_coverage = {
+                "entries_with": entries_with,
+                "entries_total": entries_total,
+            }
+
         return {
             "start": s.isoformat(),
             "end": e.isoformat(),
@@ -151,6 +184,8 @@ def get_nutrition_summary(
             "meal_distribution_pct": meal_distribution,
             "top_foods": tabular(top_food_rows),
             "completeness": completeness,
+            "micros": micros_list,
+            "micros_coverage": micros_coverage,
             "as_of": quality.as_of(conn),
             "warnings": quality.logging_warnings(conn, e),
         }

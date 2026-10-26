@@ -1,6 +1,7 @@
 """Group 4 (logging): food library, meals, body metrics, check-ins, manual sessions."""
 
 import datetime as dt
+import json
 from typing import Annotated, Any, Literal
 
 from mcp.server.mcpserver import MCPServer
@@ -37,6 +38,7 @@ FOOD_COLUMNS = [
     "fat_100g",
     "fiber_100g",
     "default_serving_g",
+    "micros_100g",
 ]
 
 
@@ -136,6 +138,10 @@ def save_food(
     external_id: Annotated[
         str | None, Field(description="External ID (e.g. Open Food Facts code)")
     ] = None,
+    micros_100g: Annotated[
+        dict[str, float] | None,
+        Field(description="Micros per 100 g in grams (e.g. {'sodium': 0.5, 'vitamin_c': 0.08})"),
+    ] = None,
 ) -> dict[str, Any]:
     """Save a food item to the personal food library."""
     if not name.strip():
@@ -156,9 +162,10 @@ def save_food(
         row = conn.execute(
             text(
                 "INSERT INTO foods (name, brand, barcode, kcal_100g, protein_100g, carbs_100g, "
-                "fat_100g, fiber_100g, default_serving_g, source, external_id) VALUES "
-                "(:name, :brand, :barcode, :kcal_100g, :protein_100g, :carbs_100g, :fat_100g, "
-                ":fiber_100g, :default_serving_g, :source, :external_id) RETURNING id"
+                "fat_100g, fiber_100g, default_serving_g, source, external_id, micros_100g) "
+                "VALUES (:name, :brand, :barcode, :kcal_100g, :protein_100g, :carbs_100g, "
+                ":fat_100g, :fiber_100g, :default_serving_g, :source, :external_id, "
+                "CAST(:micros_100g AS jsonb)) RETURNING id"
             ),
             {
                 "name": name.strip(),
@@ -172,6 +179,7 @@ def save_food(
                 "default_serving_g": default_serving_g,
                 "source": source,
                 "external_id": external_id,
+                "micros_100g": json.dumps(micros_100g) if micros_100g else None,
             },
         ).one()
     return {"id": row.id}
@@ -225,7 +233,7 @@ def log_meal(
                 food = conn.execute(
                     text(
                         "SELECT id, name, kcal_100g, protein_100g, carbs_100g, fat_100g, "
-                        "fiber_100g, default_serving_g FROM foods "
+                        "fiber_100g, default_serving_g, micros_100g FROM foods "
                         "WHERE id = :id AND deleted_at IS NULL"
                     ),
                     {"id": item.food_id},
@@ -270,6 +278,16 @@ def log_meal(
                     )
                 )
                 food_id = food.id
+                food_micros = food.micros_100g
+                item_micros = (
+                    {
+                        k: round(float(v) * ratio, 8)
+                        for k, v in food_micros.items()
+                        if v is not None and float(v) > 0
+                    }
+                    if food_micros and isinstance(food_micros, dict)
+                    else None
+                )
             else:
                 if not item.description or not item.description.strip():
                     raise ToolError("description required when food_id is not provided")
@@ -291,13 +309,14 @@ def log_meal(
                 fat_g = item.fat_g
                 fiber_g = item.fiber_g
                 food_id = None
+                item_micros = None
 
             row = conn.execute(
                 text(
                     "INSERT INTO nutrition_entries (ts, local_date, meal, food_id, description, "
-                    "grams, kcal, protein_g, carbs_g, fat_g, fiber_g, confidence, source) "
+                    "grams, kcal, protein_g, carbs_g, fat_g, fiber_g, confidence, source, micros) "
                     "VALUES (:ts, :ld, :meal, :food_id, :desc, :grams, :kcal, :prot, :carbs, "
-                    ":fat, :fiber, :conf, 'chat') RETURNING id"
+                    ":fat, :fiber, :conf, 'chat', CAST(:micros AS jsonb)) RETURNING id"
                 ),
                 {
                     "ts": utc_ts,
@@ -312,6 +331,7 @@ def log_meal(
                     "fat": fat_g,
                     "fiber": fiber_g,
                     "conf": conf_val,
+                    "micros": json.dumps(item_micros) if item_micros else None,
                 },
             ).one()
             inserted_ids.append(row.id)
@@ -321,7 +341,7 @@ def log_meal(
             repeats = conn.execute(
                 text(
                     "SELECT id, food_id, description, grams, kcal, protein_g, carbs_g, "
-                    "fat_g, fiber_g FROM nutrition_entries "
+                    "fat_g, fiber_g, micros FROM nutrition_entries "
                     "WHERE id = ANY(:ids) AND deleted_at IS NULL"
                 ),
                 {"ids": repeat_entry_ids},
@@ -335,9 +355,9 @@ def log_meal(
                     text(
                         "INSERT INTO nutrition_entries (ts, local_date, meal, food_id, "
                         "description, grams, kcal, protein_g, carbs_g, fat_g, fiber_g, "
-                        "confidence, source) "
+                        "confidence, source, micros) "
                         "VALUES (:ts, :ld, :meal, :food_id, :desc, :grams, :kcal, :prot, "
-                        ":carbs, :fat, :fiber, :conf, 'chat') RETURNING id"
+                        ":carbs, :fat, :fiber, :conf, 'chat', CAST(:micros AS jsonb)) RETURNING id"
                     ),
                     {
                         "ts": utc_ts,
@@ -352,6 +372,7 @@ def log_meal(
                         "fat": orig.fat_g,
                         "fiber": orig.fiber_g,
                         "conf": conf_val,
+                        "micros": json.dumps(orig.micros) if orig.micros else None,
                     },
                 ).one()
                 inserted_ids.append(row.id)
@@ -391,7 +412,7 @@ def update_nutrition_entry(
         existing = conn.execute(
             text(
                 "SELECT id, ts, local_date, meal, food_id, description, grams, kcal, "
-                "protein_g, carbs_g, fat_g, fiber_g FROM nutrition_entries "
+                "protein_g, carbs_g, fat_g, fiber_g, micros FROM nutrition_entries "
                 "WHERE id = :id AND deleted_at IS NULL"
             ),
             {"id": entry_id},
@@ -405,11 +426,12 @@ def update_nutrition_entry(
         target_carbs = carbs_g
         target_fat = fat_g
         target_fiber = fiber_g
+        target_micros = existing.micros
 
         if grams is not None and existing.food_id is not None:
             food = conn.execute(
                 text(
-                    "SELECT kcal_100g, protein_100g, carbs_100g, fat_100g, fiber_100g "
+                    "SELECT kcal_100g, protein_100g, carbs_100g, fat_100g, fiber_100g, micros_100g "
                     "FROM foods WHERE id = :id"
                 ),
                 {"id": existing.food_id},
@@ -426,6 +448,14 @@ def update_nutrition_entry(
                     target_fat = round(float(food.fat_100g) * ratio, 1)
                 if target_fiber is None and food.fiber_100g is not None:
                     target_fiber = round(float(food.fiber_100g) * ratio, 1)
+                if food.micros_100g and isinstance(food.micros_100g, dict):
+                    target_micros = {
+                        k: round(float(v) * ratio, 8)
+                        for k, v in food.micros_100g.items()
+                        if v is not None and float(v) > 0
+                    }
+                else:
+                    target_micros = None
 
         if ts is not None:
             utc_ts, local_date = _resolve_ts_and_date(ts)
@@ -450,12 +480,13 @@ def update_nutrition_entry(
                 "fiber_g = COALESCE(:fiber, fiber_g), "
                 "meal = COALESCE(:meal, meal), "
                 "description = COALESCE(:desc, description), "
+                "micros = CAST(:micros AS jsonb), "
                 "ts = :ts, "
                 "local_date = :ld, "
                 "updated_at = now() "
                 "WHERE id = :id AND deleted_at IS NULL "
                 "RETURNING id, ts, local_date, meal, food_id, description, grams, kcal, "
-                "protein_g, carbs_g, fat_g, fiber_g, confidence, source"
+                "protein_g, carbs_g, fat_g, fiber_g, confidence, source, micros"
             ),
             {
                 "id": entry_id,
@@ -467,6 +498,7 @@ def update_nutrition_entry(
                 "fiber": target_fiber,
                 "meal": meal_val,
                 "desc": description.strip() if description is not None else None,
+                "micros": json.dumps(target_micros) if target_micros else None,
                 "ts": utc_ts,
                 "ld": local_date,
             },

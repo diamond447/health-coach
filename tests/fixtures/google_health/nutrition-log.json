@@ -30,6 +30,54 @@
             "quantity": {
               "grams": 6.0
             }
+          },
+          {
+            "nutrient": "SODIUM",
+            "quantity": {
+              "grams": 1.2
+            }
+          },
+          {
+            "nutrient": "POTASSIUM",
+            "quantity": {
+              "grams": 0.8
+            }
+          },
+          {
+            "nutrient": "VITAMIN_C",
+            "quantity": {
+              "grams": 0.04
+            }
+          },
+          {
+            "nutrient": "FOLIC_ACID",
+            "quantity": {
+              "grams": 0.0001
+            }
+          },
+          {
+            "nutrient": "FOLATE",
+            "quantity": {
+              "grams": 0.0001
+            }
+          },
+          {
+            "nutrient": "SUGAR",
+            "quantity": {
+              "grams": 4.0
+            }
+          },
+          {
+            "nutrient": "SATURATED_FAT",
+            "quantity": {
+              "grams": 3.0
+            }
+          },
+          {
+            "nutrient": "CAFFEINE",
+            "quantity": {
+              "grams": 0.0
+            }
           }
         ],
         "serving": {

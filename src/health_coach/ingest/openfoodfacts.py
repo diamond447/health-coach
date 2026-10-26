@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from health_coach.config import get_settings
+from health_coach.nutrients import parse_off_micros
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ def _to_float(val: Any) -> float | None:
 def parse_product(prod: dict[str, Any]) -> dict[str, Any]:
     nutriments = prod.get("nutriments") or {}
     serving = _to_float(prod.get("serving_quantity"))
+    micros = parse_off_micros(nutriments)
     return {
         "id": None,
         "source": "openfoodfacts",
@@ -45,6 +47,7 @@ def parse_product(prod: dict[str, Any]) -> dict[str, Any]:
         "fat_100g": _to_float(nutriments.get("fat_100g")),
         "fiber_100g": _to_float(nutriments.get("fiber_100g")),
         "default_serving_g": serving,
+        "micros_100g": micros if micros else None,
     }
 
 

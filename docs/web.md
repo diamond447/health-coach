@@ -111,7 +111,7 @@ All daily time-series and intraday charts use a shared SVG component (`TimeChart
   and 30-day comparison series.
 - `GET /api/strain?date=YYYY-MM-DD&days=30`: strain score, TRIMP load, heart rate zones, intraday samples,
   workout windows, activities, and 30-day strain history.
-- `GET /api/nutrition?date=YYYY-MM-DD`: calorie & macro intake, energy balance, meal log.
+- `GET /api/nutrition?date=YYYY-MM-DD`: calorie & macro intake, energy balance, meal log, micronutrients (`micros`), and logging coverage (`micros_coverage`).
 - `GET /api/trends?date=YYYY-MM-DD&days=30`: trends over 7, 30, or 90 days for recovery, HRV, RHR,
   sleep, strain, weight, and calories.
 - `GET /api/calendar?month=YYYY-MM`: monthly calendar cells with recovery/sleep/strain data.
