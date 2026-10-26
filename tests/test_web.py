@@ -696,8 +696,10 @@ def test_api_fixtures_match_responses(migrated_db: str, owner: Engine) -> None:
         assert res.status_code == 200, url
         path = FIXTURES_DIR / f"{name}.json"
         if update:
+            # as_of is the time of the test run; pin it so regenerating gives a clean diff.
+            sample = {**res.json(), "as_of": "2026-10-25T12:00+01:00"}
             FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(res.json(), ensure_ascii=False, indent=2) + "\n")
+            path.write_text(json.dumps(sample, ensure_ascii=False, indent=2) + "\n")
         elif not path.exists() or _shape(json.loads(path.read_text())) != _shape(res.json()):
             stale.append(name)
     assert not stale, f"stale fixtures {stale}: run HC_UPDATE_WEB_FIXTURES=1 uv run pytest"
