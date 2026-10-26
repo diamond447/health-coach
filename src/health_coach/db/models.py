@@ -478,6 +478,7 @@ class DailyScore(Timestamps, Base):
     strain: Mapped[Decimal | None] = mapped_column(Numeric(3, 1))
     cardio_load: Mapped[Decimal | None] = mapped_column(Numeric(6, 1))
     muscular_load: Mapped[Decimal | None] = mapped_column(Numeric(6, 1))
+    muscular_score: Mapped[int | None] = mapped_column(SmallInteger)
     zone_minutes: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     activities: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     strain_target_low: Mapped[Decimal | None] = mapped_column(Numeric(3, 1))

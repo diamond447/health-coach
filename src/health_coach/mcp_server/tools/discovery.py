@@ -31,7 +31,10 @@ TABLE_DOCS: dict[str, str] = {
     "goals": "Goals such as 'bench 100 kg x 5' with deadline and status.",
     "coach_log": "Coach memory: decisions, observations, plans, reviews, notes, questions.",
     "tdee_estimates": "Nightly adaptive TDEE estimates with confidence.",
-    "daily_scores": "Recovery (0-100), day strain (0-21) and sleep need/debt/performance.",
+    "daily_scores": (
+        "Recovery (0-100), day strain (0-21, cardio strain, muscular load) and "
+        "sleep need/debt/performance."
+    ),
     "journal_entries": "Daily tracked behaviours (alcohol, late caffeine, etc.) with amounts.",
     "app_settings": "Settings: sleep need baseline, alarm time, profile (hr_max, birth_year, sex).",
     "sync_state": "Last sync per source and data type, errors.",
@@ -275,7 +278,8 @@ def get_context_snapshot() -> dict[str, Any]:
         recovery = get_recovery_snapshot(conn, day)
         score_row = conn.execute(
             text(
-                "SELECT recovery, flags, strain, strain_target_low, strain_target_high, "
+                "SELECT recovery, flags, strain, cardio_load, muscular_score, "
+                "       strain_target_low, strain_target_high, "
                 "       sleep_performance, sleep_need_min, sleep_debt_min "
                 "FROM daily_scores WHERE local_date = :d"
             ),
@@ -284,13 +288,19 @@ def get_context_snapshot() -> dict[str, Any]:
 
         scores_today = None
         if score_row:
-            from health_coach.analytics.scores import recovery_zone
+            from health_coach.analytics.scores import calculate_strain_from_load, recovery_zone
 
             scores_today = {
                 "recovery": score_row.recovery,
                 "recovery_zone": recovery_zone(score_row.recovery),
                 "flags": score_row.flags,
                 "strain": jsonable(score_row.strain),
+                "cardio_strain": (
+                    calculate_strain_from_load(float(score_row.cardio_load))
+                    if score_row.cardio_load is not None
+                    else None
+                ),
+                "muscular_score": score_row.muscular_score,
                 "strain_target": (
                     [jsonable(score_row.strain_target_low), jsonable(score_row.strain_target_high)]
                     if score_row.strain_target_low is not None

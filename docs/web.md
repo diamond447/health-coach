@@ -17,10 +17,10 @@ The app is localized in Czech (`lang="cs"`) and provides tabular number formatti
 durations (`7 h 12 min`), and standard WHOOP-style color coding:
 
 - **Dnes (`/`)**: Daily overview with 3 ring dials (Spánek, Recovery, Strain), recommended
-  strain target bar, component breakdown ("Co ovlivnilo recovery"), activity summary (steps,
-  active minutes, calories, workout list, linking to `/aktivita`), and overnight vitals (SpO2,
-  breathing rate, skin temperature deviation, HRV, linking to `/noc`). Both the Aktivita and
-  V noci cards are tappable as a whole with `aria-label` links.
+  strain target bar, cardio strain and muscular score breakdown under the strain ring ("kardio 9,8 · svaly 64 %"),
+  component breakdown ("Co ovlivnilo recovery"), activity summary (steps, active minutes, calories, workout list,
+  linking to `/aktivita`), and overnight vitals (SpO2, breathing rate, skin temperature deviation, HRV, linking
+  to `/noc`). Both the Aktivita and V noci cards are tappable as a whole with `aria-label` links.
 - **Recovery (`/recovery`)**: 200 px ring dial with status text, 30-day scrubbable `TimeChart`s
   with normal baseline bands for HRV and resting heart rate, 3 additional 30-day `TimeChart`s
   below them for sleep performance (%), breathing rate (/min with baseline band), and skin
@@ -38,10 +38,12 @@ durations (`7 h 12 min`), and standard WHOOP-style color coding:
   chart showing awake / REM / light / deep stages, sleep need breakdown (base need, debt,
   strain bonus, nap credit), and a 30-night scrubbable `TimeChart` comparing actual sleep
   duration bars to nightly sleep need dots.
-- **Strain (`/strain`)**: Strain dial (0–21 scale), cardio and muscular load (TRIMP),
+- **Strain (`/strain`)**: Two ring dials side by side for Kardio strain (0–21) and Svaly (0–100 %,
+  with band label), total strain summary with recommended target range, cardio and muscular load (TRIMP),
   scrubbable intraday 5-minute heart rate chart with workout overlay windows, zone 3 threshold line,
-  and time readout ("HH:MM · 142 bpm"), time spent across 5 HR zones, logged workouts and activities,
-  and 30-day scrubbable strain history `TimeChart`.
+  and time readout ("HH:MM · 142 bpm"), time spent across 5 HR zones, logged workouts and activities
+  (with per-session muscular score for strength sessions), and two 30-day scrubbable history `TimeChart`s
+  for cardio strain (line) and muscular load (bars).
 - **Jídlo (`/jidlo`)**: Calorie intake ring dial vs daily target, macronutrient bars
   (protein, carbohydrates, fat, fiber), energy balance card (intake vs TDEE, 14-day mean,
   expected vs actual weight change), meals list grouped by meal time, and 7-day calorie chart
@@ -49,9 +51,9 @@ durations (`7 h 12 min`), and standard WHOOP-style color coding:
 - **Trendy (`/trendy`)**: Sub-navigation tiles in a 2x2 grid (Kalendář, Deník, Přehled,
   Healthspan), period navigation with "‹" and "›" window shift buttons (disabled when ending today)
   and date range readout ("1. 10. – 30. 10."), 7/30/90-day time range selector, daily recovery bars,
-  HRV & RHR trend chart (with x-axis), sleep duration bars, strain bars with acute-to-chronic workload
-  ratio (ACWR), raw and 7-day smoothed weight trend (with x-axis), and calorie intake vs target.
-  All charts are powered by scrubbable `TimeChart` components with y-axes.
+  HRV & RHR trend chart (with x-axis), sleep duration bars, two scrubbable charts for Kardio strain and
+  Svalová zátěž with acute-to-chronic workload ratio (ACWR), raw and 7-day smoothed weight trend (with x-axis),
+  and calorie intake vs target. All charts are powered by scrubbable `TimeChart` components with y-axes.
 - **Healthspan (`/healthspan`)**: Estimated biological age and pace of aging (see
   [healthspan.md](healthspan.md)). Displays biological age delta (e.g. `−2,6 roku`), pace of
   aging (`0,8×`), signal coverage count ("8 z 9 signálů s daty"), and a 6-month breakdown of
@@ -63,10 +65,10 @@ durations (`7 h 12 min`), and standard WHOOP-style color coding:
   habits (tappable to log or remove when write access is enabled) and two-sided recovery
   impact bars showing the difference in next-day recovery with and without each habit.
 - **Týdenní přehled (`/prehled`)**: Weekly or monthly review card comparing metrics to the
-  previous period, daily recovery bars, best and worst days, volume of hard sets per muscle
-  group, and the weekly coaching review text from the coach log. Includes "‹" and "›" period
-  navigation buttons moving by one week or one month (disabled for current period) with date
-  range displayed in the header.
+  previous period (including total strain, cardio and muscular averages), daily recovery bars, best
+  and worst days, volume of hard sets per muscle group, and the weekly coaching review text from the
+  coach log. Includes "‹" and "›" period navigation buttons moving by one week or one month (disabled
+  for current period) with date range displayed in the header.
 
 ## Chart Interactions and TimeChart
 

@@ -6,7 +6,8 @@ How to work
 - Start every conversation with get_context_snapshot. Read recent coach_log
   entries before giving advice; stay consistent with past decisions unless
   data says otherwise, and say when you change course.
-- Daily WHOOP-style recovery (0-100, green/yellow/red), day strain (0-21) and
+- Daily WHOOP-style recovery (0-100, green/yellow/red), day strain (0-21,
+  split into cardio strain 0-21 and muscular load 0-100%) and
   sleep need/performance exist in daily_scores (read via get_scores or
   get_context_snapshot). They are computed by the worker; never invent them.
 - Estimated biological age and pace of aging exist in healthspan_weekly (read via

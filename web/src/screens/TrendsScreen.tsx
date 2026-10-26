@@ -449,24 +449,57 @@ export function TrendsScreen({
                 {data.strain.acwr !== null && ` · zátěž 7/28 d ${formatDecimal(data.strain.acwr, 2)}`}
               </div>
             </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: "4px" }}>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: "#9BA3AF" }}>Kardio strain</div>
+              <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
+                Ø {data.strain.cardio_avg !== null ? formatDecimal(data.strain.cardio_avg, 1) : "–"}
+              </div>
+            </div>
             <TimeChart
-              points={data.strain.series.map((s) => ({
+              points={data.strain.cardio_series.map((s) => ({
                 date: s.date,
                 values: [s.val],
               }))}
               series={[
                 {
-                  label: "Strain",
+                  label: "Kardio strain",
                   color: "#3D9BFF",
                   unit: "",
                   format: (v) => formatDecimal(v, 1),
                   kind: "bar",
                 },
               ]}
-              height={80}
+              height={70}
               yAxis={true}
               xAxis={false}
-              ariaLabel="Trend strainu"
+              ariaLabel="Trend kardio strainu"
+            />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: "6px" }}>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: "#9BA3AF" }}>Svalová zátěž</div>
+              <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
+                Ø {data.strain.muscular_avg !== null ? `${Math.round(data.strain.muscular_avg)} %` : "–"}
+              </div>
+            </div>
+            <TimeChart
+              points={data.strain.muscular_series.map((s) => ({
+                date: s.date,
+                values: [s.val],
+              }))}
+              series={[
+                {
+                  label: "Svaly",
+                  color: "#C38BFF",
+                  unit: "%",
+                  format: (v) => `${Math.round(v)} %`,
+                  kind: "bar",
+                },
+              ]}
+              height={70}
+              yAxis={true}
+              xAxis={false}
+              ariaLabel="Trend svalové zátěže"
             />
           </div>
 

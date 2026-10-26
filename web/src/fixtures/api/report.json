@@ -9,7 +9,9 @@
     },
     "strain": {
       "val": 10.7,
-      "delta": 0.2
+      "delta": 0.2,
+      "cardio_avg": 11.0,
+      "muscular_avg": 64.0
     },
     "sleep_min": {
       "val": 432.0,

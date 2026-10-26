@@ -23,7 +23,9 @@ from health_coach.analytics.scores import (
     calculate_sleep_debt,
     calculate_sleep_need,
     calculate_strain_from_load,
+    day_muscular_score,
     hr_gate,
+    muscular_band,
     recovery_zone,
     resample_hr_1min,
     robust_baseline,
@@ -291,13 +293,51 @@ def test_muscular_load_and_caps() -> None:
             StrengthSetData(reps=10, weight_kg=100, rpe=8, is_warmup=False),  # 1000 kg
         ],
     )
-    vol, srpe, m_load = calculate_session_muscular_load(sess, cap_vol=5000.0, cap_srpe=480.0)
+    vol, srpe, m_load, score = calculate_session_muscular_load(sess, cap_vol=5000.0, cap_srpe=480.0)
     assert vol == 2000.0
     assert srpe == 480.0
     # score = 50 * 2000 / 5000 + 50 * 480 / 480 = 20 + 50 = 70
+    assert score == 70.0
     # muscular_load = 45 * (70/100)^1.6
     expected_m_load = 45.0 * (0.7**1.6)
     assert pytest.approx(m_load, rel=1e-3) == expected_m_load
+
+
+def test_day_muscular_score_and_bands() -> None:
+    # None when no strength sessions
+    assert day_muscular_score([]) is None
+
+    # Single session rounded
+    assert day_muscular_score([45.2]) == 45
+    assert day_muscular_score([45.6]) == 46
+
+    # Multiple sessions summed and rounded
+    assert day_muscular_score([45.2, 30.1]) == 75
+
+    # Capped at 100
+    assert day_muscular_score([60.0, 50.0]) == 100
+    assert day_muscular_score([120.0]) == 100
+
+    # Minimum zero
+    assert day_muscular_score([0.0]) == 0
+
+    # Muscular bands: 0-33 lehká, 34-66 střední, 67-100 vysoká
+    assert muscular_band(None) is None
+    assert muscular_band(0) == "lehká"
+    assert muscular_band(33) == "lehká"
+    assert muscular_band(34) == "střední"
+    assert muscular_band(66) == "střední"
+    assert muscular_band(67) == "vysoká"
+    assert muscular_band(100) == "vysoká"
+
+
+def test_cardio_strain_from_load() -> None:
+    # Cardio strain uses calculate_strain_from_load(cardio_load)
+    assert calculate_strain_from_load(0.0) == 0.0
+    assert calculate_strain_from_load(-5.0) == 0.0
+    # Known benchmark values: 25 -> ~4.6, 60 -> ~9.5
+    assert calculate_strain_from_load(25.0) == 4.6
+    assert calculate_strain_from_load(60.0) == 9.5
 
 
 def test_day_strain_end_to_end() -> None:
@@ -323,11 +363,37 @@ def test_day_strain_end_to_end() -> None:
     )
     assert res.cardio_load > 0
     assert res.strain > 0
+    assert res.muscular_score is None
     # x = 0.6923 -> Zone 2 (0.60 - 0.70)
     assert res.zone_minutes["Z2"] == 60
     assert len(res.activities) == 1
     assert res.activities[0]["name"] == "Morning Run"
     assert res.activities[0]["strain"] > 0
+
+    # With strength session, muscular_score is computed and activity records score
+    st_sess = StrengthSessionData(
+        id=2,
+        name="Gym Push",
+        start_ts=t0,
+        end_ts=t0 + dt.timedelta(minutes=45),
+        duration_min=45,
+        sets=[
+            StrengthSetData(reps=10, weight_kg=100, rpe=8, is_warmup=False),
+        ],
+    )
+    res_st = calculate_day_strain(
+        minute_hr=minute_hr,
+        rest_hr=60.0,
+        hr_max=190.0,
+        sex="male",
+        strength_sessions=[st_sess],
+        caps=(5000.0, 480.0),
+    )
+    assert res_st.muscular_score is not None
+    assert res_st.muscular_score > 0
+    st_act = next(a for a in res_st.activities if a["kind"] == "strength")
+    assert st_act["score"] is not None
+    assert st_act["score"] > 0
 
 
 # --- 2d. Sleep Need and Performance ---------------------------------------------------

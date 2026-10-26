@@ -132,6 +132,7 @@ async def test_compute_scores_and_mcp_tools(owner: Engine) -> None:
     assert isinstance(row.recovery_components, list)
     assert row.strain is not None and row.strain > 0.0
     assert row.cardio_load is not None and row.cardio_load > 0.0
+    assert row.muscular_score is None  # no strength session seeded yet
     assert row.zone_minutes is not None
     assert len(row.activities) == 1
     assert row.activities[0]["name"] == "running"
@@ -140,7 +141,7 @@ async def test_compute_scores_and_mcp_tools(owner: Engine) -> None:
     assert row.sleep_performance is not None
     assert row.planned_bedtime is not None
     assert row.planned_wake is not None
-    assert row.algo_version == 1
+    assert row.algo_version == 2
 
     # Test MCP tool get_scores
     scores_res = await call("get_scores", {"start": day.isoformat(), "end": day.isoformat()})
@@ -148,16 +149,20 @@ async def test_compute_scores_and_mcp_tools(owner: Engine) -> None:
     scored_day = scores_res["rows"][0]
     assert scored_day["local_date"] == day.isoformat()
     assert scored_day["recovery_zone"] == "green"
+    assert scored_day["cardio_strain"] is not None and scored_day["cardio_strain"] > 0
+    assert scored_day["muscular_score"] is None
     assert scored_day["sleep_need"] is not None  # e.g. "8h 00m"
     assert scored_day["sleep_actual"] == "7h 30m"  # 450 min
 
-    # Test get_context_snapshot includes scores_today
+    # Test get_context_snapshot includes scores_today with cardio_strain and muscular_score
     snap = await call("get_context_snapshot")
     assert "scores_today" in snap
     assert snap["scores_today"] is not None
     assert snap["scores_today"]["recovery"] == row.recovery
     assert snap["scores_today"]["recovery_zone"] == "green"
     assert snap["scores_today"]["strain"] == float(row.strain)
+    assert snap["scores_today"]["cardio_strain"] == scored_day["cardio_strain"]
+    assert snap["scores_today"]["muscular_score"] is None
     assert snap["scores_today"]["sleep_performance"] is not None
 
 
@@ -253,6 +258,7 @@ def test_compute_scores_missing_data_stores_nulls(owner: Engine) -> None:
     assert row.strain is None
     assert row.cardio_load is None
     assert row.muscular_load is None
+    assert row.muscular_score is None
     assert row.zone_minutes is None
     assert row.activities is None
 
@@ -317,3 +323,49 @@ async def test_compute_scores_uses_stored_profile(owner: Engine) -> None:
             text("SELECT inputs FROM daily_scores WHERE local_date = :d"), {"d": day}
         ).scalar_one()
     assert inputs["hr_max"] == 205.0
+
+
+def test_compute_scores_strength_session_stores_muscular_score(owner: Engine) -> None:
+    day = today()
+    with owner.begin() as conn:
+        _seed_synthetic_data(conn, day)
+        conn.execute(
+            text(
+                "INSERT INTO exercises (id, name, category, primary_muscles, equipment) "
+                "VALUES ('bench-id', 'Barbell Bench Press', 'Chest', '{chest}', '{barbell}') "
+                "ON CONFLICT (id) DO NOTHING"
+            )
+        )
+        # Add a strength session and set for day D
+        st_start = dt.datetime.combine(day, dt.time(14, 0), PRAGUE)
+        st_end = dt.datetime.combine(day, dt.time(15, 0), PRAGUE)
+        sess_id = conn.execute(
+            text(
+                "INSERT INTO strength_sessions (external_id, local_date, routine_name, "
+                "start_ts, end_ts, source) VALUES "
+                "('st-1', :d, 'Upper Body', :start, :end, 'fit') RETURNING id"
+            ),
+            {"d": day, "start": st_start, "end": st_end},
+        ).scalar_one()
+        conn.execute(
+            text(
+                "INSERT INTO strength_sets (session_id, external_id, exercise_id, set_no, reps, "
+                "weight_kg, rpe, is_warmup) VALUES "
+                "(:sid, 'st-set-1', 'bench-id', 1, 10, 100, 8.0, false)"
+            ),
+            {"sid": sess_id},
+        )
+
+    compute_scores(get_engine(Role.ingest), day)
+
+    with get_engine(Role.ro).connect() as conn:
+        row = conn.execute(
+            text("SELECT muscular_score, activities FROM daily_scores WHERE local_date = :d"),
+            {"d": day},
+        ).one()
+
+    assert row.muscular_score is not None
+    assert row.muscular_score > 0
+    st_act = next(a for a in row.activities if a["kind"] == "strength")
+    assert st_act["score"] is not None
+    assert st_act["score"] > 0

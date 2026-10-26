@@ -149,7 +149,34 @@ Calibration benchmarks: load 5 $\to$ ~1.0, 25 $\to$ ~4.6, 60 $\to$ ~9.5, 85 $\to
 ### Activities
 
 Each exercise and strength session records `{kind, name, start, end, avg_hr, max_hr, load, strain}`,
-where activity strain is computed from that activity's load alone.
+with strength sessions additionally including their muscular `score`. Activity strain is computed
+from that activity's load alone.
+
+### Cardio strain and muscular load
+
+In addition to total day strain, the system tracks two separate scores (similar to WHOOP Strength Trainer):
+
+1. **Cardio strain (0–21)**: Cardiovascular exertion from heart rate alone:
+   $$\text{cardio\_strain} = \text{round}\left(21 \cdot \left(1 - \exp\left(-\frac{\text{cardio\_load}}{100}\right)\right), 1\right)$$
+   Computed dynamically on read from stored `cardio_load` via `calculate_strain_from_load(cardio_load)`.
+
+2. **Muscular load (0–100 %)**: Strength training volume and intensity:
+   - Per-session score: $\text{clamp}\left(50 \cdot \frac{\text{volume}}{\text{cap}_{\text{vol}}} + 50 \cdot \frac{\text{sRPE}}{\text{cap}_{\text{srpe}}}, 0, 100\right)$
+   - Daily score: $\min(100, \sum \text{session scores})$, rounded to an integer. `None` when no strength session occurred that day.
+   - Intensity bands:
+     - **0–33 %**: Lehká (light)
+     - **34–66 %**: Střední (moderate)
+     - **67–100 %**: Vysoká (high)
+   - Stored in `daily_scores.muscular_score smallint` (migration 0009). Per-session scores are preserved under the `score` key in `daily_scores.activities`.
+
+Total day strain (0–21) remains the composite metric of cardio and muscular load, ensuring continuity for sleep need strain bonuses and recovery-based strain targets.
+
+#### Backfill after deploy
+After applying migration 0009, historical scores must be recomputed:
+```sh
+health-coach scores backfill --days 60
+```
+This updates `daily_scores.muscular_score` and activity `score` values across trailing history.
 
 ---
 

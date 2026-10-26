@@ -2,7 +2,7 @@
   "date": "2026-10-25",
   "yesterday_date": "2026-10-24",
   "yesterday_weekday": "so",
-  "logged_time": "14:28",
+  "logged_time": "15:45",
   "yesterday": [
     {
       "behavior": "sauna",
@@ -43,7 +43,7 @@
       "without_count": 11
     }
   ],
-  "can_write": true,
+  "can_write": false,
   "log_date": "2026-10-24",
   "options": [
     {
