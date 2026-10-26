@@ -15,8 +15,10 @@ export function JournalScreen({ date }: JournalScreenProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
   const timersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const lastSavedDataRef = useRef<JournalResponse | null>(null);
+  const seqRef = useRef<Record<string, number>>({});
+  const inFlightRef = useRef<Record<string, Promise<unknown> | null>>({});
 
   const loadData = async (isRef = false) => {
     if (isRef) setRefreshing(true);
@@ -25,7 +27,6 @@ export function JournalScreen({ date }: JournalScreenProps) {
     const res = await apiFetch<JournalResponse>(`/api/journal?days=60`);
     if (res.data) {
       setData(res.data);
-      lastSavedDataRef.current = res.data;
     }
     setLoading(false);
     setRefreshing(false);
@@ -39,6 +40,22 @@ export function JournalScreen({ date }: JournalScreenProps) {
     };
   }, [date]);
 
+  const mergeSuccessData = (current: JournalResponse | null, resData: JournalResponse, behavior: string) => {
+    if (!current) return resData;
+    const pendingBehaviors = new Set(
+      Object.keys({ ...inFlightRef.current, ...timersRef.current }).filter(
+        (b) => b !== behavior && (inFlightRef.current[b] || timersRef.current[b])
+      )
+    );
+    if (pendingBehaviors.size === 0) return resData;
+    const mergedYesterday = resData.yesterday.filter((y) => !pendingBehaviors.has(y.behavior));
+    for (const pb of pendingBehaviors) {
+      const pendingEntry = current.yesterday.find((y) => y.behavior === pb);
+      if (pendingEntry) mergedYesterday.push(pendingEntry);
+    }
+    return { ...resData, yesterday: mergedYesterday };
+  };
+
   const handleToggle = async (opt: JournalOption) => {
     if (!data) return;
     setSaveError(null);
@@ -48,23 +65,55 @@ export function JournalScreen({ date }: JournalScreenProps) {
       delete timersRef.current[opt.behavior];
     }
 
-    const prevData = data;
-    const activeEntry = data.yesterday.find((y) => y.behavior === opt.behavior && y.active);
-    const wasActive = Boolean(activeEntry);
+    // Toggle-off waits for an in-flight PUT if one is saving
+    if (inFlightRef.current[opt.behavior]) {
+      try {
+        await inFlightRef.current[opt.behavior];
+      } catch {
+        // ignore in-flight error; toggle-off takes precedence
+      }
+    }
+
+    const seq = (seqRef.current[opt.behavior] || 0) + 1;
+    seqRef.current[opt.behavior] = seq;
+
+    const prevEntry = data.yesterday.find((y) => y.behavior === opt.behavior);
+    const wasActive = Boolean(prevEntry && prevEntry.active);
 
     if (wasActive) {
-      const updatedYesterday = data.yesterday.filter((y) => y.behavior !== opt.behavior);
-      setData({ ...data, yesterday: updatedYesterday });
+      setData((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          yesterday: current.yesterday.filter((y) => y.behavior !== opt.behavior),
+        };
+      });
 
-      const res = await apiSend(
+      setSaving((s) => ({ ...s, [opt.behavior]: true }));
+      const promise = apiSend(
         "DELETE",
         `/api/journal/entries?date=${data.log_date}&behavior=${opt.behavior}`
       );
-      if (res.error) {
-        setData(prevData);
+      inFlightRef.current[opt.behavior] = promise;
+      const res = await promise;
+      inFlightRef.current[opt.behavior] = null;
+      setSaving((s) => ({ ...s, [opt.behavior]: false }));
+
+      if (seqRef.current[opt.behavior] !== seq) {
+        return;
+      }
+
+      if (res.error && res.status !== 404) {
+        // Roll back ONLY this behavior
+        setData((current) => {
+          if (!current) return current;
+          const others = current.yesterday.filter((y) => y.behavior !== opt.behavior);
+          return {
+            ...current,
+            yesterday: prevEntry ? [...others, prevEntry] : others,
+          };
+        });
         setSaveError("Nepodařilo se uložit, zkus to znovu");
-      } else {
-        lastSavedDataRef.current = { ...data, yesterday: updatedYesterday };
       }
     } else {
       const initialAmount = opt.unit ? 1 : null;
@@ -75,24 +124,47 @@ export function JournalScreen({ date }: JournalScreenProps) {
         note: null,
         active: true,
       };
-      const updatedYesterday = [
-        ...data.yesterday.filter((y) => y.behavior !== opt.behavior),
-        newEntry,
-      ];
-      setData({ ...data, yesterday: updatedYesterday });
+      setData((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          yesterday: [
+            ...current.yesterday.filter((y) => y.behavior !== opt.behavior),
+            newEntry,
+          ],
+        };
+      });
 
-      const res = await apiSend<JournalResponse>("PUT", "/api/journal/entries", {
+      setSaving((s) => ({ ...s, [opt.behavior]: true }));
+      const promise = apiSend<JournalResponse>("PUT", "/api/journal/entries", {
         date: data.log_date,
         behavior: opt.behavior,
         amount: initialAmount,
         note: null,
       });
+      inFlightRef.current[opt.behavior] = promise;
+      const res = await promise;
+      inFlightRef.current[opt.behavior] = null;
+      setSaving((s) => ({ ...s, [opt.behavior]: false }));
+
+      if (seqRef.current[opt.behavior] !== seq) {
+        return;
+      }
+
       if (res.error || !res.data) {
-        setData(prevData);
+        // Roll back ONLY this behavior
+        setData((current) => {
+          if (!current) return current;
+          const others = current.yesterday.filter((y) => y.behavior !== opt.behavior);
+          return {
+            ...current,
+            yesterday: prevEntry ? [...others, prevEntry] : others,
+          };
+        });
         setSaveError("Nepodařilo se uložit, zkus to znovu");
       } else {
-        setData(res.data);
-        lastSavedDataRef.current = res.data;
+        const resData = res.data;
+        setData((current) => mergeSuccessData(current, resData, opt.behavior));
       }
     }
   };
@@ -108,11 +180,16 @@ export function JournalScreen({ date }: JournalScreenProps) {
     const newAmount = Math.max(1, Math.round(currentAmount + delta));
     if (newAmount === currentAmount) return;
 
-    const prevData = data;
-    const updatedYesterday = data.yesterday.map((y) =>
-      y.behavior === opt.behavior ? { ...y, amount: newAmount } : y
-    );
-    setData({ ...data, yesterday: updatedYesterday });
+    const prevAmount = activeEntry.amount;
+    setData((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        yesterday: current.yesterday.map((y) =>
+          y.behavior === opt.behavior ? { ...y, amount: newAmount } : y
+        ),
+      };
+    });
 
     if (timersRef.current[opt.behavior]) {
       clearTimeout(timersRef.current[opt.behavior]);
@@ -120,18 +197,48 @@ export function JournalScreen({ date }: JournalScreenProps) {
 
     timersRef.current[opt.behavior] = setTimeout(async () => {
       delete timersRef.current[opt.behavior];
-      const res = await apiSend<JournalResponse>("PUT", "/api/journal/entries", {
+      if (inFlightRef.current[opt.behavior]) {
+        try {
+          await inFlightRef.current[opt.behavior];
+        } catch {
+          // ignore
+        }
+      }
+
+      const seq = (seqRef.current[opt.behavior] || 0) + 1;
+      seqRef.current[opt.behavior] = seq;
+
+      setSaving((s) => ({ ...s, [opt.behavior]: true }));
+      const promise = apiSend<JournalResponse>("PUT", "/api/journal/entries", {
         date: data.log_date,
         behavior: opt.behavior,
         amount: newAmount,
         note: null,
       });
+      inFlightRef.current[opt.behavior] = promise;
+      const res = await promise;
+      inFlightRef.current[opt.behavior] = null;
+      setSaving((s) => ({ ...s, [opt.behavior]: false }));
+
+      if (seqRef.current[opt.behavior] !== seq) {
+        return;
+      }
+
       if (res.error || !res.data) {
-        setData(prevData);
+        // Roll back ONLY this behavior's amount
+        setData((current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            yesterday: current.yesterday.map((y) =>
+              y.behavior === opt.behavior ? { ...y, amount: prevAmount } : y
+            ),
+          };
+        });
         setSaveError("Nepodařilo se uložit, zkus to znovu");
       } else {
-        setData(res.data);
-        lastSavedDataRef.current = res.data;
+        const resData = res.data;
+        setData((current) => mergeSuccessData(current, resData, opt.behavior));
       }
     }, 600);
   };
@@ -188,6 +295,8 @@ export function JournalScreen({ date }: JournalScreenProps) {
                   const isActive = Boolean(activeEntry);
                   const amount = activeEntry?.amount ?? 1;
 
+                  const isSaving = Boolean(saving[opt.behavior]);
+
                   if (isActive && opt.unit) {
                     return (
                       <div
@@ -227,19 +336,19 @@ export function JournalScreen({ date }: JournalScreenProps) {
                           <button
                             type="button"
                             aria-label={`Snížit ${opt.name}`}
-                            disabled={amount <= 1}
+                            disabled={amount <= 1 || isSaving}
                             onClick={() => handleStep(opt, -1)}
                             style={{
                               background: "rgba(255, 255, 255, 0.08)",
                               border: "none",
-                              color: amount <= 1 ? "#5A6270" : "#CFE4FF",
+                              color: amount <= 1 || isSaving ? "#5A6270" : "#CFE4FF",
                               borderRadius: "999px",
                               width: "44px",
                               height: "44px",
                               minWidth: "44px",
                               minHeight: "44px",
                               fontSize: "16px",
-                              cursor: amount <= 1 ? "default" : "pointer",
+                              cursor: amount <= 1 || isSaving ? "default" : "pointer",
                               display: "inline-flex",
                               alignItems: "center",
                               justifyContent: "center",
@@ -260,18 +369,19 @@ export function JournalScreen({ date }: JournalScreenProps) {
                           <button
                             type="button"
                             aria-label={`Zvýšit ${opt.name}`}
+                            disabled={isSaving}
                             onClick={() => handleStep(opt, 1)}
                             style={{
                               background: "rgba(255, 255, 255, 0.08)",
                               border: "none",
-                              color: "#CFE4FF",
+                              color: isSaving ? "#5A6270" : "#CFE4FF",
                               borderRadius: "999px",
                               width: "44px",
                               height: "44px",
                               minWidth: "44px",
                               minHeight: "44px",
                               fontSize: "16px",
-                              cursor: "pointer",
+                              cursor: isSaving ? "default" : "pointer",
                               display: "inline-flex",
                               alignItems: "center",
                               justifyContent: "center",
@@ -289,6 +399,7 @@ export function JournalScreen({ date }: JournalScreenProps) {
                       key={opt.behavior}
                       type="button"
                       aria-pressed={isActive}
+                      disabled={isSaving}
                       onClick={() => handleToggle(opt)}
                       style={{
                         fontSize: "13px",
@@ -298,7 +409,7 @@ export function JournalScreen({ date }: JournalScreenProps) {
                         minWidth: "44px",
                         borderRadius: "999px",
                         border: "none",
-                        cursor: "pointer",
+                        cursor: isSaving ? "default" : "pointer",
                         background: isActive ? "#1F3550" : "#1D2127",
                         color: isActive ? "#CFE4FF" : "#9BA3AF",
                         display: "inline-flex",

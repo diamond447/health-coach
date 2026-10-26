@@ -11,8 +11,10 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
+import math
+import unicodedata
 import urllib.parse
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -107,6 +109,9 @@ def _check_csrf(request: Request) -> JSONResponse | None:
             )
 
     # 3. Origin / Referer check
+    raw_proto = request.headers.get("x-forwarded-proto", "").split(",")[0].strip().lower()
+    expected_scheme = raw_proto or (request.url.scheme or "http").lower()
+
     raw_host = (
         request.headers.get("x-forwarded-host", "").split(",")[0].strip()
         or request.headers.get("host")
@@ -130,14 +135,9 @@ def _check_csrf(request: Request) -> JSONResponse | None:
         )
 
     try:
-        source_host = (
-            (
-                urllib.parse.urlsplit(source_url).netloc
-                or urllib.parse.urlsplit("//" + source_url).netloc
-            )
-            .strip()
-            .lower()
-        )
+        parsed = urllib.parse.urlsplit(source_url)
+        source_scheme = parsed.scheme.lower()
+        source_host = parsed.netloc.strip().lower()
     except Exception:
         return JSONResponse(
             {"error": "forbidden", "detail": "Invalid Origin or Referer header"},
@@ -145,9 +145,9 @@ def _check_csrf(request: Request) -> JSONResponse | None:
             headers={"Cache-Control": "no-store"},
         )
 
-    if not source_host or source_host != raw_host:
+    if not source_host or source_host != raw_host or source_scheme != expected_scheme:
         return JSONResponse(
-            {"error": "forbidden", "detail": "Origin or Referer does not match Host"},
+            {"error": "forbidden", "detail": "Origin or Referer does not match Host or scheme"},
             status_code=403,
             headers={"Cache-Control": "no-store"},
         )
@@ -185,15 +185,22 @@ def _validate_journal_behavior(behavior_str: Any) -> str:
 def _validate_journal_amount(amount_val: Any) -> Decimal | None:
     if amount_val is None:
         return None
-    if isinstance(amount_val, bool) or not isinstance(amount_val, (int, float, Decimal, str)):
+    if isinstance(amount_val, (str, bool)) or not isinstance(amount_val, (int, float, Decimal)):
         raise ValueError("Amount must be a number between 0 and 9999.99 or null")
     try:
+        if isinstance(amount_val, float) and not math.isfinite(amount_val):
+            raise ValueError("Amount must be a finite number")
         amt = Decimal(str(amount_val))
-    except (InvalidOperation, ValueError) as e:
-        raise ValueError("Amount must be a valid number") from e
-    if amt < Decimal("0") or amt > Decimal("9999.99"):
-        raise ValueError("Amount must be between 0 and 9999.99")
-    return amt
+        if not amt.is_finite():
+            raise ValueError("Amount must be a finite number")
+        quantized = amt.quantize(Decimal("0.01"))
+        if amt != quantized:
+            raise ValueError("Amount cannot have more than 2 decimal places")
+        if quantized < Decimal("0") or quantized > Decimal("9999.99"):
+            raise ValueError("Amount must be between 0 and 9999.99")
+        return quantized
+    except (ArithmeticError, ValueError) as e:
+        raise ValueError(f"Invalid amount: {e}") from e
 
 
 def _validate_journal_note(note_val: Any) -> str | None:
@@ -201,6 +208,8 @@ def _validate_journal_note(note_val: Any) -> str | None:
         return None
     if not isinstance(note_val, str):
         raise ValueError("Note must be a string or null")
+    if any(unicodedata.category(c) == "Cc" or ord(c) < 32 or ord(c) == 127 for c in note_val):
+        raise ValueError("Note must not contain control characters")
     n = note_val.strip()
     if len(n) > 200:
         raise ValueError("Note cannot exceed 200 characters")
@@ -363,12 +372,13 @@ def api_journal(request: Request) -> Response:
     except ValueError as e:
         return _bad_request(str(e))
     settings = getattr(request.app.state, "settings", None) or get_settings()
+    can_write = settings.web_journal_database_url is not None and bool(settings.web_allowed_users)
     with get_engine(Role.ro).connect() as conn:
         data = queries.query_journal(
             conn,
             days=days,
             date_str=date_param,
-            can_write=settings.web_journal_database_url is not None,
+            can_write=can_write,
         )
     return JSONResponse(jsonable(data))
 
@@ -379,6 +389,16 @@ async def api_journal_entries(request: Request) -> Response:
         return csrf_error
 
     settings = getattr(request.app.state, "settings", None) or get_settings()
+    if not settings.web_allowed_users:
+        return JSONResponse(
+            {
+                "error": "forbidden",
+                "detail": "Journal writes require web_allowed_users to be configured",
+            },
+            status_code=403,
+            headers={"Cache-Control": "no-store"},
+        )
+
     if settings.web_journal_database_url is None:
         return JSONResponse(
             {"error": "journal_writes_disabled"},
@@ -395,9 +415,15 @@ async def api_journal_entries(request: Request) -> Response:
             except ValueError:
                 return _bad_request("Invalid Content-Length header")
 
-        body_bytes = await request.body()
-        if len(body_bytes) > 2048:
-            return _bad_request("Body size exceeds 2 kB")
+        chunks: list[bytes] = []
+        total_bytes = 0
+        async for chunk in request.stream():
+            total_bytes += len(chunk)
+            if total_bytes > 2048:
+                return _bad_request("Body size exceeds 2 kB")
+            chunks.append(chunk)
+
+        body_bytes = b"".join(chunks)
 
         try:
             payload = json.loads(body_bytes.decode("utf-8"))
@@ -412,7 +438,7 @@ async def api_journal_entries(request: Request) -> Response:
             behavior = _validate_journal_behavior(payload.get("behavior"))
             amount = _validate_journal_amount(payload.get("amount"))
             note = _validate_journal_note(payload.get("note"))
-        except ValueError as e:
+        except (ValueError, ArithmeticError) as e:
             return _bad_request(str(e))
 
         def _do_write() -> dict[str, Any]:
@@ -431,7 +457,12 @@ async def api_journal_entries(request: Request) -> Response:
                 )
             screen_date = entry_date + dt.timedelta(days=1)
             with get_engine(Role.ro).connect() as conn:
-                return queries.query_journal(conn, days=60, date_str=screen_date.isoformat())
+                return queries.query_journal(
+                    conn,
+                    days=60,
+                    date_str=screen_date.isoformat(),
+                    can_write=True,
+                )
 
         data = await run_in_threadpool(_do_write)
         return JSONResponse(jsonable(data), headers={"Cache-Control": "no-store"})

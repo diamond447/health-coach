@@ -31,11 +31,10 @@ def test_views_are_empty_on_empty_db(owner: Engine, view: str) -> None:
 
 
 def test_downgrade_and_upgrade_again(owner: Engine) -> None:
-    from health_coach.db.admin import sync_roles, upgrade
+    from health_coach.db.admin import upgrade
 
     upgrade("base")
     upgrade("head")
-    sync_roles()
     with owner.connect() as conn:
         assert conn.execute(text("SELECT count(*) FROM v_daily")).scalar_one() == 0
 

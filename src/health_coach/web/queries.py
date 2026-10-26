@@ -1798,7 +1798,9 @@ def query_journal(
         )
 
     if can_write is None:
-        can_write = get_settings().web_journal_database_url is not None
+        can_write = get_settings().web_journal_database_url is not None and bool(
+            get_settings().web_allowed_users
+        )
 
     return {
         "date": target_date.isoformat(),

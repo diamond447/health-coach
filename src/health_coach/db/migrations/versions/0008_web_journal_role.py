@@ -40,15 +40,3 @@ def downgrade() -> None:
     op.execute("REVOKE USAGE ON SEQUENCE journal_entries_id_seq FROM web_journal;")
     op.execute("REVOKE ALL PRIVILEGES ON journal_entries FROM web_journal;")
     op.execute("REVOKE USAGE ON SCHEMA public FROM web_journal;")
-    op.execute(
-        """
-        DO $$
-        BEGIN
-            IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'web_journal') THEN
-                DROP OWNED BY web_journal;
-                DROP ROLE web_journal;
-            END IF;
-        END
-        $$;
-        """
-    )

@@ -8,6 +8,7 @@ export interface ApiResult<T> {
   asOf: string | null;
   isOffline: boolean;
   sessionExpired: boolean;
+  status?: number;
 }
 
 type Listener = () => void;
@@ -185,10 +186,11 @@ export async function apiSend<T>(
       method,
       headers,
       body: body !== undefined && body !== null ? JSON.stringify(body) : undefined,
+      redirect: "manual",
     });
 
-    // Check for session expiry: 401, 403, or redirect
-    if (res.status === 401 || res.status === 403 || res.redirected) {
+    // 1. Session expired on opaqueredirect, 401, or 403
+    if (res.type === "opaqueredirect" || res.status === 401 || res.status === 403) {
       apiState.setSessionExpired(true);
       return {
         data: null,
@@ -196,11 +198,26 @@ export async function apiSend<T>(
         asOf: null,
         isOffline: false,
         sessionExpired: true,
+        status: res.status,
       };
     }
 
+    // 2. Any 5xx: return error (save error line), never session banner
+    if (res.status >= 500) {
+      apiState.setOffline(false);
+      return {
+        data: null,
+        error: "Nepodařilo se uložit, zkus to znovu",
+        asOf: null,
+        isOffline: false,
+        sessionExpired: false,
+        status: res.status,
+      };
+    }
+
+    // 3. Non-JSON 2xx/3xx: session expired
     const contentType = res.headers.get("content-type") || "";
-    if (!contentType.includes("application/json")) {
+    if (res.status < 400 && !contentType.includes("application/json")) {
       apiState.setSessionExpired(true);
       return {
         data: null,
@@ -208,6 +225,7 @@ export async function apiSend<T>(
         asOf: null,
         isOffline: false,
         sessionExpired: true,
+        status: res.status,
       };
     }
 
@@ -219,6 +237,7 @@ export async function apiSend<T>(
         asOf: null,
         isOffline: false,
         sessionExpired: false,
+        status: res.status,
       };
     }
 
@@ -231,9 +250,10 @@ export async function apiSend<T>(
       asOf: json.as_of || null,
       isOffline: false,
       sessionExpired: false,
+      status: res.status,
     };
   } catch (_err: unknown) {
-    // Network failure or offline
+    // Network failure or offline -> return error, never session banner
     apiState.setOffline(true);
     return {
       data: null,

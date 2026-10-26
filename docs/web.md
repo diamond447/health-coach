@@ -145,13 +145,20 @@ The write exception adheres to strict defense-in-depth principles:
 - **CSRF Protection**:
   - `Content-Type: application/json` is required for `PUT` requests (rejects `text/plain` or form submissions).
   - The `Origin` header (or `Referer` if `Origin` is omitted) must match the request's own host
-    (`Host` or `X-Forwarded-Host`); mismatches return `403 Forbidden`.
+    (`Host` or `X-Forwarded-Host`) and scheme (from `X-Forwarded-Proto` or request URL); mismatches return `403 Forbidden`.
   - Both `PUT` and `DELETE` require the custom header `X-Healthstats: 1`.
+- **User Authentication Requirement**: Write routes strictly require `HC_WEB_ALLOWED_USERS` to be
+  configured and non-empty. In unauthenticated dev mode (empty allowed users), write routes return `403 Forbidden`.
+- **Validation and Size Limits**:
+  - Request body is streamed and stopped after 2048 bytes with `400 Bad Request` (handles chunked bodies).
+  - Amount must be a finite number between 0 and 9999.99 with at most 2 decimal places (strings and non-finite values rejected).
+  - Notes are limited to 200 characters of plain text with no control characters (including `\x00` and newlines).
 - **Method Restrictions**: Only `/api/journal/entries` accepts non-GET methods. All other API
   routes remain strictly GET-only (returning `405 Method Not Allowed` on mutations).
 - **Graceful Degradation**: If `HC_WEB_JOURNAL_DATABASE_URL` is unset, write attempts return
-  `503 Service Unavailable` (`{"error": "journal_writes_disabled"}`) and `GET /api/journal` reports
-  `"can_write": false`, hiding interactive controls in the UI.
+  `503 Service Unavailable` (`{"error": "journal_writes_disabled"}`). `GET /api/journal` reports
+  `"can_write": false` whenever the write database URL is unset or `HC_WEB_ALLOWED_USERS` is empty,
+  hiding interactive controls in the UI.
 - **Service Worker**: The PWA service worker never caches or intercepts `PUT` or `DELETE` requests.
 
 ### Public Paths (Bypassing Auth)

@@ -276,4 +276,181 @@ describe("JournalScreen interactive writing", () => {
     const pressedButtons = root.querySelectorAll('button[aria-pressed]');
     expect(pressedButtons.length).toBe(0);
   });
+
+  it("+ then toggle off quickly ends inactive", async () => {
+    vi.spyOn(api, "apiFetch").mockResolvedValue({
+      data: baseJournal,
+      error: null,
+      asOf: null,
+      isOffline: false,
+      sessionExpired: false,
+    });
+    const apiSendSpy = vi.spyOn(api, "apiSend").mockResolvedValue({
+      data: { deleted: true },
+      error: null,
+      asOf: null,
+      isOffline: false,
+      sessionExpired: false,
+    });
+
+    await act(async () => {
+      render(<JournalScreen date="2026-10-25" />, root);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const incBtn = root.querySelector('button[aria-label="Zvýšit Alkohol"]') as HTMLButtonElement;
+    expect(incBtn).not.toBeNull();
+
+    const alcoholToggleBtn = Array.from(root.querySelectorAll("button")).find(
+      (b) => b.textContent === "Alkohol"
+    );
+    expect(alcoholToggleBtn).not.toBeNull();
+
+    // 1. Step +
+    await act(async () => {
+      incBtn.click();
+    });
+    // 2. Quickly toggle off before debounce fires
+    await act(async () => {
+      alcoholToggleBtn?.click();
+    });
+
+    // Advance any remaining timers
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    // Stepper PUT was cancelled; only DELETE was dispatched
+    expect(apiSendSpy).toHaveBeenCalledWith(
+      "DELETE",
+      "/api/journal/entries?date=2026-10-24&behavior=alcohol"
+    );
+    expect(apiSendSpy).not.toHaveBeenCalledWith(
+      "PUT",
+      "/api/journal/entries",
+      expect.objectContaining({ behavior: "alcohol" })
+    );
+
+    // Alcohol chip ends up inactive
+    const finalAlcoholBtn = Array.from(root.querySelectorAll("button")).find(
+      (b) => b.textContent === "Alkohol"
+    );
+    expect(finalAlcoholBtn?.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("failure of one behaviour does not undo another", async () => {
+    vi.spyOn(api, "apiFetch").mockResolvedValue({
+      data: baseJournal,
+      error: null,
+      asOf: null,
+      isOffline: false,
+      sessionExpired: false,
+    });
+    vi.spyOn(api, "apiSend").mockImplementation(async (method, path) => {
+      if (method === "DELETE" && path.includes("behavior=sauna")) {
+        return {
+          data: { deleted: true },
+          error: null,
+          asOf: null,
+          isOffline: false,
+          sessionExpired: false,
+        };
+      }
+      if (method === "DELETE" && path.includes("behavior=alcohol")) {
+        return {
+          data: null,
+          error: "Nepodařilo se uložit, zkus to znovu",
+          asOf: null,
+          isOffline: false,
+          sessionExpired: false,
+        };
+      }
+      return {
+        data: null,
+        error: "Unknown",
+        asOf: null,
+        isOffline: false,
+        sessionExpired: false,
+      };
+    });
+
+    await act(async () => {
+      render(<JournalScreen date="2026-10-25" />, root);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Toggle off sauna (succeeds)
+    const saunaBtn = Array.from(root.querySelectorAll("button")).find(
+      (b) => b.textContent === "Sauna"
+    );
+    await act(async () => {
+      saunaBtn?.click();
+    });
+    expect(saunaBtn?.getAttribute("aria-pressed")).toBe("false");
+
+    // Toggle off alcohol (fails)
+    const alcoholBtn = Array.from(root.querySelectorAll("button")).find(
+      (b) => b.textContent === "Alkohol"
+    );
+    await act(async () => {
+      alcoholBtn?.click();
+    });
+
+    // Alcohol should roll back to active
+    expect(root.textContent).toContain("Nepodařilo se uložit, zkus to znovu");
+    const alcoholAfterRollback = Array.from(root.querySelectorAll("button")).find(
+      (b) => b.textContent === "Alkohol"
+    );
+    expect(alcoholAfterRollback).not.toBeNull();
+    // Stepper still visible for alcohol
+    expect(root.querySelector('button[aria-label="Zvýšit Alkohol"]')).not.toBeNull();
+
+    // Sauna is STILL inactive and was NOT undone!
+    const saunaAfter = Array.from(root.querySelectorAll("button")).find(
+      (b) => b.textContent === "Sauna"
+    );
+    expect(saunaAfter?.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("DELETE that returns 404 counts as success in UI", async () => {
+    vi.spyOn(api, "apiFetch").mockResolvedValue({
+      data: baseJournal,
+      error: null,
+      asOf: null,
+      isOffline: false,
+      sessionExpired: false,
+    });
+    vi.spyOn(api, "apiSend").mockResolvedValue({
+      data: null,
+      error: "Nepodařilo se uložit, zkus to znovu",
+      status: 404,
+      asOf: null,
+      isOffline: false,
+      sessionExpired: false,
+    });
+
+    await act(async () => {
+      render(<JournalScreen date="2026-10-25" />, root);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const saunaBtn = Array.from(root.querySelectorAll("button")).find(
+      (b) => b.textContent === "Sauna"
+    );
+    expect(saunaBtn?.getAttribute("aria-pressed")).toBe("true");
+
+    await act(async () => {
+      saunaBtn?.click();
+    });
+
+    // 404 treated as success: no error line, sauna marked inactive
+    expect(root.textContent).not.toContain("Nepodařilo se uložit, zkus to znovu");
+    expect(saunaBtn?.getAttribute("aria-pressed")).toBe("false");
+  });
 });
