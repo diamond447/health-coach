@@ -1,0 +1,952 @@
+{
+  "date": "2026-10-25",
+  "days": 30,
+  "hrv": {
+    "current": 52.0,
+    "avg": 54.0,
+    "band": [
+      46.1,
+      58.6
+    ],
+    "series": [
+      {
+        "date": "2026-09-26",
+        "val": 56.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-09-27",
+        "val": 55.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-09-28",
+        "val": 54.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-09-29",
+        "val": 53.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-09-30",
+        "val": 52.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-01",
+        "val": 56.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-02",
+        "val": 55.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-03",
+        "val": 54.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-04",
+        "val": 53.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-05",
+        "val": 52.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-06",
+        "val": 56.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-07",
+        "val": 55.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-08",
+        "val": 54.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-09",
+        "val": 53.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-10",
+        "val": 52.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-11",
+        "val": 56.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-12",
+        "val": 55.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-13",
+        "val": 54.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-14",
+        "val": 53.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-15",
+        "val": 52.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-16",
+        "val": 56.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-17",
+        "val": 55.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-18",
+        "val": 54.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-19",
+        "val": 53.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-20",
+        "val": 52.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-21",
+        "val": 56.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-22",
+        "val": 55.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-23",
+        "val": 54.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-24",
+        "val": 53.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      },
+      {
+        "date": "2026-10-25",
+        "val": 52.0,
+        "band_lo": 46.1,
+        "band_hi": 58.6
+      }
+    ]
+  },
+  "rhr": {
+    "current": 55.0,
+    "avg": 56.0,
+    "band": [
+      51.5,
+      56.5
+    ],
+    "series": [
+      {
+        "date": "2026-09-26",
+        "val": 57.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-09-27",
+        "val": 56.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-09-28",
+        "val": 55.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-09-29",
+        "val": 57.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-09-30",
+        "val": 56.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-01",
+        "val": 55.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-02",
+        "val": 57.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-03",
+        "val": 56.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-04",
+        "val": 55.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-05",
+        "val": 57.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-06",
+        "val": 56.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-07",
+        "val": 55.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-08",
+        "val": 57.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-09",
+        "val": 56.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-10",
+        "val": 55.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-11",
+        "val": 57.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-12",
+        "val": 56.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-13",
+        "val": 55.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-14",
+        "val": 57.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-15",
+        "val": 56.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-16",
+        "val": 55.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-17",
+        "val": 57.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-18",
+        "val": 56.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-19",
+        "val": 55.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-20",
+        "val": 57.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-21",
+        "val": 56.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-22",
+        "val": 55.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-23",
+        "val": 57.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-24",
+        "val": 56.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      },
+      {
+        "date": "2026-10-25",
+        "val": 55.0,
+        "band_lo": 51.5,
+        "band_hi": 56.5
+      }
+    ]
+  },
+  "spo2": {
+    "current": 96.0,
+    "avg": 96.0,
+    "band": null,
+    "series": [
+      {
+        "date": "2026-09-26",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-09-27",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-09-28",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-09-29",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-09-30",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-01",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-02",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-03",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-04",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-05",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-06",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-07",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-08",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-09",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-10",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-11",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-12",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-13",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-14",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-15",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-16",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-17",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-18",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-19",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-20",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-21",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-22",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-23",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-24",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      },
+      {
+        "date": "2026-10-25",
+        "val": 96.0,
+        "band_lo": null,
+        "band_hi": null
+      }
+    ]
+  },
+  "breathing": {
+    "current": 14.1,
+    "avg": 14.1,
+    "band": [
+      13.5,
+      14.5
+    ],
+    "series": [
+      {
+        "date": "2026-09-26",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-09-27",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-09-28",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-09-29",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-09-30",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-01",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-02",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-03",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-04",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-05",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-06",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-07",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-08",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-09",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-10",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-11",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-12",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-13",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-14",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-15",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-16",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-17",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-18",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-19",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-20",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-21",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-22",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-23",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-24",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      },
+      {
+        "date": "2026-10-25",
+        "val": 14.1,
+        "band_lo": 13.5,
+        "band_hi": 14.5
+      }
+    ]
+  },
+  "skin_temp": {
+    "current": 0.2,
+    "avg": 0.2,
+    "band": [
+      -0.2,
+      0.2
+    ],
+    "series": [
+      {
+        "date": "2026-09-26",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-09-27",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-09-28",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-09-29",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-09-30",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-01",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-02",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-03",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-04",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-05",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-06",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-07",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-08",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-09",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-10",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-11",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-12",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-13",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-14",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-15",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-16",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-17",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-18",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-19",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-20",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-21",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-22",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-23",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-24",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      },
+      {
+        "date": "2026-10-25",
+        "val": 0.2,
+        "band_lo": -0.2,
+        "band_hi": 0.2
+      }
+    ]
+  },
+  "as_of": "2026-10-25T12:00+01:00"
+}

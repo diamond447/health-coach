@@ -84,6 +84,66 @@ export interface RecoveryResponse {
     band_lo: number | null;
     band_hi: number | null;
   }[];
+  sleep_series: {
+    date: string;
+    val: number | null;
+    band_lo: number | null;
+    band_hi: number | null;
+  }[];
+  breathing_series: {
+    date: string;
+    val: number | null;
+    band_lo: number | null;
+    band_hi: number | null;
+  }[];
+  skin_temp_series: {
+    date: string;
+    val: number | null;
+    band_lo: number | null;
+    band_hi: number | null;
+  }[];
+  as_of: string | null;
+}
+
+export interface ActivityResponse {
+  date: string;
+  days: number;
+  steps: {
+    avg: number | null;
+    target: number | null;
+    series: { date: string; val: number | null }[];
+  };
+  active_minutes: {
+    avg: number | null;
+    series: { date: string; val: number | null }[];
+  };
+  calories_out: {
+    avg: number | null;
+    series: { date: string; val: number | null }[];
+  };
+  as_of: string | null;
+}
+
+export interface NightMetric {
+  current: number | null;
+  avg: number | null;
+  band: [number, number] | null;
+  series: {
+    date: string;
+    val: number | null;
+    band_lo: number | null;
+    band_hi: number | null;
+  }[];
+}
+
+export interface NightResponse {
+  date: string;
+  days: number;
+  hrv: NightMetric;
+  rhr: NightMetric;
+  spo2: NightMetric;
+  breathing: NightMetric;
+  skin_temp: NightMetric;
   as_of: string | null;
 }
 

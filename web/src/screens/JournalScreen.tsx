@@ -31,14 +31,13 @@ export function JournalScreen({ date }: JournalScreenProps) {
     loadData();
   }, [date]);
 
-  const query = date ? `?date=${encodeURIComponent(date)}` : "";
   const yesterdayFormatted = data?.yesterday_date ? formatDateCzech(data.yesterday_date) : "";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
       <Header
         title="Deník · vliv na recovery"
-        backHref={`/trendy${query}`}
+        backHref="/trendy"
         backLabel="Zpět na Trendy"
         asOf={data?.as_of}
         onRefresh={() => loadData(true)}
