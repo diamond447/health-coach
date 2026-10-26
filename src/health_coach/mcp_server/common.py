@@ -50,7 +50,7 @@ def jsonable(value: Any) -> Any:
     if value is None or isinstance(value, bool | int | str):
         return value
     if isinstance(value, float):
-        return round(value, 3)
+        return round(value, 8) if 0 < abs(value) < 0.001 else round(value, 3)
     if isinstance(value, Decimal):
         return int(value) if value == value.to_integral_value() else float(value)
     if isinstance(value, dt.datetime):

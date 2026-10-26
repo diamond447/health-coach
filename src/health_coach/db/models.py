@@ -257,6 +257,7 @@ class Food(Timestamps, Base):
     source: Mapped[FoodSource] = mapped_column(_enum(FoodSource, "food_source"))
     external_id: Mapped[str | None] = mapped_column(Text)
     deleted_at: Mapped[dt.datetime | None]
+    micros_100g: Mapped[dict[str, float] | None] = mapped_column(JSONB)
 
 
 class Meal(enum.StrEnum):
@@ -300,6 +301,7 @@ class NutritionEntry(Timestamps, Base):
     confidence: Mapped[Confidence] = mapped_column(_enum(Confidence, "confidence"))
     source: Mapped[str] = mapped_column(Text, server_default="chat")
     deleted_at: Mapped[dt.datetime | None]
+    micros: Mapped[dict[str, float] | None] = mapped_column(JSONB)
 
 
 class Checkin(Timestamps, Base):

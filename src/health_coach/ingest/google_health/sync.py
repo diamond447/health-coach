@@ -20,6 +20,7 @@ from health_coach.config import get_settings
 from health_coach.ingest import state
 from health_coach.ingest.google_health.client import Fetcher
 from health_coach.ingest.google_health.datatypes import DATA_TYPES, DataTypeSpec
+from health_coach.nutrients import GH_EXCLUDED_NUTRIENTS, GH_NUTRIENT_MAP
 
 log = logging.getLogger(__name__)
 
@@ -918,6 +919,7 @@ def _map_nutrition_log(
         fat = Decimal(str(round(nl.get("totalFat", {}).get("grams", 0), 1)))
         protein = Decimal("0.0")
         fiber = None
+        micros: dict[str, float] = {}
         for n in nl.get("nutrients", []):
             nutr = n.get("nutrient")
             q_g = n.get("quantity", {}).get("grams", 0)
@@ -925,6 +927,18 @@ def _map_nutrition_log(
                 protein = Decimal(str(round(q_g, 1)))
             elif nutr == "DIETARY_FIBER":
                 fiber = Decimal(str(round(q_g, 1)))
+            elif nutr in GH_EXCLUDED_NUTRIENTS:
+                continue
+            elif nutr in GH_NUTRIENT_MAP:
+                k = GH_NUTRIENT_MAP[nutr]
+                try:
+                    q_f = float(q_g)
+                except (ValueError, TypeError):
+                    continue
+                if q_f > 0:
+                    # FOLATE and FOLIC_ACID both map to folate and one may already
+                    # include the other: keep the larger value instead of adding them.
+                    micros[k] = round(max(micros.get(k, 0.0), q_f), 8)
 
         serving = nl.get("serving", {})
         grams: Decimal | None = None
@@ -933,6 +947,14 @@ def _map_nutrition_log(
             unit = str(serving.get("foodMeasurementUnitDisplayName", "")).lower()
             if unit in ("g", "gram", "grams") and amt is not None:
                 grams = Decimal(str(round(amt, 1)))
+
+        food_micros_100g: dict[str, float] | None = None
+        if micros:
+            if grams and grams > 0:
+                m_ratio = 100.0 / float(grams)
+                food_micros_100g = {k: round(v * m_ratio, 8) for k, v in micros.items()}
+            else:
+                food_micros_100g = dict(micros)
 
         food_id = None
         food_ref = nl.get("food")
@@ -951,6 +973,14 @@ def _map_nutrition_log(
             ).scalar()
             if existing is not None:
                 food_id = existing
+                if food_micros_100g:
+                    conn.execute(
+                        text(
+                            "UPDATE foods SET micros_100g = CAST(:micros_100g AS jsonb) "
+                            "WHERE id = :id AND micros_100g IS NULL"
+                        ),
+                        {"micros_100g": json.dumps(food_micros_100g), "id": food_id},
+                    )
             else:
                 food_name = (
                     food_obj.get("displayName") if isinstance(food_obj, dict) else None
@@ -969,9 +999,10 @@ def _map_nutrition_log(
                 food_id = conn.execute(
                     text(
                         "INSERT INTO foods (name, brand, kcal_100g, protein_100g, carbs_100g, "
-                        "fat_100g, fiber_100g, default_serving_g, source, external_id) "
+                        "fat_100g, fiber_100g, default_serving_g, source, external_id, "
+                        "micros_100g) "
                         "VALUES (:name, :brand, :k100, :p100, :c100, :f100, :fib100, "
-                        ":def_serving, 'google_health', :ext_id) "
+                        ":def_serving, 'google_health', :ext_id, CAST(:micros_100g AS jsonb)) "
                         "RETURNING id"
                     ),
                     {
@@ -984,6 +1015,7 @@ def _map_nutrition_log(
                         "fib100": fib100,
                         "def_serving": def_serving,
                         "ext_id": food_ext_id,
+                        "micros_100g": json.dumps(food_micros_100g) if food_micros_100g else None,
                     },
                 ).scalar_one()
 
@@ -991,11 +1023,13 @@ def _map_nutrition_log(
             text(
                 "INSERT INTO nutrition_entries ("
                 "    source, external_id, ts, local_date, meal, food_id, description,"
-                "    grams, kcal, protein_g, carbs_g, fat_g, fiber_g, confidence, deleted_at"
+                "    grams, kcal, protein_g, carbs_g, fat_g, fiber_g, confidence, "
+                "    deleted_at, micros"
                 ") "
                 "VALUES ("
                 "    :source, :external_id, :ts, :local_date, :meal, :food_id, :description,"
-                "    :grams, :kcal, :protein_g, :carbs_g, :fat_g, :fiber_g, 'exact', NULL"
+                "    :grams, :kcal, :protein_g, :carbs_g, :fat_g, :fiber_g, 'exact', "
+                "    NULL, CAST(:micros AS jsonb)"
                 ") "
                 "ON CONFLICT (source, external_id) DO UPDATE SET "
                 "    ts = EXCLUDED.ts,"
@@ -1010,6 +1044,7 @@ def _map_nutrition_log(
                 "    fat_g = EXCLUDED.fat_g,"
                 "    fiber_g = EXCLUDED.fiber_g,"
                 "    confidence = EXCLUDED.confidence,"
+                "    micros = EXCLUDED.micros,"
                 "    deleted_at = NULL,"
                 "    updated_at = now()"
             ),
@@ -1027,6 +1062,7 @@ def _map_nutrition_log(
                 "carbs_g": carbs,
                 "fat_g": fat,
                 "fiber_g": fiber,
+                "micros": json.dumps(micros) if micros else None,
             },
         )
         count += 1

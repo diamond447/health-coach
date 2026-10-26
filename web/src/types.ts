@@ -303,7 +303,25 @@ export interface NutritionResponse {
     protein_hit: boolean;
   }[];
   protein_hits_days: number;
+  micros: Micronutrient[];
+  micros_coverage: MicronutrientCoverage;
   as_of: string | null;
+}
+
+export interface Micronutrient {
+  key: string;
+  name: string;
+  group: "minerály" | "vitamíny" | "ostatní";
+  unit: string;
+  amount: number;
+  reference: number | null;
+  kind: "target" | "limit" | null;
+  pct: number | null;
+}
+
+export interface MicronutrientCoverage {
+  entries_with: number;
+  entries_total: number;
 }
 
 export interface TrendsResponse {

@@ -22,6 +22,7 @@ from health_coach.journal import BEHAVIOR_LABELS, JOURNAL_OPTIONS
 from health_coach.mcp_server import quality
 from health_coach.mcp_server.common import jsonable, today
 from health_coach.mcp_server.tools.discovery import current_targets
+from health_coach.nutrients import format_micros_summary
 from health_coach.profile import load_profile
 
 CZECH_WEEKDAYS = ["po", "út", "st", "čt", "pá", "so", "ne"]
@@ -1223,7 +1224,7 @@ def query_nutrition(conn: Connection, date_str: str | None = None) -> dict[str, 
         conn.execute(
             text(
                 "SELECT id, meal, description AS name, grams, kcal, "
-                "       protein_g, carbs_g, fat_g, fiber_g, ts AS logged_at "
+                "       protein_g, carbs_g, fat_g, fiber_g, ts AS logged_at, micros "
                 "FROM nutrition_entries WHERE local_date = :d AND deleted_at IS NULL "
                 "ORDER BY ts ASC, id ASC"
             ),
@@ -1235,8 +1236,23 @@ def query_nutrition(conn: Connection, date_str: str | None = None) -> dict[str, 
 
     meals_dict: dict[str, dict[str, Any]] = {}
     last_logged_time: str | None = None
+    entries_total = len(meal_entries)
+    entries_with = 0
+    total_micros: dict[str, float] = {}
 
     for m in meal_entries:
+        m_micros = m["micros"]
+        has_positive = (
+            m_micros
+            and isinstance(m_micros, dict)
+            and any(v and float(v) > 0 for v in m_micros.values())
+        )
+        if has_positive:
+            entries_with += 1
+            for k, v in m_micros.items():
+                if v and float(v) > 0:
+                    total_micros[k] = total_micros.get(k, 0.0) + float(v)
+
         m_key = m["meal"] or "other"
         if m_key not in meals_dict:
             meals_dict[m_key] = {
@@ -1267,6 +1283,11 @@ def query_nutrition(conn: Connection, date_str: str | None = None) -> dict[str, 
         )
 
     meals_list = list(meals_dict.values())
+    micros_list = format_micros_summary(total_micros)
+    micros_coverage = {
+        "entries_with": entries_with,
+        "entries_total": entries_total,
+    }
 
     # TDEE estimate (14 days window)
     tdee_res, _, _ = estimate_from_db(conn, target_date, window_days=14)
@@ -1385,6 +1406,8 @@ def query_nutrition(conn: Connection, date_str: str | None = None) -> dict[str, 
         },
         "week": week_list,
         "protein_hits_days": protein_hits,
+        "micros": micros_list,
+        "micros_coverage": micros_coverage,
         "as_of": quality.as_of(conn),
     }
 

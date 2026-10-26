@@ -179,14 +179,36 @@ def _seed_test_data(conn: Any, day: dt.date) -> None:
         conn.execute(
             text(
                 "INSERT INTO nutrition_entries (local_date, meal, description, grams, "
-                "kcal, protein_g, carbs_g, fat_g, fiber_g, ts, confidence, source) VALUES "
+                "kcal, protein_g, carbs_g, fat_g, fiber_g, ts, confidence, source, micros) VALUES "
                 "(:d, 'breakfast', 'Ovesná kaše', 100, 520, 24.0, 70.0, 12.0, "
-                " 8.0, :ts, 'exact', 'manual'), "
+                " 8.0, :ts, 'exact', 'manual', CAST(:micros_bf AS jsonb)), "
                 "(:d, 'lunch', 'Kuřecí rizoto', 350, 760, 42.0, 85.0, 18.0, "
-                " 5.0, :ts, 'exact', 'manual') "
+                " 5.0, :ts, 'exact', 'manual', CAST(:micros_lu AS jsonb)) "
                 "ON CONFLICT DO NOTHING"
             ),
-            {"d": d, "ts": dt.datetime.combine(d, dt.time(8, 0), PRAGUE)},
+            {
+                "d": d,
+                "ts": dt.datetime.combine(d, dt.time(8, 0), PRAGUE),
+                "micros_bf": json.dumps(
+                    {
+                        "magnesium": 0.06,
+                        "iron": 0.002,
+                        "thiamin": 0.0003,
+                        "sugar": 4.0,
+                    }
+                ),
+                "micros_lu": json.dumps(
+                    {
+                        "sodium": 0.75,
+                        "potassium": 0.6,
+                        "calcium": 0.15,
+                        "zinc": 0.003,
+                        "vitamin_c": 0.025,
+                        "vitamin_b12": 0.0000018,
+                        "saturated_fat": 3.8,
+                    }
+                ),
+            },
         )
 
     # 3. Heart rate samples for intraday chart
@@ -369,6 +391,9 @@ def test_web_endpoints(migrated_db: str, owner: Engine) -> None:
     assert len(data["macros"]) == 4
     assert len(data["meals"]) > 0
     assert "energy_balance" in data
+    assert len(data["micros"]) > 0
+    assert data["micros_coverage"]["entries_with"] == 2
+    assert data["micros_coverage"]["entries_total"] == 2
 
     # 7. /api/trends
     res = client.get(f"/api/trends?date={today_d.isoformat()}&days=30")

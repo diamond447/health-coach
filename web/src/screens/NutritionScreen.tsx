@@ -378,6 +378,138 @@ export function NutritionScreen({ date, onDateChange }: NutritionScreenProps) {
               </div>
             </div>
           )}
+
+          {/* Vitamíny a minerály card */}
+          <div
+            style={{
+              background: "#16191E",
+              borderRadius: "16px",
+              padding: "16px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }}
+          >
+            <div style={{ fontSize: "15px", fontWeight: 700 }}>Vitamíny a minerály</div>
+
+            {!data.micros || data.micros.length === 0 ? (
+              <div style={{ fontSize: "13px", color: "#9BA3AF", lineHeight: 1.5 }}>
+                Zatím žádná data o vitamínech a minerálech. Doplní se z Google Health u potravin, které je mají.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {(
+                  [
+                    { key: "minerály", label: "Minerály" },
+                    { key: "vitamíny", label: "Vitamíny" },
+                    { key: "ostatní", label: "Ostatní" },
+                  ] as const
+                ).map((grp) => {
+                  const grpMicros = data.micros.filter((m) => m.group === grp.key);
+                  if (grpMicros.length === 0) return null;
+
+                  return (
+                    <div key={grp.key} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          color: "#9BA3AF",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                        }}
+                      >
+                        <span>{grp.label}</span>
+                        <span style={{ fontSize: "11px", fontWeight: 500, textTransform: "none" }}>% DRH</span>
+                      </div>
+
+                      {grpMicros.map((m) => {
+                        const hasRef = m.reference !== null && m.pct !== null;
+                        let barColor = "#5A6270";
+                        if (hasRef) {
+                          if (m.kind === "target") {
+                            barColor = m.pct! >= 100 ? foodColor() : "#5A6270";
+                          } else if (m.kind === "limit") {
+                            barColor = m.pct! > 100 ? "#EF4444" : "#5A6270";
+                          }
+                        }
+
+                        const barWidth = hasRef ? Math.min(100, Math.max(0, m.pct!)) : 0;
+
+                        return (
+                          <div
+                            key={m.key}
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "minmax(100px, 1fr) auto 70px 44px",
+                              alignItems: "center",
+                              gap: "8px",
+                              fontSize: "13px",
+                            }}
+                          >
+                            <span style={{ color: "#F0F2F5", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {m.name}
+                            </span>
+                            <span style={{ color: "#9BA3AF", textAlign: "right", whiteSpace: "nowrap" }}>
+                              <span style={{ color: "#F0F2F5", fontWeight: 600 }}>
+                                {m.amount < 1 && m.amount % 1 !== 0
+                                  ? formatDecimal(m.amount, 2)
+                                  : m.amount < 10 && m.amount % 1 !== 0
+                                  ? formatDecimal(m.amount, 1)
+                                  : formatNumber(m.amount)}
+                              </span>{" "}
+                              {m.unit}
+                            </span>
+                            <div
+                              style={{
+                                height: "6px",
+                                borderRadius: "3px",
+                                background: "#23272E",
+                                overflow: "hidden",
+                              }}
+                            >
+                              {hasRef && (
+                                <div
+                                  style={{
+                                    width: `${barWidth}%`,
+                                    height: "100%",
+                                    borderRadius: "3px",
+                                    background: barColor,
+                                  }}
+                                />
+                              )}
+                            </div>
+                            <span
+                              style={{
+                                textAlign: "right",
+                                fontSize: "12px",
+                                color:
+                                  hasRef && m.kind === "limit" && m.pct! > 100
+                                    ? "#EF4444"
+                                    : hasRef && m.kind === "target" && m.pct! >= 100
+                                    ? foodColor()
+                                    : "#9BA3AF",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {hasRef ? `${m.pct} %` : "–"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div style={{ fontSize: "12px", color: "#9BA3AF", padding: "0 4px" }}>
+            Data z {data.micros_coverage?.entries_with ?? 0} z {data.micros_coverage?.entries_total ?? 0} záznamů · DRH = denní referenční hodnota EU
+          </div>
         </>
       )}
     </div>
