@@ -1,0 +1,128 @@
+{
+  "date": "2026-10-25",
+  "kcal": 1280,
+  "target_kcal": 2400,
+  "remaining_kcal": 1120,
+  "phase": "cut",
+  "weekly_rate_target_kg": -0.5,
+  "macros": [
+    {
+      "name": "Bílkoviny",
+      "val": 66.0,
+      "target": 160.0,
+      "unit": "g",
+      "color": "#FF8A65"
+    },
+    {
+      "name": "Sacharidy",
+      "val": 155.0,
+      "target": 260.0,
+      "unit": "g",
+      "color": "#F5C542"
+    },
+    {
+      "name": "Tuky",
+      "val": 30.0,
+      "target": 75.0,
+      "unit": "g",
+      "color": "#4D9BE8"
+    },
+    {
+      "name": "Vláknina",
+      "val": 13.0,
+      "target": null,
+      "unit": "g",
+      "color": "#5FE39E"
+    }
+  ],
+  "meals": [
+    {
+      "key": "breakfast",
+      "name": "Snídaně",
+      "time": "08:00",
+      "kcal": 520,
+      "items": [
+        {
+          "name": "Ovesná kaše",
+          "protein_g": 24.0,
+          "carbs_g": 70.0,
+          "fat_g": 12.0,
+          "fiber_g": 8.0,
+          "kcal": 520
+        }
+      ]
+    },
+    {
+      "key": "lunch",
+      "name": "Oběd",
+      "time": "08:00",
+      "kcal": 760,
+      "items": [
+        {
+          "name": "Kuřecí rizoto",
+          "protein_g": 42.0,
+          "carbs_g": 85.0,
+          "fat_g": 18.0,
+          "fiber_g": 5.0,
+          "kcal": 760
+        }
+      ]
+    }
+  ],
+  "meals_count": 2,
+  "last_logged_time": "08:00",
+  "energy_balance": {
+    "intake": 1280,
+    "tdee": 1000,
+    "balance": 280,
+    "mean_14_balance": 280,
+    "expected_weekly_change": 0.25,
+    "actual_weekly_change": 0.26
+  },
+  "week": [
+    {
+      "date": "2026-10-19",
+      "weekday": "po",
+      "kcal": 1280.0,
+      "protein_hit": false
+    },
+    {
+      "date": "2026-10-20",
+      "weekday": "út",
+      "kcal": 1280.0,
+      "protein_hit": false
+    },
+    {
+      "date": "2026-10-21",
+      "weekday": "st",
+      "kcal": 1280.0,
+      "protein_hit": false
+    },
+    {
+      "date": "2026-10-22",
+      "weekday": "čt",
+      "kcal": 1280.0,
+      "protein_hit": false
+    },
+    {
+      "date": "2026-10-23",
+      "weekday": "pá",
+      "kcal": 1280.0,
+      "protein_hit": false
+    },
+    {
+      "date": "2026-10-24",
+      "weekday": "so",
+      "kcal": 1280.0,
+      "protein_hit": false
+    },
+    {
+      "date": "2026-10-25",
+      "weekday": "ne",
+      "kcal": 1280.0,
+      "protein_hit": false
+    }
+  ],
+  "protein_hits_days": 0,
+  "as_of": "2026-10-25T12:00+01:00"
+}

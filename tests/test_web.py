@@ -2,6 +2,8 @@
 
 import datetime as dt
 import json
+import os
+from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -139,11 +141,14 @@ def _seed_test_data(conn: Any, day: dt.date) -> None:
                 "acts": json.dumps(
                     [
                         {
-                            "type": "strength",
-                            "name": "Posilování · Push",
+                            "kind": "strength",
+                            "name": "Push",
+                            "start": dt.datetime.combine(d, dt.time(7, 10), PRAGUE).isoformat(),
+                            "end": dt.datetime.combine(d, dt.time(8, 12), PRAGUE).isoformat(),
+                            "avg_hr": 118,
+                            "max_hr": 152,
+                            "load": 40.0,
                             "strain": 6.1,
-                            "hard_sets": 18,
-                            "volume_kg": 6840.0,
                         }
                     ]
                 ),
@@ -230,16 +235,37 @@ def _seed_test_data(conn: Any, day: dt.date) -> None:
         {"sid": st_id},
     )
 
-    # 6. Journal entries
+    conn.execute(
+        text(
+            "INSERT INTO exercise_sessions (external_id, local_date, start_ts, end_ts, "
+            "activity_type, duration_min, avg_hr, max_hr, calories, distance_km, source) "
+            "VALUES ('run-1', :d, :st, :et, 'run', 32, 148, 171, 380, 5.2, 'google_health')"
+        ),
+        {
+            "d": day,
+            "st": dt.datetime.combine(day, dt.time(17, 30), PRAGUE),
+            "et": dt.datetime.combine(day, dt.time(18, 2), PRAGUE),
+        },
+    )
+
+    # 6. Journal entries: alcohol and late meals on alternate days (enough for
+    # insights), sauna only yesterday
     conn.execute(
         text(
             "INSERT INTO journal_entries (local_date, behavior, amount, note, source) VALUES "
-            "(:yd, 'alcohol', 2, '2 piva', 'chat'), "
             "(:yd, 'sauna', 1, 'sauna večer', 'chat') "
             "ON CONFLICT DO NOTHING"
         ),
         {"yd": day - dt.timedelta(days=1)},
     )
+    for i in range(1, 13):
+        conn.execute(
+            text(
+                "INSERT INTO journal_entries (local_date, behavior, amount, note, source) "
+                "VALUES (:d, :b, NULL, NULL, 'chat') ON CONFLICT DO NOTHING"
+            ),
+            {"d": day - dt.timedelta(days=i), "b": "alcohol" if i % 2 else "late_meal"},
+        )
 
     # 7. Coach log
     conn.execute(
@@ -479,20 +505,7 @@ def test_web_input_validation(migrated_db: str, owner: Engine) -> None:
     assert res.json()["error"] == "bad_request"
 
 
-def test_api_healthspan(migrated_db: str, owner: Engine) -> None:
-    engine = get_engine(Role.owner)
-    app = create_app(Settings())
-    client = TestClient(app)
-
-    # 1. Empty state
-    res = client.get("/api/healthspan")
-    assert res.status_code == 200
-    data = res.json()
-    assert data["has_enough_data"] is False
-    assert data["latest"] is None
-    assert data["history"] == []
-
-    # 2. Seed healthspan_weekly rows
+def _seed_healthspan(engine: Engine) -> None:
     week1 = dt.date(2026, 10, 19)
     factors_data = [
         {
@@ -599,6 +612,23 @@ def test_api_healthspan(migrated_db: str, owner: Engine) -> None:
                 {"w": w, "f": json.dumps(factors_data)},
             )
 
+
+def test_api_healthspan(migrated_db: str, owner: Engine) -> None:
+    engine = get_engine(Role.owner)
+    app = create_app(Settings())
+    client = TestClient(app)
+
+    # 1. Empty state
+    res = client.get("/api/healthspan")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["has_enough_data"] is False
+    assert data["latest"] is None
+    assert data["history"] == []
+
+    # 2. Seed healthspan_weekly rows
+    _seed_healthspan(engine)
+
     # 3. Successful fetch with data
     res = client.get("/api/healthspan")
     assert res.status_code == 200
@@ -617,3 +647,59 @@ def test_api_healthspan(migrated_db: str, owner: Engine) -> None:
     res = client.get("/api/healthspan?weeks=bad")
     assert res.status_code == 400
     assert res.json()["error"] == "bad_request"
+
+
+FIXTURES_DIR = Path(__file__).resolve().parents[1] / "web" / "src" / "fixtures" / "api"
+FIXTURE_ENDPOINTS = {
+    "day": "/api/day?date=2026-10-25",
+    "recovery": "/api/recovery?date=2026-10-25&days=30",
+    "sleep": "/api/sleep?date=2026-10-25",
+    "strain": "/api/strain?date=2026-10-25",
+    "nutrition": "/api/nutrition?date=2026-10-25",
+    "trends": "/api/trends?date=2026-10-25&days=30",
+    "calendar": "/api/calendar?month=2026-10",
+    "journal": "/api/journal?date=2026-10-25&days=60",
+    "report": "/api/report?period=week&end=2026-10-25",
+    "healthspan": "/api/healthspan",
+}
+
+
+def _shape(value: Any) -> Any:
+    """Reduce a JSON value to its structure: keys and value types, not the values."""
+    if isinstance(value, dict):
+        return {k: _shape(v) for k, v in sorted(value.items())}
+    if isinstance(value, list):
+        shapes = {json.dumps(_shape(v), sort_keys=True) for v in value}
+        return [json.loads(s) for s in sorted(shapes)]
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int | float):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    return "null"
+
+
+def test_api_fixtures_match_responses(migrated_db: str, owner: Engine) -> None:
+    """The frontend type-checks web/src/fixtures/api/*.json against its response types
+    (web/src/fixtures.ts), so the fixtures must have the shape the API really returns.
+    Regenerate them with HC_UPDATE_WEB_FIXTURES=1."""
+    with owner.begin() as conn:
+        _seed_test_data(conn, dt.date(2026, 10, 25))
+    _seed_healthspan(owner)
+    client = TestClient(create_app(Settings(web_allowed_users=[])))
+
+    update = os.environ.get("HC_UPDATE_WEB_FIXTURES") == "1"
+    stale = []
+    for name, url in FIXTURE_ENDPOINTS.items():
+        res = client.get(url)
+        assert res.status_code == 200, url
+        path = FIXTURES_DIR / f"{name}.json"
+        if update:
+            # as_of is the time of the test run; pin it so regenerating gives a clean diff.
+            sample = {**res.json(), "as_of": "2026-10-25T12:00+01:00"}
+            FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(sample, ensure_ascii=False, indent=2) + "\n")
+        elif not path.exists() or _shape(json.loads(path.read_text())) != _shape(res.json()):
+            stale.append(name)
+    assert not stale, f"stale fixtures {stale}: run HC_UPDATE_WEB_FIXTURES=1 uv run pytest"

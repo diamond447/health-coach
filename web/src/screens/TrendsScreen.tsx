@@ -399,15 +399,12 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
               aria-label="Trend váhy, 7denní průměr"
               style={{ width: "100%", height: "auto" }}
             >
-              {wtRawPts.points && (
-                <polyline
-                  points={wtRawPts.points}
-                  fill="none"
-                  stroke="#5C636D"
-                  strokeWidth="1"
-                  strokeLinejoin="round"
-                />
-              )}
+              {/* Single weigh-ins as dots: day-to-day water swings, not a trend */}
+              {wtRawPts.points &&
+                wtRawPts.points.split(" ").map((pt) => {
+                  const [cx, cy] = pt.split(",");
+                  return <circle key={pt} cx={cx} cy={cy} r="2" fill="#5C636D" />;
+                })}
               {wtAvgPts.points && (
                 <polyline
                   points={wtAvgPts.points}
@@ -418,6 +415,9 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
                 />
               )}
             </svg>
+            <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
+              Tečky = jednotlivá vážení (denně kolísají o vodu) · čára = 7denní průměr
+            </div>
           </div>
 
           {/* Calorie vs target trend */}

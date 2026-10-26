@@ -1,0 +1,610 @@
+{
+  "date": "2026-10-25",
+  "strain": 11.8,
+  "cardio_load": 74.0,
+  "muscular_load": 18.0,
+  "strain_target_low": 12.0,
+  "strain_target_high": 15.0,
+  "recovery": 74,
+  "rest_hr": 52,
+  "hr_max": 190,
+  "peak_hr": 95,
+  "zones": [
+    {
+      "name": "Zóna 1",
+      "min_hr": 121,
+      "max_hr": 135,
+      "color": "#7FA6C9",
+      "key": "Z1",
+      "minutes": 48
+    },
+    {
+      "name": "Zóna 2",
+      "min_hr": 135,
+      "max_hr": 149,
+      "color": "#4D9BE8",
+      "key": "Z2",
+      "minutes": 26
+    },
+    {
+      "name": "Zóna 3",
+      "min_hr": 149,
+      "max_hr": 162,
+      "color": "#3D7CF0",
+      "key": "Z3",
+      "minutes": 18
+    },
+    {
+      "name": "Zóna 4",
+      "min_hr": 162,
+      "max_hr": 176,
+      "color": "#FF9A4D",
+      "key": "Z4",
+      "minutes": 9
+    },
+    {
+      "name": "Zóna 5",
+      "min_hr": 176,
+      "max_hr": 190,
+      "color": "#FF5A5F",
+      "key": "Z5",
+      "minutes": 2
+    }
+  ],
+  "hr_points": [
+    {
+      "time": "00:00",
+      "minute": 0,
+      "bpm": 60
+    },
+    {
+      "time": "00:15",
+      "minute": 15,
+      "bpm": 75
+    },
+    {
+      "time": "00:30",
+      "minute": 30,
+      "bpm": 90
+    },
+    {
+      "time": "00:45",
+      "minute": 45,
+      "bpm": 65
+    },
+    {
+      "time": "01:00",
+      "minute": 60,
+      "bpm": 80
+    },
+    {
+      "time": "01:15",
+      "minute": 75,
+      "bpm": 95
+    },
+    {
+      "time": "01:30",
+      "minute": 90,
+      "bpm": 70
+    },
+    {
+      "time": "01:45",
+      "minute": 105,
+      "bpm": 85
+    },
+    {
+      "time": "02:00",
+      "minute": 120,
+      "bpm": 60
+    },
+    {
+      "time": "02:15",
+      "minute": 135,
+      "bpm": 75
+    },
+    {
+      "time": "02:30",
+      "minute": 150,
+      "bpm": 90
+    },
+    {
+      "time": "02:45",
+      "minute": 165,
+      "bpm": 65
+    },
+    {
+      "time": "03:00",
+      "minute": 180,
+      "bpm": 80
+    },
+    {
+      "time": "03:15",
+      "minute": 195,
+      "bpm": 95
+    },
+    {
+      "time": "03:30",
+      "minute": 210,
+      "bpm": 70
+    },
+    {
+      "time": "03:45",
+      "minute": 225,
+      "bpm": 85
+    },
+    {
+      "time": "04:00",
+      "minute": 240,
+      "bpm": 60
+    },
+    {
+      "time": "04:15",
+      "minute": 255,
+      "bpm": 75
+    },
+    {
+      "time": "04:30",
+      "minute": 270,
+      "bpm": 90
+    },
+    {
+      "time": "04:45",
+      "minute": 285,
+      "bpm": 65
+    },
+    {
+      "time": "05:00",
+      "minute": 300,
+      "bpm": 80
+    },
+    {
+      "time": "05:15",
+      "minute": 315,
+      "bpm": 95
+    },
+    {
+      "time": "05:30",
+      "minute": 330,
+      "bpm": 70
+    },
+    {
+      "time": "05:45",
+      "minute": 345,
+      "bpm": 85
+    },
+    {
+      "time": "06:00",
+      "minute": 360,
+      "bpm": 60
+    },
+    {
+      "time": "06:15",
+      "minute": 375,
+      "bpm": 75
+    },
+    {
+      "time": "06:30",
+      "minute": 390,
+      "bpm": 90
+    },
+    {
+      "time": "06:45",
+      "minute": 405,
+      "bpm": 65
+    },
+    {
+      "time": "07:00",
+      "minute": 420,
+      "bpm": 80
+    },
+    {
+      "time": "07:15",
+      "minute": 435,
+      "bpm": 95
+    },
+    {
+      "time": "07:30",
+      "minute": 450,
+      "bpm": 70
+    },
+    {
+      "time": "07:45",
+      "minute": 465,
+      "bpm": 85
+    },
+    {
+      "time": "08:00",
+      "minute": 480,
+      "bpm": 60
+    },
+    {
+      "time": "08:15",
+      "minute": 495,
+      "bpm": 75
+    },
+    {
+      "time": "08:30",
+      "minute": 510,
+      "bpm": 90
+    },
+    {
+      "time": "08:45",
+      "minute": 525,
+      "bpm": 65
+    },
+    {
+      "time": "09:00",
+      "minute": 540,
+      "bpm": 80
+    },
+    {
+      "time": "09:15",
+      "minute": 555,
+      "bpm": 95
+    },
+    {
+      "time": "09:30",
+      "minute": 570,
+      "bpm": 70
+    },
+    {
+      "time": "09:45",
+      "minute": 585,
+      "bpm": 85
+    },
+    {
+      "time": "10:00",
+      "minute": 600,
+      "bpm": 60
+    },
+    {
+      "time": "10:15",
+      "minute": 615,
+      "bpm": 75
+    },
+    {
+      "time": "10:30",
+      "minute": 630,
+      "bpm": 90
+    },
+    {
+      "time": "10:45",
+      "minute": 645,
+      "bpm": 65
+    },
+    {
+      "time": "11:00",
+      "minute": 660,
+      "bpm": 80
+    },
+    {
+      "time": "11:15",
+      "minute": 675,
+      "bpm": 95
+    },
+    {
+      "time": "11:30",
+      "minute": 690,
+      "bpm": 70
+    },
+    {
+      "time": "11:45",
+      "minute": 705,
+      "bpm": 85
+    },
+    {
+      "time": "12:00",
+      "minute": 720,
+      "bpm": 60
+    },
+    {
+      "time": "12:15",
+      "minute": 735,
+      "bpm": 75
+    },
+    {
+      "time": "12:30",
+      "minute": 750,
+      "bpm": 90
+    },
+    {
+      "time": "12:45",
+      "minute": 765,
+      "bpm": 65
+    },
+    {
+      "time": "13:00",
+      "minute": 780,
+      "bpm": 80
+    },
+    {
+      "time": "13:15",
+      "minute": 795,
+      "bpm": 95
+    },
+    {
+      "time": "13:30",
+      "minute": 810,
+      "bpm": 70
+    },
+    {
+      "time": "13:45",
+      "minute": 825,
+      "bpm": 85
+    },
+    {
+      "time": "14:00",
+      "minute": 840,
+      "bpm": 60
+    },
+    {
+      "time": "14:15",
+      "minute": 855,
+      "bpm": 75
+    },
+    {
+      "time": "14:30",
+      "minute": 870,
+      "bpm": 90
+    },
+    {
+      "time": "14:45",
+      "minute": 885,
+      "bpm": 65
+    },
+    {
+      "time": "15:00",
+      "minute": 900,
+      "bpm": 80
+    },
+    {
+      "time": "15:15",
+      "minute": 915,
+      "bpm": 95
+    },
+    {
+      "time": "15:30",
+      "minute": 930,
+      "bpm": 70
+    },
+    {
+      "time": "15:45",
+      "minute": 945,
+      "bpm": 85
+    },
+    {
+      "time": "16:00",
+      "minute": 960,
+      "bpm": 60
+    },
+    {
+      "time": "16:15",
+      "minute": 975,
+      "bpm": 75
+    },
+    {
+      "time": "16:30",
+      "minute": 990,
+      "bpm": 90
+    },
+    {
+      "time": "16:45",
+      "minute": 1005,
+      "bpm": 65
+    },
+    {
+      "time": "17:00",
+      "minute": 1020,
+      "bpm": 80
+    },
+    {
+      "time": "17:15",
+      "minute": 1035,
+      "bpm": 95
+    },
+    {
+      "time": "17:30",
+      "minute": 1050,
+      "bpm": 70
+    },
+    {
+      "time": "17:45",
+      "minute": 1065,
+      "bpm": 85
+    },
+    {
+      "time": "18:00",
+      "minute": 1080,
+      "bpm": 60
+    },
+    {
+      "time": "18:15",
+      "minute": 1095,
+      "bpm": 75
+    },
+    {
+      "time": "18:30",
+      "minute": 1110,
+      "bpm": 90
+    },
+    {
+      "time": "18:45",
+      "minute": 1125,
+      "bpm": 65
+    },
+    {
+      "time": "19:00",
+      "minute": 1140,
+      "bpm": 80
+    },
+    {
+      "time": "19:15",
+      "minute": 1155,
+      "bpm": 95
+    },
+    {
+      "time": "19:30",
+      "minute": 1170,
+      "bpm": 70
+    },
+    {
+      "time": "19:45",
+      "minute": 1185,
+      "bpm": 85
+    },
+    {
+      "time": "20:00",
+      "minute": 1200,
+      "bpm": 60
+    },
+    {
+      "time": "20:15",
+      "minute": 1215,
+      "bpm": 75
+    },
+    {
+      "time": "20:30",
+      "minute": 1230,
+      "bpm": 90
+    },
+    {
+      "time": "20:45",
+      "minute": 1245,
+      "bpm": 65
+    },
+    {
+      "time": "21:00",
+      "minute": 1260,
+      "bpm": 80
+    },
+    {
+      "time": "21:15",
+      "minute": 1275,
+      "bpm": 95
+    },
+    {
+      "time": "21:30",
+      "minute": 1290,
+      "bpm": 70
+    },
+    {
+      "time": "21:45",
+      "minute": 1305,
+      "bpm": 85
+    },
+    {
+      "time": "22:00",
+      "minute": 1320,
+      "bpm": 60
+    },
+    {
+      "time": "22:15",
+      "minute": 1335,
+      "bpm": 75
+    },
+    {
+      "time": "22:30",
+      "minute": 1350,
+      "bpm": 90
+    },
+    {
+      "time": "22:45",
+      "minute": 1365,
+      "bpm": 65
+    },
+    {
+      "time": "23:00",
+      "minute": 1380,
+      "bpm": 80
+    },
+    {
+      "time": "23:15",
+      "minute": 1395,
+      "bpm": 95
+    },
+    {
+      "time": "23:30",
+      "minute": 1410,
+      "bpm": 70
+    },
+    {
+      "time": "23:45",
+      "minute": 1425,
+      "bpm": 85
+    }
+  ],
+  "workout_windows": [
+    {
+      "start_minute": 430,
+      "end_minute": 492,
+      "name": "Push"
+    },
+    {
+      "start_minute": 1050,
+      "end_minute": 1082,
+      "name": "Run"
+    }
+  ],
+  "activities": [
+    {
+      "type": "strength",
+      "name": "Push",
+      "start_time": "07:10",
+      "end_time": "08:12",
+      "hard_sets": 2,
+      "volume_kg": 1480.0,
+      "mean_rpe": 8.5,
+      "strain": 6.1
+    },
+    {
+      "type": "run",
+      "name": "Run",
+      "start_time": "17:30",
+      "end_time": "18:02",
+      "duration_min": 32,
+      "distance_km": 5.2,
+      "avg_hr": 148,
+      "max_hr": 171,
+      "strain": null
+    }
+  ],
+  "week_strains": [
+    {
+      "date": "2026-10-19",
+      "weekday": "po",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-20",
+      "weekday": "út",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-21",
+      "weekday": "st",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-22",
+      "weekday": "čt",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-23",
+      "weekday": "pá",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-24",
+      "weekday": "so",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-25",
+      "weekday": "ne",
+      "strain": 11.8
+    }
+  ],
+  "avg_week_strain": 10.7,
+  "as_of": "2026-10-25T12:00+01:00"
+}

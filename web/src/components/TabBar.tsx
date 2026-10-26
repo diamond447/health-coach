@@ -123,11 +123,14 @@ export function TabBar({ currentPath, date }: TabBarProps) {
     <nav
       aria-label="Hlavní navigace"
       style={{
-        position: "sticky",
+        // Fixed, not sticky: sticky breaks in iOS Safari because the body clips overflow-x.
+        position: "fixed",
         bottom: 0,
+        left: 0,
+        right: 0,
         width: "100%",
         maxWidth: "480px",
-        margin: "16px auto 0 auto",
+        margin: "0 auto",
         background: "#111317",
         borderTop: "1px solid #23272E",
         padding: "6px 8px max(16px, env(safe-area-inset-bottom, 16px)) 8px",

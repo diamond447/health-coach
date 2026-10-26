@@ -39,18 +39,27 @@ export function HealthspanScreen({ date }: HealthspanScreenProps) {
   const query = date ? `?date=${encodeURIComponent(date)}` : "";
   const latest = data?.latest;
 
-  // Format big delta years, e.g. "−2,6 roku"
+  // Headline: the biological age ("22,3 roku") once the birth year is known, else
+  // only the difference to the real age ("+2,3 roku"). Decimals take "roku" in Czech.
   let deltaStr = "—";
   let deltaUnit = "";
-  if (latest?.delta_years !== null && latest?.delta_years !== undefined) {
-    deltaStr = formatDecimal(latest.delta_years, 1);
+  let ageSubtitle = "oproti skutečnému věku";
+  const delta = latest?.delta_years ?? null;
+  if (latest?.biological_age !== null && latest?.biological_age !== undefined && delta !== null) {
+    deltaStr = formatDecimal(latest.biological_age, 1);
     deltaUnit = "roku";
+    const diff = formatDecimal(Math.abs(delta), 1);
+    ageSubtitle =
+      delta > 0
+        ? `o ${diff} roku víc než tvůj věk ${latest.age}`
+        : delta < 0
+          ? `o ${diff} roku míň než tvůj věk ${latest.age}`
+          : `stejně jako tvůj věk ${latest.age}`;
+  } else if (delta !== null) {
+    deltaStr = formatDecimal(delta, 1, true);
+    deltaUnit = "roku";
+    ageSubtitle = "oproti skutečnému věku (kouč zatím nezná tvůj rok narození)";
   }
-
-  const ageSubtitle =
-    latest?.age !== null && latest?.age !== undefined
-      ? `oproti skutečnému věku ${latest.age}`
-      : "oproti skutečnému věku";
 
   const paceFormatted = formatPace(latest?.pace);
   const factorsWithDataCount = latest?.factors_with_data ?? 0;

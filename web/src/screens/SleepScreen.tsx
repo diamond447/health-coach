@@ -4,8 +4,8 @@ import { EmptyState } from "../components/EmptyState";
 import { Header } from "../components/Header";
 import { RingDial } from "../components/RingDial";
 import { Skeleton } from "../components/Skeleton";
-import { formatDateCzech, formatDuration, formatTime, sleepColor } from "../helpers";
-import { SleepResponse } from "../types";
+import { formatDateCzech, formatDuration, formatDurationShort, formatTime, sleepColor } from "../helpers";
+import { SleepResponse, SleepStage } from "../types";
 
 interface SleepScreenProps {
   date: string;
@@ -66,6 +66,23 @@ export function SleepScreen({ date, onDateChange }: SleepScreenProps) {
     return seg;
   });
 
+  const STAGE_LABELS: Record<SleepStage, string> = {
+    awake: "Bdělost",
+    rem: "REM",
+    light: "Lehký",
+    deep: "Hluboký",
+  };
+  const totals = data?.stage_totals;
+  const asleepMin = totals ? totals.rem + totals.light + totals.deep : 0;
+
+  // Tonight's plan: bedtime and wake come from the scores job; the reminder fires
+  // 30 minutes before bedtime.
+  const plan = data?.tonight_plan;
+  const bedMs = plan?.planned_bedtime ? Date.parse(plan.planned_bedtime) : NaN;
+  const wakeMs = plan?.planned_wake ? Date.parse(plan.planned_wake) : NaN;
+  const planInBedMin = !isNaN(bedMs) && !isNaN(wakeMs) ? Math.round((wakeMs - bedMs) / 60000) : null;
+  const reminderTime = !isNaN(bedMs) ? formatTime(new Date(bedMs - 30 * 60000).toISOString()) : null;
+
   const sessionStart = data?.session?.start_ts ? formatTime(data.session.start_ts) : "";
   const sessionEnd = data?.session?.end_ts ? formatTime(data.session.end_ts) : "";
 
@@ -120,7 +137,7 @@ export function SleepScreen({ date, onDateChange }: SleepScreenProps) {
           </div>
 
           {/* Tonight's plan card */}
-          {data.tonight_plan && (
+          {plan && planInBedMin !== null && (
             <div
               style={{
                 background: "#1E1B3A",
@@ -134,13 +151,13 @@ export function SleepScreen({ date, onDateChange }: SleepScreenProps) {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                 <div style={{ fontSize: "15px", fontWeight: 700 }}>Plán na dnešní noc</div>
                 <div style={{ fontSize: "12px", color: "#C4BEFF" }}>
-                  připomínka v {data.tonight_plan.reminder_time}
+                  připomínka v {reminderTime}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-                <div style={{ fontSize: "34px", fontWeight: 800 }}>{data.tonight_plan.bedtime}</div>
+                <div style={{ fontSize: "34px", fontWeight: 800 }}>{formatTime(plan.planned_bedtime)}</div>
                 <div style={{ fontSize: "14px", color: "#D6D2FF" }}>
-                  jdi spát · budík {data.tonight_plan.wake_time}
+                  jdi spát · budík {formatTime(plan.planned_wake)}
                 </div>
               </div>
               <div
@@ -155,25 +172,25 @@ export function SleepScreen({ date, onDateChange }: SleepScreenProps) {
                 <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                   <span>Potřeba</span>
                   <span style={{ fontSize: "15px", fontWeight: 700, color: "#F2F4F7" }}>
-                    {formatDuration(data.tonight_plan.target_sleep_min)}
+                    {formatDuration(plan.sleep_need_min)}
                   </span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                   <span>V posteli</span>
                   <span style={{ fontSize: "15px", fontWeight: 700, color: "#F2F4F7" }}>
-                    {formatDuration(data.tonight_plan.target_bed_min)}
+                    {formatDuration(planInBedMin)}
                   </span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                   <span>Dnešní strain</span>
                   <span style={{ fontSize: "15px", fontWeight: 700, color: "#F2F4F7" }}>
-                    +{data.tonight_plan.strain_bonus_min} min
+                    +{plan.today_strain_bonus_min} min
                   </span>
                 </div>
               </div>
               <div style={{ fontSize: "12px", color: "#C4BEFF" }}>
-                Budík = tvůj obvyklý čas vstávání, v posteli počítáno s efektivitou{" "}
-                {Math.round(data.tonight_plan.efficiency_assumed * 100)} %.
+                Budík = tvůj obvyklý čas vstávání. Čas v posteli počítá s tvou obvyklou
+                efektivitou spánku.
               </div>
             </div>
           )}
@@ -238,7 +255,7 @@ export function SleepScreen({ date, onDateChange }: SleepScreenProps) {
               </div>
 
               {/* Totals */}
-              {data.stage_totals && (
+              {totals && (
                 <div
                   style={{
                     display: "grid",
@@ -248,15 +265,19 @@ export function SleepScreen({ date, onDateChange }: SleepScreenProps) {
                     borderTop: "1px solid #23272E",
                   }}
                 >
-                  {data.stage_totals.map((t, idx) => (
-                    <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "2px", paddingTop: "8px" }}>
+                  {(["awake", "rem", "light", "deep"] as const).map((stage) => (
+                    <div key={stage} style={{ display: "flex", flexDirection: "column", gap: "2px", paddingTop: "8px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <div style={{ width: "8px", height: "8px", borderRadius: "4px", background: t.color }} />
-                        <div style={{ fontSize: "12px", color: "#9BA3AF" }}>{t.label}</div>
+                        <div
+                          style={{ width: "8px", height: "8px", borderRadius: "4px", background: STAGE_COLORS[stage] }}
+                        />
+                        <div style={{ fontSize: "12px", color: "#9BA3AF" }}>{STAGE_LABELS[stage]}</div>
                       </div>
-                      <div style={{ fontSize: "15px", fontWeight: 700 }}>{t.formatted}</div>
+                      <div style={{ fontSize: "15px", fontWeight: 700 }}>{formatDurationShort(totals[stage])}</div>
                       <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
-                        {t.stage === "awake" ? "" : `${t.percentage} %`}
+                        {stage === "awake" || asleepMin === 0
+                          ? ""
+                          : `${Math.round((totals[stage] / asleepMin) * 100)} %`}
                       </div>
                     </div>
                   ))}

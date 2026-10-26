@@ -424,7 +424,7 @@ export function ReportScreen({ date }: ReportScreenProps) {
                       minHeight: "24px",
                     }}
                   >
-                    <span style={{ fontSize: "13px" }}>{m.name}</span>
+                    <span style={{ fontSize: "13px" }}>{m.muscle}</span>
                     <div style={{ height: "8px", borderRadius: "4px", background: "#23272E" }}>
                       <div
                         style={{

@@ -1,0 +1,123 @@
+{
+  "date": "2026-10-25",
+  "session": {
+    "start_ts": "2026-10-24T23:18+02:00",
+    "end_ts": "2026-10-25T06:52+01:00",
+    "duration_min": 432,
+    "time_in_bed_min": 454,
+    "efficiency": 95,
+    "wake_count": 1
+  },
+  "performance": 88,
+  "consistency": 81,
+  "stages": [
+    {
+      "stage": "light",
+      "start_ts": "2026-10-24T23:18+02:00",
+      "end_ts": "2026-10-24T23:48+02:00",
+      "duration_sec": 1800,
+      "duration_min": 30
+    },
+    {
+      "stage": "deep",
+      "start_ts": "2026-10-24T23:48+02:00",
+      "end_ts": "2026-10-25T00:48+02:00",
+      "duration_sec": 3600,
+      "duration_min": 60
+    },
+    {
+      "stage": "rem",
+      "start_ts": "2026-10-25T00:48+02:00",
+      "end_ts": "2026-10-25T01:48+02:00",
+      "duration_sec": 3600,
+      "duration_min": 60
+    },
+    {
+      "stage": "awake",
+      "start_ts": "2026-10-25T01:48+02:00",
+      "end_ts": "2026-10-25T01:58+02:00",
+      "duration_sec": 600,
+      "duration_min": 10
+    },
+    {
+      "stage": "light",
+      "start_ts": "2026-10-25T01:58+02:00",
+      "end_ts": "2026-10-25T06:52+01:00",
+      "duration_sec": 17640,
+      "duration_min": 294
+    }
+  ],
+  "stage_totals": {
+    "awake": 10,
+    "rem": 60,
+    "light": 324,
+    "deep": 60
+  },
+  "need_breakdown": {
+    "base_need_min": 480,
+    "debt_min": 14,
+    "prev_strain": 10.5,
+    "strain_bonus_min": 10,
+    "nap_credit_min": 0,
+    "total_need_min": 491
+  },
+  "week": [
+    {
+      "date": "2026-10-19",
+      "weekday": "po",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-20",
+      "weekday": "út",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-21",
+      "weekday": "st",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-22",
+      "weekday": "čt",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-23",
+      "weekday": "pá",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-24",
+      "weekday": "so",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-25",
+      "weekday": "ne",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    }
+  ],
+  "tonight_plan": {
+    "planned_bedtime": "2026-10-25T22:00+01:00",
+    "planned_wake": "2026-10-26T06:30+01:00",
+    "sleep_need_min": 491,
+    "today_strain": 11.8,
+    "today_strain_bonus_min": 14
+  },
+  "as_of": "2026-10-25T12:00+01:00"
+}

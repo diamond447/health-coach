@@ -319,7 +319,8 @@ def get_healthspan(
             text(
                 "SELECT week_start, delta_years, pace, factors, "
                 "       factors_with_data, age, algo_version "
-                "FROM healthspan_weekly ORDER BY week_start DESC LIMIT :w"
+                "FROM healthspan_weekly WHERE factors_with_data > 0 "
+                "ORDER BY week_start DESC LIMIT :w"
             ),
             {"w": weeks},
         ).all()

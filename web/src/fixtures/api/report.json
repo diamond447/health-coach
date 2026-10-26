@@ -1,0 +1,112 @@
+{
+  "period": "week",
+  "start": "2026-10-19",
+  "end": "2026-10-25",
+  "tiles": {
+    "recovery": {
+      "val": 65.0,
+      "delta": -5.0
+    },
+    "strain": {
+      "val": 10.7,
+      "delta": 0.2
+    },
+    "sleep_min": {
+      "val": 432.0,
+      "delta": 0.0,
+      "debt_min": 14
+    },
+    "consistency": {
+      "val": 81.0,
+      "delta": 0.0
+    },
+    "kcal": {
+      "val": 1280.0,
+      "delta": 0.0,
+      "protein_hit_days": 0,
+      "total_days": 7
+    },
+    "weight": {
+      "val": 81.88,
+      "delta": 0.3
+    }
+  },
+  "daily_recovery": [
+    {
+      "date": "2026-10-19",
+      "weekday": "po",
+      "recovery": 66,
+      "zone": "yellow"
+    },
+    {
+      "date": "2026-10-20",
+      "weekday": "út",
+      "recovery": 65,
+      "zone": "yellow"
+    },
+    {
+      "date": "2026-10-21",
+      "weekday": "st",
+      "recovery": 64,
+      "zone": "yellow"
+    },
+    {
+      "date": "2026-10-22",
+      "weekday": "čt",
+      "recovery": 63,
+      "zone": "yellow"
+    },
+    {
+      "date": "2026-10-23",
+      "weekday": "pá",
+      "recovery": 62,
+      "zone": "yellow"
+    },
+    {
+      "date": "2026-10-24",
+      "weekday": "so",
+      "recovery": 61,
+      "zone": "yellow"
+    },
+    {
+      "date": "2026-10-25",
+      "weekday": "ne",
+      "recovery": 74,
+      "zone": "green"
+    }
+  ],
+  "best_day": {
+    "date": "2026-10-25",
+    "weekday": "ne",
+    "recovery": 74,
+    "sleep_min": 432
+  },
+  "worst_day": {
+    "date": "2026-10-24",
+    "weekday": "so",
+    "recovery": 61,
+    "sleep_min": 432
+  },
+  "muscles": [
+    {
+      "muscle": "Hrudník",
+      "sets": 2
+    },
+    {
+      "muscle": "Triceps",
+      "sets": 1
+    },
+    {
+      "muscle": "Ramena",
+      "sets": 1
+    }
+  ],
+  "workouts_count": 1,
+  "coach_review": {
+    "id": 1,
+    "ts": "2026-10-25T08:00+01:00",
+    "title": "Týdenní review",
+    "body": "Super týden, tréninky splněny."
+  },
+  "as_of": "2026-10-25T12:00+01:00"
+}

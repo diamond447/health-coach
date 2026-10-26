@@ -28,7 +28,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
-ALGO_VERSION = 1
+ALGO_VERSION = 2
 
 # Gompertz rule of thumb: mortality doubles every ~8 years.
 GOMPERTZ_DOUBLING_YEARS = 8.0
@@ -619,7 +619,7 @@ def calculate_healthspan(
     factors_with_data = len(active_factors)
 
     if factors_with_data == 0:
-        delta_years: float | None = 0.0
+        delta_years: float | None = None
     else:
         raw_delta = sum(f.years for f in active_factors if f.years is not None)
         delta_years = max(TOTAL_YEARS_CLAMP[0], min(TOTAL_YEARS_CLAMP[1], raw_delta))

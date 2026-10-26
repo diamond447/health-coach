@@ -116,6 +116,21 @@ def _get_daily_score_row(conn: Connection, d: dt.date) -> dict[str, Any] | None:
 # -----------------------------------------------------------------------------
 
 
+def _activity_strains(
+    score_row: dict[str, Any] | None,
+) -> dict[tuple[bool, dt.datetime], float]:
+    """Strain per activity from daily_scores.activities, keyed by (is strength, start)."""
+    raw = score_row.get("activities") if score_row else None
+    if isinstance(raw, str):
+        raw = json.loads(raw)
+    strains: dict[tuple[bool, dt.datetime], float] = {}
+    for act in raw if isinstance(raw, list) else []:
+        if act.get("start") and act.get("strain") is not None:
+            key = (act.get("kind") == "strength", dt.datetime.fromisoformat(act["start"]))
+            strains[key] = float(act["strain"])
+    return strains
+
+
 def query_day(conn: Connection, date_str: str | None = None) -> dict[str, Any]:
     target_date = _parse_date(date_str)
     score_row = _get_daily_score_row(conn, target_date)
@@ -175,79 +190,72 @@ def query_day(conn: Connection, date_str: str | None = None) -> dict[str, Any]:
     planned_bedtime = score_row["planned_bedtime"] if score_row else None
     planned_wake = score_row["planned_wake"] if score_row else None
 
-    # Activities list
+    # Activities from the sessions, with the strain the scores job computed for each
     activities: list[dict[str, Any]] = []
-    if score_row and score_row.get("activities"):
-        raw_acts = score_row["activities"]
-        if isinstance(raw_acts, str):
-            raw_acts = json.loads(raw_acts)
-        if isinstance(raw_acts, list):
-            activities = raw_acts
-
-    # If daily_scores activities is empty, check exercise_sessions and strength_sessions
-    if not activities:
-        st_rows = (
-            conn.execute(
-                text(
-                    "SELECT s.id, "
-                    "  coalesce(s.routine_name, s.day_name, 'Posilování') AS name, "
-                    "  s.start_ts, s.end_ts, "
-                    "  count(ss.id) FILTER ("
-                    "    WHERE NOT ss.is_warmup AND coalesce(ss.reps, 0) > 0"
-                    "  ) AS hard_sets, "
-                    "  round(sum(ss.weight_kg * ss.reps) FILTER ("
-                    "    WHERE NOT ss.is_warmup AND ss.weight_kg > 0 AND ss.reps > 0"
-                    "  ), 1) AS volume_kg "
-                    "FROM strength_sessions s "
-                    "LEFT JOIN strength_sets ss ON ss.session_id = s.id "
-                    "WHERE s.local_date = :d "
-                    "GROUP BY s.id, s.routine_name, s.day_name, s.start_ts, s.end_ts"
-                ),
-                {"d": target_date},
-            )
-            .mappings()
-            .all()
+    strains = _activity_strains(score_row)
+    st_rows = (
+        conn.execute(
+            text(
+                "SELECT s.id, "
+                "  coalesce(s.routine_name, s.day_name, 'Posilování') AS name, "
+                "  s.start_ts, s.end_ts, "
+                "  count(ss.id) FILTER ("
+                "    WHERE NOT ss.is_warmup AND coalesce(ss.reps, 0) > 0"
+                "  ) AS hard_sets, "
+                "  round(sum(ss.weight_kg * ss.reps) FILTER ("
+                "    WHERE NOT ss.is_warmup AND ss.weight_kg > 0 AND ss.reps > 0"
+                "  ), 1) AS volume_kg "
+                "FROM strength_sessions s "
+                "LEFT JOIN strength_sets ss ON ss.session_id = s.id "
+                "WHERE s.local_date = :d "
+                "GROUP BY s.id, s.routine_name, s.day_name, s.start_ts, s.end_ts"
+            ),
+            {"d": target_date},
         )
-        for st in st_rows:
-            activities.append(
-                {
-                    "type": "strength",
-                    "name": st["name"] or "Posilování",
-                    "start_ts": jsonable(st["start_ts"]),
-                    "end_ts": jsonable(st["end_ts"]),
-                    "hard_sets": st["hard_sets"],
-                    "volume_kg": float(st["volume_kg"]) if st["volume_kg"] else 0.0,
-                    "strain": None,
-                }
-            )
-
-        ex_rows = (
-            conn.execute(
-                text(
-                    "SELECT id, activity_type, start_ts, end_ts, duration_min, "
-                    "       calories, distance_km, avg_hr "
-                    "FROM exercise_sessions WHERE local_date = :d AND deleted_at IS NULL"
-                ),
-                {"d": target_date},
-            )
-            .mappings()
-            .all()
+        .mappings()
+        .all()
+    )
+    for st in st_rows:
+        activities.append(
+            {
+                "type": "strength",
+                "name": st["name"] or "Posilování",
+                "start_ts": jsonable(st["start_ts"]),
+                "end_ts": jsonable(st["end_ts"]),
+                "hard_sets": st["hard_sets"],
+                "volume_kg": float(st["volume_kg"]) if st["volume_kg"] else 0.0,
+                "strain": strains.get((True, st["start_ts"])),
+            }
         )
-        for ex in ex_rows:
-            dist_km = round(float(ex["distance_km"]), 1) if ex["distance_km"] is not None else None
-            activities.append(
-                {
-                    "type": ex["activity_type"] or "cardio",
-                    "name": (ex["activity_type"] or "Aktivita").capitalize(),
-                    "start_ts": jsonable(ex["start_ts"]),
-                    "end_ts": jsonable(ex["end_ts"]),
-                    "duration_min": ex["duration_min"],
-                    "calories": ex["calories"],
-                    "distance_km": dist_km,
-                    "avg_hr": ex["avg_hr"],
-                    "strain": None,
-                }
-            )
+
+    ex_rows = (
+        conn.execute(
+            text(
+                "SELECT id, activity_type, start_ts, end_ts, duration_min, "
+                "       calories, distance_km, avg_hr "
+                "FROM exercise_sessions WHERE local_date = :d AND deleted_at IS NULL"
+            ),
+            {"d": target_date},
+        )
+        .mappings()
+        .all()
+    )
+    for ex in ex_rows:
+        dist_km = round(float(ex["distance_km"]), 1) if ex["distance_km"] is not None else None
+        activities.append(
+            {
+                "type": ex["activity_type"] or "cardio",
+                "name": (ex["activity_type"] or "Aktivita").capitalize(),
+                "start_ts": jsonable(ex["start_ts"]),
+                "end_ts": jsonable(ex["end_ts"]),
+                "duration_min": ex["duration_min"],
+                "calories": ex["calories"],
+                "distance_km": dist_km,
+                "avg_hr": ex["avg_hr"],
+                "strain": strains.get((False, ex["start_ts"])),
+            }
+        )
+    activities.sort(key=lambda a: a["start_ts"] or "")
 
     return {
         "date": target_date.isoformat(),
@@ -787,6 +795,7 @@ def query_strain(conn: Connection, date_str: str | None = None) -> dict[str, Any
     )
 
     activities: list[dict[str, Any]] = []
+    strains = _activity_strains(score_row)
     for st in st_sessions:
         st_start = st["start_ts"].astimezone(tz) if st["start_ts"] else None
         st_end = st["end_ts"].astimezone(tz) if st["end_ts"] else None
@@ -807,6 +816,7 @@ def query_strain(conn: Connection, date_str: str | None = None) -> dict[str, Any
                 "hard_sets": st["hard_sets"],
                 "volume_kg": float(st["volume_kg"]) if st["volume_kg"] else 0.0,
                 "mean_rpe": float(st["mean_rpe"]) if st["mean_rpe"] else None,
+                "strain": strains.get((True, st["start_ts"])),
             }
         )
 
@@ -845,8 +855,10 @@ def query_strain(conn: Connection, date_str: str | None = None) -> dict[str, Any
                 ),
                 "avg_hr": ex["avg_hr"],
                 "max_hr": ex["max_hr"],
+                "strain": strains.get((False, ex["start_ts"])),
             }
         )
+    activities.sort(key=lambda a: a["start_time"] or "")
 
     # Last 7 days strain
     week_start = target_date - dt.timedelta(days=6)
@@ -1005,6 +1017,9 @@ def query_nutrition(conn: Connection, date_str: str | None = None) -> dict[str, 
             {
                 "name": m["name"],
                 "protein_g": float(m["protein_g"]) if m["protein_g"] else 0.0,
+                "carbs_g": float(m["carbs_g"]) if m["carbs_g"] is not None else None,
+                "fat_g": float(m["fat_g"]) if m["fat_g"] is not None else None,
+                "fiber_g": float(m["fiber_g"]) if m["fiber_g"] is not None else None,
                 "kcal": item_kcal,
             }
         )
@@ -1395,7 +1410,17 @@ def query_calendar(conn: Connection, month_str: str | None = None) -> dict[str, 
     # Leading padding days for start of month (Monday = 0)
     lead_days = start_date.weekday()
     for _ in range(lead_days):
-        cells.append({"day": None, "has_data": False})
+        cells.append(
+            {
+                "day": None,
+                "date": None,
+                "has_data": False,
+                "recovery": None,
+                "recovery_zone": None,
+                "strain": None,
+                "sleep_hours": None,
+            }
+        )
 
     curr_d = start_date
     rec_values: list[int] = []
@@ -1846,7 +1871,9 @@ def query_healthspan(conn: Connection, weeks: int = 26) -> dict[str, Any]:
 
     asc_rows = list(reversed(rows))
     latest_row = asc_rows[-1]
-    has_enough_data = len(asc_rows) >= 4 and latest_row.factors_with_data >= 4
+    # Rows from before ALGO_VERSION 2 stored 0.0 for weeks without any data.
+    weeks_with_data = sum(1 for r in asc_rows if r.factors_with_data > 0)
+    has_enough_data = weeks_with_data >= 4 and latest_row.factors_with_data >= 4
 
     history = [
         {
@@ -1854,6 +1881,7 @@ def query_healthspan(conn: Connection, weeks: int = 26) -> dict[str, Any]:
             "delta_years": float(r.delta_years) if r.delta_years is not None else None,
         }
         for r in asc_rows
+        if r.factors_with_data > 0
     ]
 
     age_val = latest_row.age

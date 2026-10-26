@@ -12,6 +12,21 @@ interface NutritionScreenProps {
   onDateChange: (date: string) => void;
 }
 
+// "B 29 g · S 70 g · T 12 g · V 8 g"; macros the entry does not know are left out.
+function itemMacros(it: NutritionResponse["meals"][number]["items"][number]): string {
+  return (
+    [
+      ["B", it.protein_g],
+      ["S", it.carbs_g],
+      ["T", it.fat_g],
+      ["V", it.fiber_g],
+    ] as const
+  )
+    .filter(([, g]) => g !== null)
+    .map(([label, g]) => `${label} ${formatDecimal(g, 0)} g`)
+    .join(" · ");
+}
+
 export function NutritionScreen({ date, onDateChange }: NutritionScreenProps) {
   const [data, setData] = useState<NutritionResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -259,17 +274,15 @@ export function NutritionScreen({ date, onDateChange }: NutritionScreenProps) {
                     meal.items.map((it, itemIdx) => (
                       <div
                         key={itemIdx}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          fontSize: "13px",
-                          color: "#C9CED6",
-                        }}
+                        style={{ display: "flex", flexDirection: "column", gap: "2px", fontSize: "13px" }}
                       >
-                        <span>{it.name}</span>
-                        <span style={{ color: "#9BA3AF" }}>
-                          {it.protein_g ? `${formatDecimal(it.protein_g, 0)} g B` : ""}
-                        </span>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", color: "#C9CED6" }}>
+                          <span>{it.name}</span>
+                          <span style={{ color: "#9BA3AF", whiteSpace: "nowrap" }}>{formatNumber(it.kcal)} kcal</span>
+                        </div>
+                        <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
+                          {itemMacros(it)}
+                        </div>
                       </div>
                     ))}
                 </div>
