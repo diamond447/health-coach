@@ -297,3 +297,101 @@ export function valueRange(values: (number | null)[], pad: number): [number, num
   if (known.length === 0) return [0, 1];
   return [Math.min(...known) - pad, Math.max(...known) + pad];
 }
+
+/**
+ * Compute 3-4 nicely rounded ticks for a chart axis covering [min, max].
+ * E.g. niceTicks(50, 70, 3) -> [50, 60, 70]
+ */
+export function niceTicks(min: number, max: number, count: number = 3): number[] {
+  if (isNaN(min) || isNaN(max)) return [0];
+  if (min >= max) return [min];
+
+  const range = max - min;
+  const roughStep = range / Math.max(1, count - 1);
+  const exponent = Math.floor(Math.log10(roughStep));
+  const fraction = roughStep / Math.pow(10, exponent);
+
+  let niceFraction = 1;
+  if (fraction <= 1.5) {
+    niceFraction = 1;
+  } else if (fraction <= 3) {
+    niceFraction = 2;
+  } else if (fraction <= 7) {
+    niceFraction = 5;
+  } else {
+    niceFraction = 10;
+  }
+
+  const step = niceFraction * Math.pow(10, exponent);
+  const startTick = Math.floor(min / step) * step;
+  const endTick = Math.ceil(max / step) * step;
+
+  const decimals = Math.max(0, -exponent + 2);
+  const ticks: number[] = [];
+  for (let t = startTick; t <= endTick + step * 0.5; t += step) {
+    const rounded = Number(t.toFixed(decimals));
+    ticks.push(rounded === 0 ? 0 : rounded);
+  }
+
+  return ticks.length > 0 ? ticks : [min, max];
+}
+
+/**
+ * Pure mapping from data value to SVG y coordinate.
+ * Maps val from [minVal, maxVal] to [plotBottom, plotTop].
+ */
+export function mapValueToY(
+  val: number,
+  minVal: number,
+  maxVal: number,
+  plotTop: number,
+  plotBottom: number
+): number {
+  const range = maxVal - minVal;
+  if (range === 0) return (plotTop + plotBottom) / 2;
+  const ratio = (val - minVal) / range;
+  return plotBottom - ratio * (plotBottom - plotTop);
+}
+
+/**
+ * Pure mapping from point index to SVG x coordinate.
+ */
+export function pointX(
+  index: number,
+  totalCount: number,
+  plotLeft: number,
+  plotRight: number
+): number {
+  if (totalCount <= 1) return (plotLeft + plotRight) / 2;
+  return plotLeft + (index / (totalCount - 1)) * (plotRight - plotLeft);
+}
+
+/**
+ * Pure helper to snap pointer x coordinate to the nearest point index.
+ */
+export function findNearestIndex(
+  svgX: number,
+  totalCount: number,
+  plotLeft: number,
+  plotRight: number
+): number {
+  if (totalCount <= 1) return 0;
+  const ratio = (svgX - plotLeft) / (plotRight - plotLeft);
+  const clamped = Math.max(0, Math.min(1, ratio));
+  return Math.round(clamped * (totalCount - 1));
+}
+
+/**
+ * Format date range from two YYYY-MM-DD strings to Czech format: "1. 10. – 30. 10.".
+ */
+export function formatDateRangeCzech(startStr: string, endStr: string): string {
+  if (!startStr || !endStr) return "";
+  const parse = (s: string) => {
+    const parts = s.split("-");
+    if (parts.length !== 3) return { d: 0, m: 0 };
+    return { d: parseInt(parts[2], 10), m: parseInt(parts[1], 10) };
+  };
+  const start = parse(startStr);
+  const end = parse(endStr);
+  return `${start.d}. ${start.m}. – ${end.d}. ${end.m}.`;
+}

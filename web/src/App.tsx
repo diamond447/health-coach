@@ -5,10 +5,12 @@ import { ScreenBoundary } from "./components/ScreenBoundary";
 import { SessionExpiryBanner } from "./components/SessionExpiryBanner";
 import { TabBar } from "./components/TabBar";
 import { getTodayString } from "./helpers";
+import { ActivityScreen } from "./screens/ActivityScreen";
 import { CalendarScreen } from "./screens/CalendarScreen";
 import { HealthspanScreen } from "./screens/HealthspanScreen";
 import { JournalScreen } from "./screens/JournalScreen";
 import { MainScreen } from "./screens/MainScreen";
+import { NightScreen } from "./screens/NightScreen";
 import { NutritionScreen } from "./screens/NutritionScreen";
 import { RecoveryScreen } from "./screens/RecoveryScreen";
 import { ReportScreen } from "./screens/ReportScreen";
@@ -22,7 +24,7 @@ function parseLocation(): { path: string; date: string } {
   }
   const path = window.location.pathname || "/";
   const params = new URLSearchParams(window.location.search);
-  const date = params.get("date") || getTodayString();
+  const date = params.get("date") || params.get("end") || getTodayString();
   return { path, date };
 }
 
@@ -83,7 +85,13 @@ export function App() {
 
   const handleDateChange = (newDate: string) => {
     const params = new URLSearchParams(window.location.search);
-    params.set("date", newDate);
+    if (route.path.startsWith("/prehled")) {
+      params.set("end", newDate);
+      params.delete("date");
+    } else {
+      params.set("date", newDate);
+      params.delete("end");
+    }
     const newUrl = `${route.path}?${params.toString()}`;
     window.history.pushState({}, "", newUrl);
     setRoute({ path: route.path, date: newDate });
@@ -100,6 +108,12 @@ export function App() {
     case "/recovery":
       content = <RecoveryScreen date={route.date} />;
       break;
+    case "/aktivita":
+      content = <ActivityScreen date={route.date} />;
+      break;
+    case "/noc":
+      content = <NightScreen date={route.date} />;
+      break;
     case "/spanek":
       content = <SleepScreen date={route.date} onDateChange={handleDateChange} />;
       break;
@@ -110,7 +124,7 @@ export function App() {
       content = <NutritionScreen date={route.date} onDateChange={handleDateChange} />;
       break;
     case "/trendy":
-      content = <TrendsScreen date={route.date} />;
+      content = <TrendsScreen date={route.date} onDateChange={handleDateChange} />;
       break;
     case "/kalendar":
       content = <CalendarScreen date={route.date} onDateChange={handleDateChange} />;
@@ -119,7 +133,7 @@ export function App() {
       content = <JournalScreen date={route.date} />;
       break;
     case "/prehled":
-      content = <ReportScreen date={route.date} />;
+      content = <ReportScreen date={route.date} onDateChange={handleDateChange} />;
       break;
     case "/healthspan":
       content = <HealthspanScreen date={route.date} />;

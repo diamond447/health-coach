@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   addDays,
   calculateBand,
+  findNearestIndex,
   foodColor,
   formatDateCzech,
+  formatDateRangeCzech,
   formatDecimal,
   formatDuration,
   formatDurationShort,
@@ -14,6 +16,9 @@ import {
   formatTime,
   getTodayString,
   isToday,
+  mapValueToY,
+  niceTicks,
+  pointX,
   recoveryColor,
   recoveryZoneLabel,
   ringDash,
@@ -165,5 +170,59 @@ describe("healthspan helpers", () => {
     expect(formatFactorValue("moderate_activity", 210, "min/týden")).toBe("210 min/týden");
     expect(formatFactorValue("steps", 8900, "/den")).toBe("8 900/den");
     expect(formatFactorValue("vo2max", null, "ml/kg/min")).toBe("zatím bez dat");
+  });
+});
+
+describe("niceTicks", () => {
+  it("calculates 3-4 nice ticks covering the range", () => {
+    expect(niceTicks(50, 70, 3)).toEqual([50, 60, 70]);
+    expect(niceTicks(52, 68, 3)).toEqual([50, 60, 70]);
+    expect(niceTicks(0, 100, 3)).toEqual([0, 50, 100]);
+    expect(niceTicks(0, 8500, 3)).toEqual([0, 5000, 10000]);
+    expect(niceTicks(0, 21, 3)).toEqual([0, 10, 20, 30]);
+  });
+
+  it("handles decimal values", () => {
+    expect(niceTicks(-0.4, 0.6, 3)).toEqual([-0.5, 0, 0.5, 1]);
+  });
+
+  it("handles identical or invalid bounds", () => {
+    expect(niceTicks(50, 50)).toEqual([50]);
+    expect(niceTicks(70, 50)).toEqual([70]);
+  });
+});
+
+describe("geometry helpers", () => {
+  it("maps value to y", () => {
+    // minVal 0 -> plotBottom 100, maxVal 100 -> plotTop 10
+    expect(mapValueToY(0, 0, 100, 10, 100)).toBe(100);
+    expect(mapValueToY(100, 0, 100, 10, 100)).toBe(10);
+    expect(mapValueToY(50, 0, 100, 10, 100)).toBe(55);
+  });
+
+  it("maps point index to x", () => {
+    expect(pointX(0, 5, 20, 100)).toBe(20);
+    expect(pointX(4, 5, 20, 100)).toBe(100);
+    expect(pointX(2, 5, 20, 100)).toBe(60);
+    expect(pointX(0, 1, 20, 100)).toBe(60);
+  });
+
+  it("finds nearest index from pointer x", () => {
+    // 5 points (0, 1, 2, 3, 4) from x=20 to x=100 (steps of 20: 20, 40, 60, 80, 100)
+    expect(findNearestIndex(15, 5, 20, 100)).toBe(0);
+    expect(findNearestIndex(20, 5, 20, 100)).toBe(0);
+    expect(findNearestIndex(28, 5, 20, 100)).toBe(0);
+    expect(findNearestIndex(32, 5, 20, 100)).toBe(1);
+    expect(findNearestIndex(61, 5, 20, 100)).toBe(2);
+    expect(findNearestIndex(105, 5, 20, 100)).toBe(4);
+    expect(findNearestIndex(50, 1, 20, 100)).toBe(0);
+  });
+});
+
+describe("formatDateRangeCzech", () => {
+  it("formats start and end dates as d. M. – d. M.", () => {
+    expect(formatDateRangeCzech("2026-10-01", "2026-10-30")).toBe("1. 10. – 30. 10.");
+    expect(formatDateRangeCzech("2026-09-25", "2026-10-25")).toBe("25. 9. – 25. 10.");
+    expect(formatDateRangeCzech("", "")).toBe("");
   });
 });

@@ -4,6 +4,7 @@ import { EmptyState } from "../components/EmptyState";
 import { Header } from "../components/Header";
 import { RingDial } from "../components/RingDial";
 import { Skeleton } from "../components/Skeleton";
+import { TimeChart } from "../components/TimeChart";
 import { formatDateCzech, formatDuration, formatDurationShort, formatTime, sleepColor } from "../helpers";
 import { SleepResponse, SleepStage } from "../types";
 
@@ -426,7 +427,7 @@ export function SleepScreen({ date, onDateChange }: SleepScreenProps) {
             </div>
           </div>
 
-          {/* Last 7 nights bars */}
+          {/* Last 30 nights chart */}
           {data.week && data.week.length > 0 && (
             <div
               style={{
@@ -439,74 +440,36 @@ export function SleepScreen({ date, onDateChange }: SleepScreenProps) {
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <div style={{ fontSize: "15px", fontWeight: 700 }}>Posledních 7 nocí</div>
-                <div style={{ fontSize: "12px", color: "#9BA3AF" }}>čárka = potřeba</div>
+                <div style={{ fontSize: "15px", fontWeight: 700 }}>Posledních 30 nocí</div>
+                <div style={{ fontSize: "12px", color: "#9BA3AF" }}>oranžová = potřeba</div>
               </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-                  gap: "10px",
-                  alignItems: "end",
-                  height: "130px",
-                }}
-              >
-                {data.week.map((n, idx) => {
-                  const px = 130 / 600;
-                  const actualH = Math.min(130, Math.round((n.actual_min ?? 0) * px));
-                  const needBottom = Math.min(130, Math.round((n.need_min ?? 480) * px));
-                  const isGood = (n.actual_min ?? 0) / (n.need_min || 480) >= 0.85;
-                  const barColor = isGood ? "#9C8CFF" : "#5D5499";
-
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        position: "relative",
-                        height: "130px",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "flex-end",
-                      }}
-                    >
-                      <div
-                        style={{
-                          position: "absolute",
-                          left: "-3px",
-                          right: "-3px",
-                          bottom: `${needBottom}px`,
-                          height: "2px",
-                          background: "#F2F4F7",
-                          zIndex: 2,
-                        }}
-                      />
-                      <div
-                        style={{
-                          height: `${actualH}px`,
-                          borderRadius: "6px 6px 2px 2px",
-                          background: barColor,
-                        }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-                  gap: "10px",
-                  fontSize: "11px",
-                  color: "#9BA3AF",
-                  textAlign: "center",
-                }}
-              >
-                {data.week.map((n, idx) => (
-                  <span key={idx}>{n.weekday}</span>
-                ))}
-              </div>
+              <TimeChart
+                points={data.week.map((n) => ({
+                  date: n.date,
+                  values: [n.actual_min, n.need_min],
+                }))}
+                series={[
+                  {
+                    label: "Spánek",
+                    color: "#9C8CFF",
+                    unit: "min",
+                    format: formatDurationShort,
+                    kind: "bar",
+                  },
+                  {
+                    label: "Potřeba",
+                    color: "#FFB15C",
+                    unit: "min",
+                    format: formatDurationShort,
+                    kind: "dots",
+                  },
+                ]}
+                height={120}
+                yAxis={true}
+                xAxis={true}
+                ariaLabel="Graf spánku za 30 nocí"
+              />
             </div>
           )}
         </>

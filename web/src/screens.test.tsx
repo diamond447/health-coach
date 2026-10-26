@@ -8,10 +8,12 @@ import { ComponentChild, render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fixtures } from "./fixtures";
+import { ActivityScreen } from "./screens/ActivityScreen";
 import { CalendarScreen } from "./screens/CalendarScreen";
 import { HealthspanScreen } from "./screens/HealthspanScreen";
 import { JournalScreen } from "./screens/JournalScreen";
 import { MainScreen } from "./screens/MainScreen";
+import { NightScreen } from "./screens/NightScreen";
 import { NutritionScreen } from "./screens/NutritionScreen";
 import { RecoveryScreen } from "./screens/RecoveryScreen";
 import { ReportScreen } from "./screens/ReportScreen";
@@ -40,6 +42,8 @@ const screens: [string, ComponentChild, string][] = [
   ["Deník", <JournalScreen date={DATE} />, "Alkohol"],
   ["Přehled", <ReportScreen date={DATE} />, "Hrudník"],
   ["Healthspan", <HealthspanScreen date={DATE} />, "BIOLOGICKÝ VĚK"],
+  ["Aktivita", <ActivityScreen date={DATE} />, "Aktivní minuty"],
+  ["Noc", <NightScreen date={DATE} />, "SpO₂"],
 ];
 
 describe("screens render the API fixtures", () => {

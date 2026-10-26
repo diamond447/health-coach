@@ -314,11 +314,9 @@ def query_day(conn: Connection, date_str: str | None = None) -> dict[str, Any]:
 # -----------------------------------------------------------------------------
 
 
-def query_recovery(conn: Connection, date_str: str | None = None, days: int = 30) -> dict[str, Any]:
-    target_date = _parse_date(date_str)
+def _build_vitals_history(conn: Connection, target_date: dt.date, days: int) -> dict[str, Any]:
     start_date = target_date - dt.timedelta(days=days - 1)
 
-    # Daily vitals and daily_scores for baseline extraction
     vitals_rows = (
         conn.execute(
             text(
@@ -336,7 +334,8 @@ def query_recovery(conn: Connection, date_str: str | None = None, days: int = 30
     scores_rows = (
         conn.execute(
             text(
-                "SELECT local_date, recovery, recovery_z, recovery_components, flags, inputs "
+                "SELECT local_date, recovery, recovery_z, recovery_components, flags, "
+                "inputs, sleep_performance "
                 "FROM daily_scores WHERE local_date BETWEEN :s AND :e ORDER BY local_date"
             ),
             {"s": start_date, "e": target_date},
@@ -348,16 +347,21 @@ def query_recovery(conn: Connection, date_str: str | None = None, days: int = 30
 
     hrv_series: list[dict[str, Any]] = []
     rhr_series: list[dict[str, Any]] = []
+    sleep_series: list[dict[str, Any]] = []
+    breathing_series: list[dict[str, Any]] = []
+    skin_temp_series: list[dict[str, Any]] = []
+    spo2_series: list[dict[str, Any]] = []
 
     curr_d = start_date
     latest_hrv_band: list[float] | None = None
     latest_rhr_band: list[float] | None = None
+    latest_breathing_band: list[float] | None = None
+    latest_skin_temp_band: list[float] | None = None
 
     while curr_d <= target_date:
         v = vitals_map.get(curr_d)
         sc = scores_map.get(curr_d)
 
-        # Baseline parsing from inputs JSONB
         inputs_data = sc["inputs"] if sc and sc.get("inputs") else None
         if isinstance(inputs_data, str):
             inputs_data = json.loads(inputs_data)
@@ -382,12 +386,39 @@ def query_recovery(conn: Connection, date_str: str | None = None, days: int = 30
             rhr_band_hi = round(c + s, 1)
             latest_rhr_band = [rhr_band_lo, rhr_band_hi]
 
+        # Breathing rate band = center +- scale
+        br_band_lo: float | None = None
+        br_band_hi: float | None = None
+        if baselines.get("breathing_rate"):
+            c, s = baselines["breathing_rate"]
+            br_band_lo = round(c - s, 2)
+            br_band_hi = round(c + s, 2)
+            latest_breathing_band = [br_band_lo, br_band_hi]
+
+        # Skin temp band = center +- scale
+        temp_band_lo: float | None = None
+        temp_band_hi: float | None = None
+        if baselines.get("skin_temp"):
+            c, s = baselines["skin_temp"]
+            temp_band_lo = round(c - s, 2)
+            temp_band_hi = round(c + s, 2)
+            latest_skin_temp_band = [temp_band_lo, temp_band_hi]
+
         hrv_val = float(v["hrv_rmssd_ms"]) if v and v["hrv_rmssd_ms"] is not None else None
         rhr_val = float(v["resting_hr"]) if v and v["resting_hr"] is not None else None
+        sleep_perf = (
+            float(sc["sleep_performance"])
+            if sc and sc.get("sleep_performance") is not None
+            else None
+        )
+        br_val = float(v["breathing_rate"]) if v and v["breathing_rate"] is not None else None
+        temp_val = float(v["skin_temp_delta"]) if v and v["skin_temp_delta"] is not None else None
+        spo2_val = float(v["spo2_avg"]) if v and v["spo2_avg"] is not None else None
 
+        d_str = curr_d.isoformat()
         hrv_series.append(
             {
-                "date": curr_d.isoformat(),
+                "date": d_str,
                 "val": hrv_val,
                 "band_lo": hrv_band_lo,
                 "band_hi": hrv_band_hi,
@@ -395,16 +426,69 @@ def query_recovery(conn: Connection, date_str: str | None = None, days: int = 30
         )
         rhr_series.append(
             {
-                "date": curr_d.isoformat(),
+                "date": d_str,
                 "val": rhr_val,
                 "band_lo": rhr_band_lo,
                 "band_hi": rhr_band_hi,
             }
         )
+        sleep_series.append(
+            {
+                "date": d_str,
+                "val": sleep_perf,
+                "band_lo": None,
+                "band_hi": None,
+            }
+        )
+        breathing_series.append(
+            {
+                "date": d_str,
+                "val": br_val,
+                "band_lo": br_band_lo,
+                "band_hi": br_band_hi,
+            }
+        )
+        skin_temp_series.append(
+            {
+                "date": d_str,
+                "val": temp_val,
+                "band_lo": temp_band_lo,
+                "band_hi": temp_band_hi,
+            }
+        )
+        spo2_series.append(
+            {
+                "date": d_str,
+                "val": spo2_val,
+                "band_lo": None,
+                "band_hi": None,
+            }
+        )
         curr_d += dt.timedelta(days=1)
 
-    today_sc = scores_map.get(target_date)
-    today_v = vitals_map.get(target_date)
+    return {
+        "start_date": start_date,
+        "hrv_series": hrv_series,
+        "rhr_series": rhr_series,
+        "sleep_series": sleep_series,
+        "breathing_series": breathing_series,
+        "skin_temp_series": skin_temp_series,
+        "spo2_series": spo2_series,
+        "latest_hrv_band": latest_hrv_band,
+        "latest_rhr_band": latest_rhr_band,
+        "latest_breathing_band": latest_breathing_band,
+        "latest_skin_temp_band": latest_skin_temp_band,
+        "today_vitals": vitals_map.get(target_date),
+        "today_scores": scores_map.get(target_date),
+    }
+
+
+def query_recovery(conn: Connection, date_str: str | None = None, days: int = 30) -> dict[str, Any]:
+    target_date = _parse_date(date_str)
+    hist = _build_vitals_history(conn, target_date, days)
+
+    today_sc = hist["today_scores"]
+    today_v = hist["today_vitals"]
 
     recovery = today_sc["recovery"] if today_sc else None
     zone = recovery_zone(recovery) if recovery is not None else None
@@ -447,10 +531,135 @@ def query_recovery(conn: Connection, date_str: str | None = None, days: int = 30
         "current_rhr": float(today_v["resting_hr"])
         if today_v and today_v["resting_hr"] is not None
         else None,
-        "hrv_band": latest_hrv_band,
-        "rhr_band": latest_rhr_band,
-        "hrv_series": hrv_series,
-        "rhr_series": rhr_series,
+        "hrv_band": hist["latest_hrv_band"],
+        "rhr_band": hist["latest_rhr_band"],
+        "hrv_series": hist["hrv_series"],
+        "rhr_series": hist["rhr_series"],
+        "sleep_series": hist["sleep_series"],
+        "breathing_series": hist["breathing_series"],
+        "skin_temp_series": hist["skin_temp_series"],
+        "as_of": quality.as_of(conn),
+    }
+
+
+def query_night(conn: Connection, date_str: str | None = None, days: int = 30) -> dict[str, Any]:
+    target_date = _parse_date(date_str)
+    hist = _build_vitals_history(conn, target_date, days)
+    today_v = hist["today_vitals"]
+
+    def _calc_avg(series: list[dict[str, Any]], decimals: int = 1) -> float | None:
+        valid = [s["val"] for s in series if s["val"] is not None and not math.isnan(s["val"])]
+        return round(sum(valid) / len(valid), decimals) if valid else None
+
+    return {
+        "date": target_date.isoformat(),
+        "days": days,
+        "hrv": {
+            "current": float(today_v["hrv_rmssd_ms"])
+            if today_v and today_v["hrv_rmssd_ms"] is not None
+            else None,
+            "avg": _calc_avg(hist["hrv_series"], 1),
+            "band": hist["latest_hrv_band"],
+            "series": hist["hrv_series"],
+        },
+        "rhr": {
+            "current": float(today_v["resting_hr"])
+            if today_v and today_v["resting_hr"] is not None
+            else None,
+            "avg": _calc_avg(hist["rhr_series"], 1),
+            "band": hist["latest_rhr_band"],
+            "series": hist["rhr_series"],
+        },
+        "spo2": {
+            "current": float(today_v["spo2_avg"])
+            if today_v and today_v["spo2_avg"] is not None
+            else None,
+            "avg": _calc_avg(hist["spo2_series"], 1),
+            "band": None,
+            "series": hist["spo2_series"],
+        },
+        "breathing": {
+            "current": float(today_v["breathing_rate"])
+            if today_v and today_v["breathing_rate"] is not None
+            else None,
+            "avg": _calc_avg(hist["breathing_series"], 1),
+            "band": hist["latest_breathing_band"],
+            "series": hist["breathing_series"],
+        },
+        "skin_temp": {
+            "current": float(today_v["skin_temp_delta"])
+            if today_v and today_v["skin_temp_delta"] is not None
+            else None,
+            "avg": _calc_avg(hist["skin_temp_series"], 2),
+            "band": hist["latest_skin_temp_band"],
+            "series": hist["skin_temp_series"],
+        },
+        "as_of": quality.as_of(conn),
+    }
+
+
+def query_activity(conn: Connection, date_str: str | None = None, days: int = 30) -> dict[str, Any]:
+    target_date = _parse_date(date_str)
+    start_date = target_date - dt.timedelta(days=days - 1)
+
+    act_rows = (
+        conn.execute(
+            text(
+                "SELECT local_date, steps, active_zone_minutes, calories_out "
+                "FROM daily_activity WHERE local_date BETWEEN :s AND :e ORDER BY local_date"
+            ),
+            {"s": start_date, "e": target_date},
+        )
+        .mappings()
+        .all()
+    )
+    act_map = {r["local_date"]: r for r in act_rows}
+
+    targets = current_targets(conn, target_date)
+    step_target = targets.get("steps") if targets else None
+
+    steps_series: list[dict[str, Any]] = []
+    active_series: list[dict[str, Any]] = []
+    calories_series: list[dict[str, Any]] = []
+
+    curr_d = start_date
+    while curr_d <= target_date:
+        r = act_map.get(curr_d)
+        st = r["steps"] if r and r.get("steps") is not None else None
+        act = r["active_zone_minutes"] if r and r.get("active_zone_minutes") is not None else None
+        cal = r["calories_out"] if r and r.get("calories_out") is not None else None
+
+        d_str = curr_d.isoformat()
+        steps_series.append({"date": d_str, "val": st})
+        active_series.append({"date": d_str, "val": act})
+        calories_series.append({"date": d_str, "val": cal})
+        curr_d += dt.timedelta(days=1)
+
+    valid_steps = [s["val"] for s in steps_series if s["val"] is not None]
+    avg_steps = round(sum(valid_steps) / len(valid_steps)) if valid_steps else None
+
+    valid_act = [s["val"] for s in active_series if s["val"] is not None]
+    avg_active = round(sum(valid_act) / len(valid_act)) if valid_act else None
+
+    valid_cal = [s["val"] for s in calories_series if s["val"] is not None]
+    avg_cal = round(sum(valid_cal) / len(valid_cal)) if valid_cal else None
+
+    return {
+        "date": target_date.isoformat(),
+        "days": days,
+        "steps": {
+            "avg": avg_steps,
+            "target": step_target,
+            "series": steps_series,
+        },
+        "active_minutes": {
+            "avg": avg_active,
+            "series": active_series,
+        },
+        "calories_out": {
+            "avg": avg_cal,
+            "series": calories_series,
+        },
         "as_of": quality.as_of(conn),
     }
 
@@ -460,7 +669,7 @@ def query_recovery(conn: Connection, date_str: str | None = None, days: int = 30
 # -----------------------------------------------------------------------------
 
 
-def query_sleep(conn: Connection, date_str: str | None = None) -> dict[str, Any]:
+def query_sleep(conn: Connection, date_str: str | None = None, days: int = 30) -> dict[str, Any]:
     target_date = _parse_date(date_str)
     settings = get_settings()
 
@@ -567,8 +776,8 @@ def query_sleep(conn: Connection, date_str: str | None = None) -> dict[str, Any]
         else (base_need + sleep_debt_min + strain_bonus_min - nap_credit_min)
     )
 
-    # Last 7 nights
-    week_start = target_date - dt.timedelta(days=6)
+    # Last trailing nights
+    week_start = target_date - dt.timedelta(days=days - 1)
     week_scores = (
         conn.execute(
             text(
@@ -649,7 +858,7 @@ def query_sleep(conn: Connection, date_str: str | None = None) -> dict[str, Any]
 # -----------------------------------------------------------------------------
 
 
-def query_strain(conn: Connection, date_str: str | None = None) -> dict[str, Any]:
+def query_strain(conn: Connection, date_str: str | None = None, days: int = 30) -> dict[str, Any]:
     target_date = _parse_date(date_str)
     settings = get_settings()
     tz = settings.tz
@@ -860,8 +1069,8 @@ def query_strain(conn: Connection, date_str: str | None = None) -> dict[str, Any
         )
     activities.sort(key=lambda a: a["start_time"] or "")
 
-    # Last 7 days strain
-    week_start = target_date - dt.timedelta(days=6)
+    # Last trailing days strain
+    week_start = target_date - dt.timedelta(days=days - 1)
     week_strains_rows = (
         conn.execute(
             text(

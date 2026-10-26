@@ -4,32 +4,40 @@ import { EmptyState } from "../components/EmptyState";
 import { Header } from "../components/Header";
 import { Skeleton } from "../components/Skeleton";
 import {
+  addDays,
   formatDateCzech,
+  formatDateRangeCzech,
   formatDecimal,
   formatDuration,
   formatDurationShort,
   formatNumber,
   formatTime,
+  getTodayString,
+  isToday,
   recoveryColor,
 } from "../helpers";
 import { ReportResponse } from "../types";
 
 interface ReportScreenProps {
   date: string;
+  onDateChange?: (newDate: string) => void;
 }
 
-export function ReportScreen({ date }: ReportScreenProps) {
+export function ReportScreen({ date, onDateChange }: ReportScreenProps) {
   const [period, setPeriod] = useState<"week" | "month">("week");
   const [data, setData] = useState<ReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const currentDate = date || getTodayString();
+  const isCurrentPeriod = isToday(currentDate) || currentDate >= getTodayString();
 
   const loadData = async (isRef = false) => {
     if (isRef) setRefreshing(true);
     else setLoading(true);
 
     const res = await apiFetch<ReportResponse>(
-      `/api/report?period=${period}&end=${encodeURIComponent(date)}`
+      `/api/report?period=${period}&end=${encodeURIComponent(currentDate)}`
     );
     if (res.data) {
       setData(res.data);
@@ -40,7 +48,22 @@ export function ReportScreen({ date }: ReportScreenProps) {
 
   useEffect(() => {
     loadData();
-  }, [period, date]);
+  }, [period, currentDate]);
+
+  const handlePrevPeriod = () => {
+    const step = period === "week" ? 7 : 30;
+    const newDate = addDays(currentDate, -step);
+    if (onDateChange) onDateChange(newDate);
+  };
+
+  const handleNextPeriod = () => {
+    if (isCurrentPeriod) return;
+    const step = period === "week" ? 7 : 30;
+    const nextDate = addDays(currentDate, step);
+    const todayStr = getTodayString();
+    const clampedDate = nextDate > todayStr ? todayStr : nextDate;
+    if (onDateChange) onDateChange(clampedDate);
+  };
 
   const query = date ? `?date=${encodeURIComponent(date)}` : "";
 
@@ -55,11 +78,10 @@ export function ReportScreen({ date }: ReportScreenProps) {
     return { text: `${sign}${formatted}${unit}`, color };
   };
 
-  const periodTitle =
-    period === "week"
-      ? data
-        ? `Týden ${formatDateCzech(data.start)} – ${formatDateCzech(data.end)}`
-        : "Týdenní přehled"
+  const periodTitle = data
+    ? `${period === "week" ? "Týden" : "Měsíc"} · ${formatDateRangeCzech(data.start, data.end)}`
+    : period === "week"
+      ? "Týdenní přehled"
       : "Měsíční přehled";
 
   const periodSubtitle =
@@ -78,9 +100,66 @@ export function ReportScreen({ date }: ReportScreenProps) {
         isRefreshing={refreshing}
       />
 
-      {/* Period toggle: Týden / Měsíc */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: "12px", color: "#9BA3AF" }}>{periodSubtitle}</div>
+      {/* Period navigation and toggle */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "8px",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+          <button
+            type="button"
+            onClick={handlePrevPeriod}
+            aria-label={period === "week" ? "Předchozí týden" : "Předchozí měsíc"}
+            style={{
+              width: "44px",
+              height: "44px",
+              borderRadius: "12px",
+              border: "none",
+              background: "#16191E",
+              color: "#F2F4F7",
+              fontSize: "18px",
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            onClick={handleNextPeriod}
+            disabled={isCurrentPeriod}
+            aria-label={period === "week" ? "Následující týden" : "Následující měsíc"}
+            style={{
+              width: "44px",
+              height: "44px",
+              borderRadius: "12px",
+              border: "none",
+              background: "#16191E",
+              color: isCurrentPeriod ? "#5C636D" : "#F2F4F7",
+              fontSize: "18px",
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: isCurrentPeriod ? "not-allowed" : "pointer",
+              opacity: isCurrentPeriod ? 0.4 : 1,
+            }}
+          >
+            ›
+          </button>
+          <span style={{ fontSize: "12px", color: "#9BA3AF", paddingLeft: "4px" }}>
+            {periodSubtitle}
+          </span>
+        </div>
+
         <div
           role="group"
           aria-label="Období přehledu"

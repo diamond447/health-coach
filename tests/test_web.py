@@ -162,8 +162,8 @@ def _seed_test_data(conn: Any, day: dt.date) -> None:
     conn.execute(
         text(
             "INSERT INTO targets (effective_from, phase, kcal, protein_g, carbs_g, fat_g, "
-            "weekly_rate_min_kg, weekly_rate_max_kg, reason, source) VALUES "
-            "(:ef, 'cut', 2400, 160, 260, 75, -0.5, -0.3, 'Start cut', 'coach')"
+            "steps, weekly_rate_min_kg, weekly_rate_max_kg, reason, source) VALUES "
+            "(:ef, 'cut', 2400, 160, 260, 75, 10000, -0.5, -0.3, 'Start cut', 'coach')"
         ),
         {"ef": day - dt.timedelta(days=60)},
     )
@@ -319,7 +319,13 @@ def test_web_endpoints(migrated_db: str, owner: Engine) -> None:
     assert data["zone"] == "green"
     assert len(data["hrv_series"]) == 30
     assert len(data["rhr_series"]) == 30
+    assert len(data["sleep_series"]) == 30
+    assert len(data["breathing_series"]) == 30
+    assert len(data["skin_temp_series"]) == 30
     assert data["hrv_band"] is not None
+    assert data["breathing_series"][0]["band_lo"] is not None
+    assert data["skin_temp_series"][0]["band_lo"] is not None
+    assert data["sleep_series"][0]["band_lo"] is None
 
     # 4. /api/sleep
     res = client.get(f"/api/sleep?date={today_d.isoformat()}")
@@ -327,7 +333,7 @@ def test_web_endpoints(migrated_db: str, owner: Engine) -> None:
     data = res.json()
     assert data["session"]["efficiency"] == 95
     assert len(data["stages"]) > 0
-    assert len(data["week"]) == 7
+    assert len(data["week"]) == 30
     assert data["need_breakdown"]["base_need_min"] is not None
     assert "tonight_plan" in data
 
@@ -338,7 +344,7 @@ def test_web_endpoints(migrated_db: str, owner: Engine) -> None:
     assert data["strain"] == 11.8
     assert len(data["zones"]) == 5
     assert len(data["hr_points"]) > 0
-    assert len(data["week_strains"]) == 7
+    assert len(data["week_strains"]) == 30
 
     # 6. /api/nutrition
     res = client.get(f"/api/nutrition?date={today_d.isoformat()}")
@@ -385,6 +391,36 @@ def test_web_endpoints(migrated_db: str, owner: Engine) -> None:
     assert "daily_recovery" in data
     assert data["coach_review"] is not None
 
+    # 11. /api/activity
+    res = client.get(f"/api/activity?date={today_d.isoformat()}&days=30")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["date"] == "2026-10-25"
+    assert data["days"] == 30
+    assert data["steps"]["target"] == 10000
+    assert data["steps"]["avg"] is not None
+    assert len(data["steps"]["series"]) == 30
+    assert data["active_minutes"]["avg"] is not None
+    assert len(data["active_minutes"]["series"]) == 30
+    assert data["calories_out"]["avg"] is not None
+    assert len(data["calories_out"]["series"]) == 30
+
+    # 12. /api/night
+    res = client.get(f"/api/night?date={today_d.isoformat()}&days=30")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["date"] == "2026-10-25"
+    assert data["days"] == 30
+    assert data["hrv"]["current"] is not None
+    assert data["hrv"]["avg"] is not None
+    assert data["hrv"]["band"] is not None
+    assert len(data["hrv"]["series"]) == 30
+    assert data["rhr"]["band"] is not None
+    assert data["breathing"]["band"] is not None
+    assert data["skin_temp"]["band"] is not None
+    assert data["spo2"]["band"] is None
+    assert len(data["spo2"]["series"]) == 30
+
 
 def test_web_auth_and_public_routes(migrated_db: str, owner: Engine) -> None:
     """Test header check: 403 on disallowed, 200 on allowed, public path bypass, SPA fallback."""
@@ -426,6 +462,12 @@ def test_web_auth_and_public_routes(migrated_db: str, owner: Engine) -> None:
     res = client.get("/spanek")
     assert res.status_code == 200
 
+    res = client.get("/aktivita")
+    assert res.status_code == 200
+
+    res = client.get("/noc")
+    assert res.status_code == 200
+
     # 6. Path traversal attempt falls back to SPA index.html and cannot escape STATIC_DIR
     res = client.get("/../../../etc/passwd")
     assert res.status_code == 200
@@ -459,6 +501,8 @@ def test_web_input_validation(migrated_db: str, owner: Engine) -> None:
         "/api/trends?date=bad",
         "/api/journal?date=bad",
         "/api/report?end=bad",
+        "/api/activity?date=bad",
+        "/api/night?date=bad",
     ]:
         res = client.get(endpoint)
         assert res.status_code == 400, f"Expected 400 for {endpoint}, got {res.status_code}"
@@ -501,6 +545,22 @@ def test_web_input_validation(migrated_db: str, owner: Engine) -> None:
     assert res.status_code == 200
 
     res = client.get("/api/journal?days=bad")
+    assert res.status_code == 400
+    assert res.json()["error"] == "bad_request"
+
+    res = client.get("/api/activity?days=bad")
+    assert res.status_code == 400
+    assert res.json()["error"] == "bad_request"
+
+    res = client.get("/api/night?days=bad")
+    assert res.status_code == 400
+    assert res.json()["error"] == "bad_request"
+
+    res = client.get("/api/sleep?days=bad")
+    assert res.status_code == 400
+    assert res.json()["error"] == "bad_request"
+
+    res = client.get("/api/strain?days=bad")
     assert res.status_code == 400
     assert res.json()["error"] == "bad_request"
 
@@ -661,6 +721,8 @@ FIXTURE_ENDPOINTS = {
     "journal": "/api/journal?date=2026-10-25&days=60",
     "report": "/api/report?period=week&end=2026-10-25",
     "healthspan": "/api/healthspan",
+    "activity": "/api/activity?date=2026-10-25&days=30",
+    "night": "/api/night?date=2026-10-25&days=30",
 }
 
 

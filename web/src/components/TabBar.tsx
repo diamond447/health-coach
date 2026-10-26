@@ -11,7 +11,11 @@ export function TabBar({ currentPath, date }: TabBarProps) {
       id: "today",
       href: `/${query}`,
       label: "Dnes",
-      isActive: currentPath === "/",
+      isActive:
+        currentPath === "/" ||
+        currentPath === "/recovery" ||
+        currentPath === "/aktivita" ||
+        currentPath === "/noc",
       icon: (
         <svg
           width="24"

@@ -303,8 +303,12 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
           )}
 
           {/* Activity card */}
-          <div
+          <a
+            href={`/aktivita${query}`}
+            aria-label="Aktivita"
             style={{
+              textDecoration: "none",
+              color: "#F2F4F7",
               background: "#16191E",
               borderRadius: "16px",
               padding: "16px",
@@ -313,7 +317,22 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
               gap: "12px",
             }}
           >
-            <div style={{ fontSize: "15px", fontWeight: 700 }}>Aktivita</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: "15px", fontWeight: 700 }}>Aktivita</div>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#9BA3AF"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "8px" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                 <div style={{ fontSize: "20px", fontWeight: 700 }}>
@@ -345,12 +364,9 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
                   const isStrength = act.type === "strength";
 
                   return (
-                    <a
+                    <div
                       key={i}
-                      href={`/strain${query}`}
                       style={{
-                        textDecoration: "none",
-                        color: "#F2F4F7",
                         display: "flex",
                         alignItems: "center",
                         gap: "12px",
@@ -420,16 +436,20 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
                           +{formatDecimal(act.strain, 1)}
                         </div>
                       )}
-                    </a>
+                    </div>
                   );
                 })}
               </div>
             )}
-          </div>
+          </a>
 
           {/* In night vitals card */}
-          <div
+          <a
+            href={`/noc${query}`}
+            aria-label="V noci"
             style={{
+              textDecoration: "none",
+              color: "#F2F4F7",
               background: "#16191E",
               borderRadius: "16px",
               padding: "16px",
@@ -438,7 +458,22 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
               gap: "12px",
             }}
           >
-            <div style={{ fontSize: "15px", fontWeight: 700 }}>V noci</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: "15px", fontWeight: 700 }}>V noci</div>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#9BA3AF"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                 <div style={{ fontSize: "12px", color: "#9BA3AF" }}>SpO2</div>
@@ -473,7 +508,7 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
                 </div>
               </div>
             </div>
-          </div>
+          </a>
         </>
       )}
     </div>

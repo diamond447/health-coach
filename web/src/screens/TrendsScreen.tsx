@@ -3,20 +3,25 @@ import { apiFetch } from "../api";
 import { EmptyState } from "../components/EmptyState";
 import { Header } from "../components/Header";
 import { Skeleton } from "../components/Skeleton";
+import { TimeChart } from "../components/TimeChart";
 import {
+  addDays,
+  formatDateRangeCzech,
   formatDecimal,
   formatDuration,
+  formatDurationShort,
   formatNumber,
-  recoveryColor,
-  seriesPoints,
+  getTodayString,
+  isToday,
 } from "../helpers";
 import { TrendsResponse } from "../types";
 
 interface TrendsScreenProps {
   date: string;
+  onDateChange?: (newDate: string) => void;
 }
 
-export function TrendsScreen({ date }: TrendsScreenProps) {
+export function TrendsScreen({ date, onDateChange }: TrendsScreenProps) {
   const [days, setDays] = useState<7 | 30 | 90>(30);
   const [data, setData] = useState<TrendsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +31,8 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
     if (isRef) setRefreshing(true);
     else setLoading(true);
 
-    const res = await apiFetch<TrendsResponse>(`/api/trends?days=${days}`);
+    const queryDate = date ? `&date=${encodeURIComponent(date)}` : "";
+    const res = await apiFetch<TrendsResponse>(`/api/trends?days=${days}${queryDate}`);
     if (res.data) {
       setData(res.data);
     }
@@ -36,41 +42,28 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
 
   useEffect(() => {
     loadData();
-  }, [days]);
+  }, [days, date]);
 
   const query = date ? `?date=${encodeURIComponent(date)}` : "";
-  const gap = days > 30 ? 1 : 3;
+  const currentDate = date || getTodayString();
+  const startDate = addDays(currentDate, -(days - 1));
+  const rangeLabel = formatDateRangeCzech(startDate, currentDate);
+  const isAtToday = isToday(currentDate) || currentDate >= getTodayString();
 
-  // HRV & RHR chart geometry
-  const hrvVals = data?.hrv.series.map((s) => s.val) || [];
-  const rhrVals = data?.rhr.series.map((s) => s.val) || [];
-  const validHrv = hrvVals.filter((v): v is number => v !== null && !isNaN(v));
-  const validRhr = rhrVals.filter((v): v is number => v !== null && !isNaN(v));
+  const handlePrevWindow = () => {
+    const newDate = addDays(currentDate, -days);
+    if (onDateChange) onDateChange(newDate);
+  };
 
-  const minHrv = Math.min(...validHrv.length ? validHrv : [35]) - 2;
-  const maxHrv = Math.max(...validHrv.length ? validHrv : [70]) + 2;
-  const hrvPts = seriesPoints(hrvVals, 326, 100, minHrv, maxHrv, 4);
+  const handleNextWindow = () => {
+    if (isAtToday) return;
+    const nextDate = addDays(currentDate, days);
+    const todayStr = getTodayString();
+    const clampedDate = nextDate > todayStr ? todayStr : nextDate;
+    if (onDateChange) onDateChange(clampedDate);
+  };
 
-  const minRhr = Math.min(...validRhr.length ? validRhr : [45]) - 2;
-  const maxRhr = Math.max(...validRhr.length ? validRhr : [65]) + 2;
-  const rhrPts = seriesPoints(rhrVals, 326, 100, minRhr, maxRhr, 4);
-
-  // Weight chart geometry
-  const wtRaw = data?.weight.series.map((s) => s.raw) || [];
-  const wtAvg = data?.weight.series.map((s) => s.avg) || [];
-  const validWt = [
-    ...wtRaw.filter((v): v is number => v !== null && !isNaN(v)),
-    ...wtAvg.filter((v): v is number => v !== null && !isNaN(v)),
-  ];
-  const minWt = Math.min(...validWt.length ? validWt : [70]) - 0.5;
-  const maxWt = Math.max(...validWt.length ? validWt : [85]) + 0.5;
-  const wtRawPts = seriesPoints(wtRaw, 326, 90, minWt, maxWt, 4);
-  const wtAvgPts = seriesPoints(wtAvg, 326, 90, minWt, maxWt, 4);
-
-  // Calorie chart target line
   const targetKcal = data?.kcal.target || 2400;
-  const maxKcal = Math.max(3000, targetKcal + 500, ...(data?.kcal.series.map((s) => s.val || 0) || [3000]));
-  const kcalTargetB = Math.round((targetKcal / maxKcal) * 80);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -153,43 +146,104 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
         </a>
       </div>
 
-      {/* Period selector: 7, 30, 90 days */}
+      {/* Period navigation: prev/next window buttons + range label + 7/30/90 selector */}
       <div
-        role="group"
-        aria-label="Období"
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-          gap: "4px",
-          padding: "4px",
-          borderRadius: "12px",
-          background: "#16191E",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "8px",
+          flexWrap: "wrap",
         }}
       >
-        {([7, 30, 90] as const).map((d) => {
-          const isSelected = days === d;
-          return (
-            <button
-              key={d}
-              type="button"
-              onClick={() => setDays(d)}
-              aria-pressed={isSelected}
-              style={{
-                minHeight: "40px",
-                border: "none",
-                borderRadius: "9px",
-                fontFamily: "inherit",
-                fontSize: "14px",
-                fontWeight: 600,
-                background: isSelected ? "#2C323A" : "transparent",
-                color: isSelected ? "#F2F4F7" : "#9BA3AF",
-                cursor: "pointer",
-              }}
-            >
-              {d} dní
-            </button>
-          );
-        })}
+        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+          <button
+            type="button"
+            onClick={handlePrevWindow}
+            aria-label="Předchozí období"
+            style={{
+              width: "44px",
+              height: "44px",
+              borderRadius: "12px",
+              border: "none",
+              background: "#16191E",
+              color: "#F2F4F7",
+              fontSize: "18px",
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            onClick={handleNextWindow}
+            disabled={isAtToday}
+            aria-label="Následující období"
+            style={{
+              width: "44px",
+              height: "44px",
+              borderRadius: "12px",
+              border: "none",
+              background: "#16191E",
+              color: isAtToday ? "#5C636D" : "#F2F4F7",
+              fontSize: "18px",
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: isAtToday ? "not-allowed" : "pointer",
+              opacity: isAtToday ? 0.4 : 1,
+            }}
+          >
+            ›
+          </button>
+          <span style={{ fontSize: "14px", fontWeight: 600, color: "#C9CED6", paddingLeft: "4px" }}>
+            {rangeLabel}
+          </span>
+        </div>
+
+        {/* Period selector: 7, 30, 90 days */}
+        <div
+          role="group"
+          aria-label="Období"
+          style={{
+            display: "flex",
+            gap: "4px",
+            padding: "4px",
+            borderRadius: "12px",
+            background: "#16191E",
+          }}
+        >
+          {([7, 30, 90] as const).map((d) => {
+            const isSelected = days === d;
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDays(d)}
+                aria-pressed={isSelected}
+                style={{
+                  minHeight: "36px",
+                  padding: "0 10px",
+                  border: "none",
+                  borderRadius: "9px",
+                  fontFamily: "inherit",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  background: isSelected ? "#2C323A" : "transparent",
+                  color: isSelected ? "#F2F4F7" : "#9BA3AF",
+                  cursor: "pointer",
+                }}
+              >
+                {d} dní
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {loading && !data ? (
@@ -221,23 +275,24 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
                 {data.recovery.green_count}× zelená
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: `${gap}px`, height: "90px" }}>
-              {data.recovery.series.map((b, idx) => {
-                const val = b.val ?? 0;
-                const h = Math.round(val * 0.9);
-                return (
-                  <div
-                    key={idx}
-                    style={{
-                      flex: "1 1 0",
-                      height: `${h}px`,
-                      borderRadius: "2px",
-                      background: recoveryColor(b.val),
-                    }}
-                  />
-                );
-              })}
-            </div>
+            <TimeChart
+              points={data.recovery.series.map((s) => ({
+                date: s.date,
+                values: [s.val],
+              }))}
+              series={[
+                {
+                  label: "Recovery",
+                  color: "#2BD47D",
+                  unit: "%",
+                  kind: "bar",
+                },
+              ]}
+              height={90}
+              yAxis={true}
+              xAxis={false}
+              ariaLabel="Trend recovery"
+            />
           </div>
 
           {/* HRV & RHR chart */}
@@ -258,34 +313,31 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
                 {data.rhr.avg !== null ? `${Math.round(data.rhr.avg)} bpm` : "–"}
               </div>
             </div>
-            <svg
-              width="326"
-              height="100"
-              viewBox="0 0 326 100"
-              role="img"
-              aria-label="Trend HRV a klidového tepu"
-              style={{ width: "100%", height: "auto" }}
-            >
-              {hrvPts.points && (
-                <polyline
-                  points={hrvPts.points}
-                  fill="none"
-                  stroke="#5FE39E"
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                />
-              )}
-              {rhrPts.points && (
-                <polyline
-                  points={rhrPts.points}
-                  fill="none"
-                  stroke="#7DB8FF"
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                  strokeDasharray="4 3"
-                />
-              )}
-            </svg>
+            <TimeChart
+              points={data.hrv.series.map((s, idx) => ({
+                date: s.date,
+                values: [s.val, data.rhr.series[idx]?.val ?? null],
+              }))}
+              series={[
+                {
+                  label: "HRV",
+                  color: "#5FE39E",
+                  unit: "ms",
+                  kind: "line",
+                },
+                {
+                  label: "Klidový tep",
+                  color: "#7DB8FF",
+                  unit: "bpm",
+                  kind: "line",
+                  strokeDasharray: "4 3",
+                },
+              ]}
+              height={100}
+              yAxis={true}
+              xAxis={true}
+              ariaLabel="Trend HRV a klidového tepu"
+            />
             <div style={{ display: "flex", gap: "16px", fontSize: "12px", color: "#9BA3AF" }}>
               <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                 <span style={{ width: "14px", height: "2px", background: "#5FE39E" }} />
@@ -316,24 +368,25 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
                 {data.sleep.avg_perf !== null ? `${Math.round(data.sleep.avg_perf)} %` : "–"}
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: `${gap}px`, height: "80px" }}>
-              {data.sleep.series.map((b, idx) => {
-                const m = b.val ?? 0;
-                const h = Math.round((m / 600) * 80);
-                const isGood = m >= 420; // 7h
-                return (
-                  <div
-                    key={idx}
-                    style={{
-                      flex: "1 1 0",
-                      height: `${h}px`,
-                      borderRadius: "2px",
-                      background: isGood ? "#9C8CFF" : "#5D5499",
-                    }}
-                  />
-                );
-              })}
-            </div>
+            <TimeChart
+              points={data.sleep.series.map((s) => ({
+                date: s.date,
+                values: [s.val],
+              }))}
+              series={[
+                {
+                  label: "Spánek",
+                  color: "#9C8CFF",
+                  unit: "min",
+                  format: formatDurationShort,
+                  kind: "bar",
+                },
+              ]}
+              height={80}
+              yAxis={true}
+              xAxis={false}
+              ariaLabel="Trend spánku"
+            />
           </div>
 
           {/* Strain trend */}
@@ -354,23 +407,25 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
                 {data.strain.acwr !== null && ` · zátěž 7/28 d ${formatDecimal(data.strain.acwr, 2)}`}
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: `${gap}px`, height: "80px" }}>
-              {data.strain.series.map((b, idx) => {
-                const s = b.val ?? 0;
-                const h = Math.round((s / 21) * 80);
-                return (
-                  <div
-                    key={idx}
-                    style={{
-                      flex: "1 1 0",
-                      height: `${h}px`,
-                      borderRadius: "2px",
-                      background: "#3D9BFF",
-                    }}
-                  />
-                );
-              })}
-            </div>
+            <TimeChart
+              points={data.strain.series.map((s) => ({
+                date: s.date,
+                values: [s.val],
+              }))}
+              series={[
+                {
+                  label: "Strain",
+                  color: "#3D9BFF",
+                  unit: "",
+                  format: (v) => formatDecimal(v, 1),
+                  kind: "bar",
+                },
+              ]}
+              height={80}
+              yAxis={true}
+              xAxis={false}
+              ariaLabel="Trend strainu"
+            />
           </div>
 
           {/* Weight trend */}
@@ -391,30 +446,32 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
                 {data.weight.rate !== null && ` · ${formatDecimal(data.weight.rate, 2, true)} kg/týden`}
               </div>
             </div>
-            <svg
-              width="326"
-              height="90"
-              viewBox="0 0 326 90"
-              role="img"
-              aria-label="Trend váhy, 7denní průměr"
-              style={{ width: "100%", height: "auto" }}
-            >
-              {/* Single weigh-ins as dots: day-to-day water swings, not a trend */}
-              {wtRawPts.points &&
-                wtRawPts.points.split(" ").map((pt) => {
-                  const [cx, cy] = pt.split(",");
-                  return <circle key={pt} cx={cx} cy={cy} r="2" fill="#5C636D" />;
-                })}
-              {wtAvgPts.points && (
-                <polyline
-                  points={wtAvgPts.points}
-                  fill="none"
-                  stroke="#F2F4F7"
-                  strokeWidth="2.4"
-                  strokeLinejoin="round"
-                />
-              )}
-            </svg>
+            <TimeChart
+              points={data.weight.series.map((s) => ({
+                date: s.date,
+                values: [s.raw, s.avg],
+              }))}
+              series={[
+                {
+                  label: "Vážení",
+                  color: "#5C636D",
+                  unit: "kg",
+                  format: (v) => `${formatDecimal(v, 1)} kg`,
+                  kind: "dots",
+                },
+                {
+                  label: "7denní průměr",
+                  color: "#F2F4F7",
+                  unit: "kg",
+                  format: (v) => `${formatDecimal(v, 1)} kg`,
+                  kind: "line",
+                },
+              ]}
+              height={90}
+              yAxis={true}
+              xAxis={true}
+              ariaLabel="Trend váhy, 7denní průměr"
+            />
             <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
               Tečky = jednotlivá vážení (denně kolísají o vodu) · čára = 7denní průměr
             </div>
@@ -438,42 +495,26 @@ export function TrendsScreen({ date }: TrendsScreenProps) {
                 {data.kcal.avg_protein !== null ? `${formatDecimal(data.kcal.avg_protein, 0)} g` : "–"}
               </div>
             </div>
-            <div
-              style={{
-                position: "relative",
-                display: "flex",
-                alignItems: "flex-end",
-                gap: `${gap}px`,
-                height: "80px",
-              }}
-            >
-              <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  bottom: `${kcalTargetB}px`,
-                  height: "2px",
-                  background: "#FFB15C",
-                  zIndex: 2,
-                }}
-              />
-              {data.kcal.series.map((b, idx) => {
-                const k = b.val ?? 0;
-                const h = Math.round((k / maxKcal) * 80);
-                return (
-                  <div
-                    key={idx}
-                    style={{
-                      flex: "1 1 0",
-                      height: `${h}px`,
-                      borderRadius: "2px",
-                      background: "#6B7480",
-                    }}
-                  />
-                );
-              })}
-            </div>
+            <TimeChart
+              points={data.kcal.series.map((s) => ({
+                date: s.date,
+                values: [s.val],
+              }))}
+              series={[
+                {
+                  label: "Příjem",
+                  color: "#6B7480",
+                  unit: "kcal",
+                  format: (v) => `${formatNumber(v)} kcal`,
+                  kind: "bar",
+                },
+              ]}
+              target={targetKcal}
+              height={80}
+              yAxis={true}
+              xAxis={false}
+              ariaLabel="Trend příjmu kalorií"
+            />
             <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
               Oranžová čára = cíl {formatNumber(targetKcal)} kcal
             </div>

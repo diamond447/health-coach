@@ -570,6 +570,121 @@
   ],
   "week_strains": [
     {
+      "date": "2026-09-26",
+      "weekday": "so",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-09-27",
+      "weekday": "ne",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-09-28",
+      "weekday": "po",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-09-29",
+      "weekday": "út",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-09-30",
+      "weekday": "st",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-01",
+      "weekday": "čt",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-02",
+      "weekday": "pá",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-03",
+      "weekday": "so",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-04",
+      "weekday": "ne",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-05",
+      "weekday": "po",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-06",
+      "weekday": "út",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-07",
+      "weekday": "st",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-08",
+      "weekday": "čt",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-09",
+      "weekday": "pá",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-10",
+      "weekday": "so",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-11",
+      "weekday": "ne",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-12",
+      "weekday": "po",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-13",
+      "weekday": "út",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-14",
+      "weekday": "st",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-15",
+      "weekday": "čt",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-16",
+      "weekday": "pá",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-17",
+      "weekday": "so",
+      "strain": 10.5
+    },
+    {
+      "date": "2026-10-18",
+      "weekday": "ne",
+      "strain": 10.5
+    },
+    {
       "date": "2026-10-19",
       "weekday": "po",
       "strain": 10.5
@@ -605,6 +720,6 @@
       "strain": 11.8
     }
   ],
-  "avg_week_strain": 10.7,
+  "avg_week_strain": 10.5,
   "as_of": "2026-10-25T12:00+01:00"
 }

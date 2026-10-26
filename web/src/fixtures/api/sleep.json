@@ -63,6 +63,167 @@
   },
   "week": [
     {
+      "date": "2026-09-26",
+      "weekday": "so",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-09-27",
+      "weekday": "ne",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-09-28",
+      "weekday": "po",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-09-29",
+      "weekday": "út",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-09-30",
+      "weekday": "st",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-01",
+      "weekday": "čt",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-02",
+      "weekday": "pá",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-03",
+      "weekday": "so",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-04",
+      "weekday": "ne",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-05",
+      "weekday": "po",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-06",
+      "weekday": "út",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-07",
+      "weekday": "st",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-08",
+      "weekday": "čt",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-09",
+      "weekday": "pá",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-10",
+      "weekday": "so",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-11",
+      "weekday": "ne",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-12",
+      "weekday": "po",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-13",
+      "weekday": "út",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-14",
+      "weekday": "st",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-15",
+      "weekday": "čt",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-16",
+      "weekday": "pá",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-17",
+      "weekday": "so",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
+      "date": "2026-10-18",
+      "weekday": "ne",
+      "actual_min": 432,
+      "need_min": 491,
+      "performance": 88
+    },
+    {
       "date": "2026-10-19",
       "weekday": "po",
       "actual_min": 432,

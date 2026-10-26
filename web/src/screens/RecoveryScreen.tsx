@@ -4,16 +4,14 @@ import { EmptyState } from "../components/EmptyState";
 import { Header } from "../components/Header";
 import { RingDial } from "../components/RingDial";
 import { Skeleton } from "../components/Skeleton";
+import { TimeChart } from "../components/TimeChart";
 import {
-  calculateBand,
-  valueRange,
   formatDateCzech,
   formatDecimal,
   formatPoints,
   RECOVERY_SIGNALS,
   recoveryColor,
   recoveryZoneLabel,
-  seriesPoints,
 } from "../helpers";
 import { RecoveryResponse } from "../types";
 
@@ -47,33 +45,27 @@ export function RecoveryScreen({ date }: RecoveryScreenProps) {
   const query = date ? `?date=${encodeURIComponent(date)}` : "";
   const dateFormatted = formatDateCzech(date);
 
-  // HRV chart calculations
-  const hrvVals = data?.hrv_series.map((s) => s.val) || [];
-  const validHrv = hrvVals.filter((v): v is number => v !== null && !isNaN(v));
   const [hrvBandLo, hrvBandHi] = data?.hrv_band ?? [null, null];
-  const [minHrv, maxHrv] = valueRange([...validHrv, hrvBandLo, hrvBandHi], 5);
-
-  const hrvPts = seriesPoints(hrvVals, 326, 110, minHrv, maxHrv, 8);
-  const hrvBand =
-    hrvBandLo !== null && hrvBandHi !== null
-      ? calculateBand(hrvBandLo, hrvBandHi, 110, minHrv, maxHrv, 8)
-      : null;
-
-  // RHR chart calculations
-  const rhrVals = data?.rhr_series.map((s) => s.val) || [];
-  const validRhr = rhrVals.filter((v): v is number => v !== null && !isNaN(v));
   const [rhrBandLo, rhrBandHi] = data?.rhr_band ?? [null, null];
-  const [minRhr, maxRhr] = valueRange([...validRhr, rhrBandLo, rhrBandHi], 3);
 
-  const rhrPts = seriesPoints(rhrVals, 326, 110, minRhr, maxRhr, 8);
-  const rhrBand =
-    rhrBandLo !== null && rhrBandHi !== null
-      ? calculateBand(rhrBandLo, rhrBandHi, 110, minRhr, maxRhr, 8)
-      : null;
+  const latestBr = data?.breathing_series
+    ?.slice()
+    .reverse()
+    .find((s) => s.band_lo !== null && s.band_hi !== null);
+  const latestTemp = data?.skin_temp_series
+    ?.slice()
+    .reverse()
+    .find((s) => s.band_lo !== null && s.band_hi !== null);
 
-  const startDateCzech = data?.hrv_series.length
-    ? formatDateCzech(data.hrv_series[0].date)
-    : "30 dní";
+  const currentSleepPerf = data?.sleep_series?.length
+    ? data.sleep_series[data.sleep_series.length - 1].val
+    : null;
+  const currentBr = data?.breathing_series?.length
+    ? data.breathing_series[data.breathing_series.length - 1].val
+    : null;
+  const currentTemp = data?.skin_temp_series?.length
+    ? data.skin_temp_series[data.skin_temp_series.length - 1].val
+    : null;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -153,41 +145,30 @@ export function RecoveryScreen({ date }: RecoveryScreenProps) {
               </div>
             </div>
 
-            <svg
-              width="326"
-              height="110"
-              viewBox="0 0 326 110"
-              role="img"
-              aria-label={`Graf HRV za 30 dní, dnes ${data.current_hrv !== null ? Math.round(data.current_hrv) : "–"} ms`}
-              style={{ width: "100%", height: "auto", overflow: "visible" }}
-            >
-              {hrvBand && (
-                <rect x="0" y={hrvBand.y} width="326" height={hrvBand.h} fill="#1B3A2B" rx="3" />
-              )}
-              {hrvPts.points && (
-                <>
-                  <polyline
-                    points={hrvPts.points}
-                    fill="none"
-                    stroke="#5FE39E"
-                    strokeWidth="2"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
-                  <circle cx={hrvPts.lastX} cy={hrvPts.lastY} r="4" fill="#5FE39E" />
-                </>
-              )}
-            </svg>
+            <TimeChart
+              points={data.hrv_series.map((s) => ({ date: s.date, values: [s.val] }))}
+              series={[
+                {
+                  label: "HRV",
+                  color: "#5FE39E",
+                  unit: "ms",
+                  format: (v) => `${Math.round(v)} ms`,
+                  kind: "line",
+                },
+              ]}
+              band={data.hrv_series.map((s) => ({ lo: s.band_lo, hi: s.band_hi }))}
+              bandColor="rgba(95, 227, 158, 0.12)"
+              height={110}
+              yAxis={true}
+              xAxis={true}
+              ariaLabel={`Graf HRV za 30 dní, dnes ${data.current_hrv !== null ? Math.round(data.current_hrv) : "–"} ms`}
+            />
 
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#9BA3AF" }}>
-              <span>{startDateCzech}</span>
-              {hrvBandLo !== null && hrvBandHi !== null && (
-                <span>
-                  pásmo = tvůj normál ({Math.round(hrvBandLo)}–{Math.round(hrvBandHi)} ms)
-                </span>
-              )}
-              <span>dnes</span>
-            </div>
+            {hrvBandLo !== null && hrvBandHi !== null && (
+              <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
+                pásmo = tvůj normál ({Math.round(hrvBandLo)}–{Math.round(hrvBandHi)} ms)
+              </div>
+            )}
           </div>
 
           {/* RHR 30 days card */}
@@ -208,41 +189,160 @@ export function RecoveryScreen({ date }: RecoveryScreenProps) {
               </div>
             </div>
 
-            <svg
-              width="326"
-              height="110"
-              viewBox="0 0 326 110"
-              role="img"
-              aria-label={`Graf klidového tepu za 30 dní, dnes ${data.current_rhr !== null ? Math.round(data.current_rhr) : "–"} bpm`}
-              style={{ width: "100%", height: "auto", overflow: "visible" }}
-            >
-              {rhrBand && (
-                <rect x="0" y={rhrBand.y} width="326" height={rhrBand.h} fill="#1B2E44" rx="3" />
-              )}
-              {rhrPts.points && (
-                <>
-                  <polyline
-                    points={rhrPts.points}
-                    fill="none"
-                    stroke="#7DB8FF"
-                    strokeWidth="2"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
-                  <circle cx={rhrPts.lastX} cy={rhrPts.lastY} r="4" fill="#7DB8FF" />
-                </>
-              )}
-            </svg>
+            <TimeChart
+              points={data.rhr_series.map((s) => ({ date: s.date, values: [s.val] }))}
+              series={[
+                {
+                  label: "Klidový tep",
+                  color: "#7DB8FF",
+                  unit: "bpm",
+                  format: (v) => `${Math.round(v)} bpm`,
+                  kind: "line",
+                },
+              ]}
+              band={data.rhr_series.map((s) => ({ lo: s.band_lo, hi: s.band_hi }))}
+              bandColor="rgba(125, 184, 255, 0.12)"
+              height={110}
+              yAxis={true}
+              xAxis={true}
+              ariaLabel={`Graf klidového tepu za 30 dní, dnes ${data.current_rhr !== null ? Math.round(data.current_rhr) : "–"} bpm`}
+            />
 
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#9BA3AF" }}>
-              <span>{startDateCzech}</span>
-              {rhrBandLo !== null && rhrBandHi !== null && (
-                <span>
-                  pásmo = tvůj normál ({Math.round(rhrBandLo)}–{Math.round(rhrBandHi)} bpm)
-                </span>
-              )}
-              <span>dnes</span>
+            {rhrBandLo !== null && rhrBandHi !== null && (
+              <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
+                pásmo = tvůj normál ({Math.round(rhrBandLo)}–{Math.round(rhrBandHi)} bpm)
+              </div>
+            )}
+          </div>
+
+          {/* Výkon spánku card */}
+          <div
+            style={{
+              background: "#16191E",
+              borderRadius: "16px",
+              padding: "16px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "10px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <div style={{ fontSize: "15px", fontWeight: 700 }}>Výkon spánku · 30 dní</div>
+              <div style={{ fontSize: "15px", fontWeight: 700 }}>
+                {currentSleepPerf !== null && currentSleepPerf !== undefined
+                  ? `${Math.round(currentSleepPerf)} %`
+                  : "–"}
+              </div>
             </div>
+
+            <TimeChart
+              points={data.sleep_series.map((s) => ({ date: s.date, values: [s.val] }))}
+              series={[
+                {
+                  label: "Výkon spánku",
+                  color: "#9C8CFF",
+                  unit: "%",
+                  format: (v) => `${Math.round(v)} %`,
+                  kind: "line",
+                },
+              ]}
+              height={110}
+              yAxis={true}
+              xAxis={true}
+              ariaLabel="Graf výkonu spánku za 30 dní"
+            />
+          </div>
+
+          {/* Dech card */}
+          <div
+            style={{
+              background: "#16191E",
+              borderRadius: "16px",
+              padding: "16px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "10px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <div style={{ fontSize: "15px", fontWeight: 700 }}>Dech · 30 dní</div>
+              <div style={{ fontSize: "15px", fontWeight: 700 }}>
+                {currentBr !== null && currentBr !== undefined
+                  ? `${formatDecimal(currentBr, 1)} /min`
+                  : "–"}
+              </div>
+            </div>
+
+            <TimeChart
+              points={data.breathing_series.map((s) => ({ date: s.date, values: [s.val] }))}
+              series={[
+                {
+                  label: "Dech",
+                  color: "#7DB8FF",
+                  unit: "/min",
+                  format: (v) => `${formatDecimal(v, 1)} /min`,
+                  kind: "line",
+                },
+              ]}
+              band={data.breathing_series.map((s) => ({ lo: s.band_lo, hi: s.band_hi }))}
+              bandColor="rgba(125, 184, 255, 0.12)"
+              height={110}
+              yAxis={true}
+              xAxis={true}
+              ariaLabel="Graf dechové frekvence za 30 dní"
+            />
+
+            {latestBr && latestBr.band_lo !== null && latestBr.band_hi !== null && (
+              <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
+                pásmo = tvůj normál ({formatDecimal(latestBr.band_lo, 1)}–{formatDecimal(latestBr.band_hi, 1)} /min)
+              </div>
+            )}
+          </div>
+
+          {/* Teplota kůže card */}
+          <div
+            style={{
+              background: "#16191E",
+              borderRadius: "16px",
+              padding: "16px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "10px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <div style={{ fontSize: "15px", fontWeight: 700 }}>Teplota kůže · 30 dní</div>
+              <div style={{ fontSize: "15px", fontWeight: 700 }}>
+                {currentTemp !== null && currentTemp !== undefined
+                  ? `${formatDecimal(currentTemp, 1, true)} °C`
+                  : "–"}
+              </div>
+            </div>
+
+            <TimeChart
+              points={data.skin_temp_series.map((s) => ({ date: s.date, values: [s.val] }))}
+              series={[
+                {
+                  label: "Teplota kůže",
+                  color: "#FFB15C",
+                  unit: "°C",
+                  format: (v) => `${formatDecimal(v, 1, true)} °C`,
+                  kind: "line",
+                },
+              ]}
+              band={data.skin_temp_series.map((s) => ({ lo: s.band_lo, hi: s.band_hi }))}
+              bandColor="rgba(255, 177, 92, 0.12)"
+              height={110}
+              yAxis={true}
+              xAxis={true}
+              ariaLabel="Graf odchylky teploty kůže za 30 dní"
+            />
+
+            {latestTemp && latestTemp.band_lo !== null && latestTemp.band_hi !== null && (
+              <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
+                pásmo = tvůj normál ({formatDecimal(latestTemp.band_lo, 1, true)} až {formatDecimal(latestTemp.band_hi, 1, true)} °C)
+              </div>
+            )}
           </div>
 
           {/* Score breakdown card */}

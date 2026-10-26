@@ -4,6 +4,7 @@ import { EmptyState } from "../components/EmptyState";
 import { Header } from "../components/Header";
 import { RingDial } from "../components/RingDial";
 import { Skeleton } from "../components/Skeleton";
+import { TimeChart } from "../components/TimeChart";
 import { formatDateCzech, formatDecimal, formatNumber, formatTime, strainColor } from "../helpers";
 import { StrainResponse } from "../types";
 
@@ -35,6 +36,18 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
 
   const dateFormatted = formatDateCzech(date);
 
+  // The chart spaces points evenly, so lay the 5-minute means on a full day of buckets:
+  // x then follows the clock (and the workout windows), with gaps where nothing was worn.
+  const hrBuckets = Array.from({ length: 288 }, (_, i) => ({
+    date: "",
+    label: `${Math.floor(i / 12)}:${String((i % 12) * 5).padStart(2, "0")}`,
+    values: [null] as (number | null)[],
+  }));
+  for (const p of data?.hr_points ?? []) {
+    const i = Math.floor(p.minute / 5);
+    if (i >= 0 && i < hrBuckets.length) hrBuckets[i].values = [p.bpm];
+  }
+
   // Strain category label
   const strainVal = data?.strain ?? 0;
   const strainCategory =
@@ -46,27 +59,7 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
           ? "STŘEDNÍ"
           : "LEHKÝ";
 
-  // HR Intraday chart geometry
-  const W = 326;
-  const H = 130;
-  const loBpm = 40;
-  const hiBpm = Math.max(190, data?.hr_max ?? 200);
-
-  const yOf = (bpm: number) => {
-    return (H - ((bpm - loBpm) / (hiBpm - loBpm)) * H).toFixed(1);
-  };
-
-  const xOf = (minute: number) => {
-    return ((minute / 1440) * W).toFixed(1);
-  };
-
-  const hrPointsStr = (data?.hr_points || [])
-    .map((p) => `${xOf(p.minute)},${yOf(p.bpm)}`)
-    .join(" ");
-
   const z3Min = data?.zones.find((z) => z.key === "Z3")?.min_hr ?? null;
-  const z3Y = z3Min !== null ? yOf(z3Min) : null;
-
   const maxZoneMin = Math.max(1, ...(data?.zones.map((z) => z.minutes) || [1]));
 
   return (
@@ -141,47 +134,35 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
               </div>
             </div>
 
-            <svg
-              width="326"
-              height="130"
-              viewBox="0 0 326 130"
-              role="img"
-              aria-label="Tep během dne se zónami a cvičeními"
-              style={{ width: "100%", height: "auto" }}
+            <TimeChart
+              points={hrBuckets}
+              series={[
+                {
+                  label: "",
+                  color: "#FF7A6B",
+                  unit: "bpm",
+                  kind: "line",
+                },
+              ]}
+              target={z3Min !== null ? z3Min : undefined}
+              targetColor="#2C323A"
+              workoutWindows={data.workout_windows}
+              height={130}
+              yAxis={true}
+              xAxis={false}
+              ariaLabel="Tep během dne se zónami a cvičeními"
+            />
+
+            {/* Indented by the chart's y-axis gutter (32 of 326 units) */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: "12px",
+                color: "#9BA3AF",
+                paddingLeft: "9.8%",
+              }}
             >
-              {/* Workout windows */}
-              {data.workout_windows.map((w, idx) => {
-                const x1 = parseFloat(xOf(w.start_minute));
-                const x2 = parseFloat(xOf(w.end_minute));
-                const width = Math.max(2, x2 - x1);
-                return (
-                  <rect
-                    key={idx}
-                    x={x1.toFixed(1)}
-                    y="0"
-                    width={width.toFixed(1)}
-                    height="130"
-                    fill="#14263B"
-                  />
-                );
-              })}
-
-              {/* Zone 3 threshold line */}
-              {z3Y !== null && <rect x="0" y={z3Y} width="326" height="1" fill="#2C323A" />}
-
-              {/* Heart rate line */}
-              {hrPointsStr && (
-                <polyline
-                  points={hrPointsStr}
-                  fill="none"
-                  stroke="#FF7A6B"
-                  strokeWidth="1.6"
-                  strokeLinejoin="round"
-                />
-              )}
-            </svg>
-
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#9BA3AF" }}>
               <span>0:00</span>
               <span>6:00</span>
               <span>12:00</span>
@@ -350,7 +331,7 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
             </div>
           )}
 
-          {/* Week strain */}
+          {/* Last 30 days strain */}
           {data.week_strains && data.week_strains.length > 0 && (
             <div
               style={{
@@ -363,74 +344,31 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <div style={{ fontSize: "15px", fontWeight: 700 }}>Strain za týden</div>
+                <div style={{ fontSize: "15px", fontWeight: 700 }}>Posledních 30 dní</div>
                 <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
-                  Ø{" "}
-                  {formatDecimal(
-                    data.week_strains.reduce((acc, d) => acc + (d.strain || 0), 0) /
-                      (data.week_strains.filter((d) => d.strain !== null).length || 1),
-                    1
-                  )}
+                  Ø {data.avg_week_strain !== null ? formatDecimal(data.avg_week_strain, 1) : "–"}
                 </div>
               </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-                  gap: "10px",
-                  alignItems: "end",
-                  height: "110px",
-                }}
-              >
-                {data.week_strains.map((d, idx) => {
-                  const s = d.strain || 0;
-                  const h = Math.round((s / 21) * 90);
-                  const isCurrent = idx === data.week_strains.length - 1;
-                  const c = isCurrent ? "#3D9BFF" : "#2A5C94";
-
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "flex-end",
-                        alignItems: "center",
-                        gap: "4px",
-                        height: "110px",
-                      }}
-                    >
-                      <span style={{ fontSize: "11px", color: "#C9CED6" }}>
-                        {d.strain !== null ? formatDecimal(d.strain, 1) : "–"}
-                      </span>
-                      <div
-                        style={{
-                          width: "100%",
-                          height: `${h}px`,
-                          borderRadius: "6px 6px 2px 2px",
-                          background: c,
-                        }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-                  gap: "10px",
-                  fontSize: "11px",
-                  color: "#9BA3AF",
-                  textAlign: "center",
-                }}
-              >
-                {data.week_strains.map((d, idx) => (
-                  <span key={idx}>{d.weekday}</span>
-                ))}
-              </div>
+              <TimeChart
+                points={data.week_strains.map((d) => ({
+                  date: d.date,
+                  values: [d.strain],
+                }))}
+                series={[
+                  {
+                    label: "Strain",
+                    color: "#3D9BFF",
+                    unit: "",
+                    format: (v) => formatDecimal(v, 1),
+                    kind: "bar",
+                  },
+                ]}
+                height={110}
+                yAxis={true}
+                xAxis={true}
+                ariaLabel="Graf strainu za 30 dní"
+              />
             </div>
           )}
         </>

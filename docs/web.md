@@ -17,26 +17,40 @@ durations (`7 h 12 min`), and standard WHOOP-style color coding:
 
 - **Dnes (`/`)**: Daily overview with 3 ring dials (Spánek, Recovery, Strain), recommended
   strain target bar, component breakdown ("Co ovlivnilo recovery"), activity summary (steps,
-  active minutes, calories, workout list), and overnight vitals (SpO2, breathing rate, skin
-  temperature deviation, HRV).
-- **Recovery (`/recovery`)**: 200 px ring dial with status text, 30-day HRV line chart with
-  normal baseline band, 30-day resting heart rate chart with baseline band, detailed signal
-  breakdown with standard deviation ($\sigma$) weights, and illness/fever warning cards.
+  active minutes, calories, workout list, linking to `/aktivita`), and overnight vitals (SpO2,
+  breathing rate, skin temperature deviation, HRV, linking to `/noc`). Both the Aktivita and
+  V noci cards are tappable as a whole with `aria-label` links.
+- **Recovery (`/recovery`)**: 200 px ring dial with status text, 30-day scrubbable `TimeChart`s
+  with normal baseline bands for HRV and resting heart rate, 3 additional 30-day `TimeChart`s
+  below them for sleep performance (%), breathing rate (/min with baseline band), and skin
+  temperature deviation (°C with baseline band), detailed signal breakdown with standard
+  deviation ($\sigma$) weights, and illness/fever warning cards.
+- **Aktivita (`/aktivita`)**: 30-day activity detail reachable from the Dnes activity card.
+  Displays 30-day `TimeChart`s for daily steps (bars, dashed target line from `targets.steps`
+  when configured), active minutes (bars), and calories burned (line), along with their
+  30-day daily averages.
+- **Noc (`/noc`)**: Overnight vitals detail reachable from the Dnes "V noci" card. Displays
+  30-day `TimeChart`s for HRV, resting heart rate, SpO₂, breathing rate, and skin temperature
+  deviation, each showing the latest day's value, 30-day mean, and personal baseline band.
 - **Spánek (`/spanek`)**: Sleep performance ring dial, time in bed and sleep duration,
   "Plán na dnešní noc" card (suggested bedtime, alarm, assumed efficiency), hypnogram
   chart showing awake / REM / light / deep stages, sleep need breakdown (base need, debt,
-  strain bonus, nap credit), and 7-night comparison bars.
+  strain bonus, nap credit), and a 30-night scrubbable `TimeChart` comparing actual sleep
+  duration bars to nightly sleep need dots.
 - **Strain (`/strain`)**: Strain dial (0–21 scale), cardio and muscular load (TRIMP),
-  intraday 5-minute heart rate chart with workout overlay windows and zone 3 threshold line,
-  time spent across 5 HR zones, logged workouts and activities, and 7-day strain history.
+  scrubbable intraday 5-minute heart rate chart with workout overlay windows, zone 3 threshold line,
+  and time readout ("HH:MM · 142 bpm"), time spent across 5 HR zones, logged workouts and activities,
+  and 30-day scrubbable strain history `TimeChart`.
 - **Jídlo (`/jidlo`)**: Calorie intake ring dial vs daily target, macronutrient bars
   (protein, carbohydrates, fat, fiber), energy balance card (intake vs TDEE, 14-day mean,
   expected vs actual weight change), meals list grouped by meal time, and 7-day calorie chart
   highlighting protein target achievement.
 - **Trendy (`/trendy`)**: Sub-navigation tiles in a 2x2 grid (Kalendář, Deník, Přehled,
-  Healthspan), 7/30/90-day time range selector, daily recovery bars, HRV & RHR trend chart,
-  sleep duration bars, strain bars with acute-to-chronic workload ratio (ACWR), raw and
-  7-day smoothed weight trend, and calorie intake vs target.
+  Healthspan), period navigation with "‹" and "›" window shift buttons (disabled when ending today)
+  and date range readout ("1. 10. – 30. 10."), 7/30/90-day time range selector, daily recovery bars,
+  HRV & RHR trend chart (with x-axis), sleep duration bars, strain bars with acute-to-chronic workload
+  ratio (ACWR), raw and 7-day smoothed weight trend (with x-axis), and calorie intake vs target.
+  All charts are powered by scrubbable `TimeChart` components with y-axes.
 - **Healthspan (`/healthspan`)**: Estimated biological age and pace of aging (see
   [healthspan.md](healthspan.md)). Displays biological age delta (e.g. `−2,6 roku`), pace of
   aging (`0,8×`), signal coverage count ("8 z 9 signálů s daty"), and a 6-month breakdown of
@@ -49,7 +63,58 @@ durations (`7 h 12 min`), and standard WHOOP-style color coding:
   next-day recovery with and without each habit.
 - **Týdenní přehled (`/prehled`)**: Weekly or monthly review card comparing metrics to the
   previous period, daily recovery bars, best and worst days, volume of hard sets per muscle
-  group, and the weekly coaching review text from the coach log.
+  group, and the weekly coaching review text from the coach log. Includes "‹" and "›" period
+  navigation buttons moving by one week or one month (disabled for current period) with date
+  range displayed in the header.
+
+## Chart Interactions and TimeChart
+
+All daily time-series and intraday charts use a shared SVG component (`TimeChart.tsx`):
+
+- **Scrub interaction**: Dragging or touching over the chart snaps to the nearest day/point,
+  draws a vertical cursor dashed line and dots on each series, and updates a readout above
+  the chart in Czech format: `"po 20. 10. · HRV 31 ms · klidový tep 68 bpm"` (or `"HH:MM · 142 bpm"`
+  for intraday heart rate).
+- **Default state**: Without an active touch, the readout shows the latest day. Releasing the
+  finger preserves the selection.
+- **Mobile scrolling**: SVGs configure `touch-action: pan-y` so vertical page scrolling works
+  smoothly while horizontal swipes scrub the timeline.
+- **Gaps & baselines**: Null gaps break the line segments cleanly without manufacturing fake values.
+  Personal baseline bands are rendered as shaded polygons behind the series lines.
+- **Axes**: Y axis renders 3–4 nicely rounded tick marks via `niceTicks(min, max, count)` with
+  faint horizontal grid lines. X axis renders 3–5 date labels ("d. M.") under the chart where enabled.
+
+## Period Navigation
+
+- **Trendy (`/trendy`)**: "‹" and "›" buttons shift the viewing window by its selected length
+  (7, 30, or 90 days) via the `?date=` query parameter. "›" is automatically disabled when the
+  window ends on the current day. The date range ("d. M. – d. M.") is shown alongside the buttons.
+- **Přehled (`/prehled`)**: "‹" and "›" buttons move the report window by 1 week or 1 month
+  (matching the active Týden/Měsíc toggle) using `/api/report?period=&end=`. "›" is disabled for
+  the current period, and the range is displayed in the header.
+- URL parameters (`?date=` and `?end=`) keep the browser history, reload, and back/forward navigation
+  in sync. All touch targets meet the ≥ 44 px accessibility standard.
+
+## API Endpoints
+
+- `GET /api/day?date=YYYY-MM-DD`: daily overview (rings, activity, vitals, scores).
+- `GET /api/recovery?date=YYYY-MM-DD&days=30`: recovery score, component weights, 30-day HRV, RHR,
+  sleep performance, breathing rate, and skin temperature series with baseline bands.
+- `GET /api/activity?date=YYYY-MM-DD&days=30`: 30-day daily activity time series (steps, active minutes,
+  calories out), 30-day averages, and step target from `targets.steps` (days 7–90).
+- `GET /api/night?date=YYYY-MM-DD&days=30`: 30-day overnight vitals (HRV, RHR, SpO₂, breathing rate,
+  skin temperature deviation), 30-day means, and personal baseline bands (days 7–90).
+- `GET /api/sleep?date=YYYY-MM-DD&days=30`: sleep session, stages, need breakdown, tonight plan,
+  and 30-day comparison series.
+- `GET /api/strain?date=YYYY-MM-DD&days=30`: strain score, TRIMP load, heart rate zones, intraday samples,
+  workout windows, activities, and 30-day strain history.
+- `GET /api/nutrition?date=YYYY-MM-DD`: calorie & macro intake, energy balance, meal log.
+- `GET /api/trends?date=YYYY-MM-DD&days=30`: trends over 7, 30, or 90 days for recovery, HRV, RHR,
+  sleep, strain, weight, and calories.
+- `GET /api/calendar?month=YYYY-MM`: monthly calendar cells with recovery/sleep/strain data.
+- `GET /api/journal?date=YYYY-MM-DD&days=60`: habit impact on next-day recovery.
+- `GET /api/report?period=week|month&end=YYYY-MM-DD`: weekly/monthly comparative review and coaching note.
+- `GET /api/healthspan?weeks=26`: biological age and pace of aging factor breakdown.
 
 ## Security and Forward-Auth
 

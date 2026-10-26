@@ -148,20 +148,44 @@ def api_recovery(request: Request) -> Response:
 def api_sleep(request: Request) -> Response:
     try:
         date_param = _parse_date(request.query_params.get("date"))
+        days = _parse_days(request.query_params.get("days"), default=30)
     except ValueError as e:
         return _bad_request(str(e))
     with get_engine(Role.ro).connect() as conn:
-        data = queries.query_sleep(conn, date_param)
+        data = queries.query_sleep(conn, date_param, days=days)
     return JSONResponse(jsonable(data))
 
 
 def api_strain(request: Request) -> Response:
     try:
         date_param = _parse_date(request.query_params.get("date"))
+        days = _parse_days(request.query_params.get("days"), default=30)
     except ValueError as e:
         return _bad_request(str(e))
     with get_engine(Role.ro).connect() as conn:
-        data = queries.query_strain(conn, date_param)
+        data = queries.query_strain(conn, date_param, days=days)
+    return JSONResponse(jsonable(data))
+
+
+def api_activity(request: Request) -> Response:
+    try:
+        date_param = _parse_date(request.query_params.get("date"))
+        days = _parse_days(request.query_params.get("days"), default=30, min_val=7, max_val=90)
+    except ValueError as e:
+        return _bad_request(str(e))
+    with get_engine(Role.ro).connect() as conn:
+        data = queries.query_activity(conn, date_param, days=days)
+    return JSONResponse(jsonable(data))
+
+
+def api_night(request: Request) -> Response:
+    try:
+        date_param = _parse_date(request.query_params.get("date"))
+        days = _parse_days(request.query_params.get("days"), default=30, min_val=7, max_val=90)
+    except ValueError as e:
+        return _bad_request(str(e))
+    with get_engine(Role.ro).connect() as conn:
+        data = queries.query_night(conn, date_param, days=days)
     return JSONResponse(jsonable(data))
 
 
@@ -285,6 +309,8 @@ def create_app(settings: Settings | None = None) -> Starlette:
         Route("/healthz", healthz, methods=["GET"]),
         Route("/api/day", api_day, methods=["GET"]),
         Route("/api/recovery", api_recovery, methods=["GET"]),
+        Route("/api/activity", api_activity, methods=["GET"]),
+        Route("/api/night", api_night, methods=["GET"]),
         Route("/api/sleep", api_sleep, methods=["GET"]),
         Route("/api/strain", api_strain, methods=["GET"]),
         Route("/api/nutrition", api_nutrition, methods=["GET"]),

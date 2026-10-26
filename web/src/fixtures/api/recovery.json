@@ -395,5 +395,551 @@
       "band_hi": 56.5
     }
   ],
+  "sleep_series": [
+    {
+      "date": "2026-09-26",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-09-27",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-09-28",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-09-29",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-09-30",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-01",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-02",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-03",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-04",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-05",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-06",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-07",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-08",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-09",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-10",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-11",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-12",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-13",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-14",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-15",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-16",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-17",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-18",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-19",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-20",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-21",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-22",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-23",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-24",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    },
+    {
+      "date": "2026-10-25",
+      "val": 88.0,
+      "band_lo": null,
+      "band_hi": null
+    }
+  ],
+  "breathing_series": [
+    {
+      "date": "2026-09-26",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-09-27",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-09-28",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-09-29",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-09-30",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-01",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-02",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-03",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-04",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-05",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-06",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-07",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-08",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-09",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-10",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-11",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-12",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-13",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-14",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-15",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-16",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-17",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-18",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-19",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-20",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-21",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-22",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-23",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-24",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    },
+    {
+      "date": "2026-10-25",
+      "val": 14.1,
+      "band_lo": 13.5,
+      "band_hi": 14.5
+    }
+  ],
+  "skin_temp_series": [
+    {
+      "date": "2026-09-26",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-09-27",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-09-28",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-09-29",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-09-30",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-01",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-02",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-03",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-04",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-05",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-06",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-07",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-08",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-09",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-10",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-11",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-12",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-13",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-14",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-15",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-16",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-17",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-18",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-19",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-20",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-21",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-22",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-23",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-24",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    },
+    {
+      "date": "2026-10-25",
+      "val": 0.2,
+      "band_lo": -0.2,
+      "band_hi": 0.2
+    }
+  ],
   "as_of": "2026-10-25T12:00+01:00"
 }
