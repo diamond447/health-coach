@@ -18,6 +18,7 @@ from health_coach.analytics.recovery import calculate_acute_chronic
 from health_coach.analytics.scores import recovery_zone
 from health_coach.analytics.tdee import estimate_from_db
 from health_coach.config import get_settings
+from health_coach.journal import BEHAVIOR_LABELS, JOURNAL_OPTIONS
 from health_coach.mcp_server import quality
 from health_coach.mcp_server.common import jsonable, today
 from health_coach.mcp_server.tools.discovery import current_targets
@@ -40,23 +41,6 @@ CZECH_MONTHS = [
     "Prosinec",
 ]
 
-BEHAVIOR_LABELS: dict[str, str] = {
-    "alcohol": "Alkohol",
-    "sauna": "Sauna",
-    "caffeine_late": "Kofein po 14:00",
-    "late_meal": "Jídlo < 2 h před spaním",
-    "screen_in_bed": "Mobil v posteli",
-    "stretching": "Strečink večer",
-    "meditation": "Meditace",
-    "cold_exposure": "Chladová terapie",
-    "reading": "Čtení místo mobilu",
-    "nap": "Zdřímnutí",
-    "high_stress": "Vysoký stres",
-    "illness": "Nemoc",
-    "travel": "Cestování",
-    "sex": "Sex",
-    "magnesium": "Hořčík večer",
-}
 
 MUSCLE_LABELS: dict[str, str] = {
     "chest": "Hrudník",
@@ -1719,7 +1703,12 @@ def query_calendar(conn: Connection, month_str: str | None = None) -> dict[str, 
 # -----------------------------------------------------------------------------
 
 
-def query_journal(conn: Connection, days: int = 60, date_str: str | None = None) -> dict[str, Any]:
+def query_journal(
+    conn: Connection,
+    days: int = 60,
+    date_str: str | None = None,
+    can_write: bool | None = None,
+) -> dict[str, Any]:
     target_date = _parse_date(date_str)
     yesterday_date = target_date - dt.timedelta(days=1)
     start_date = target_date - dt.timedelta(days=days)
@@ -1808,6 +1797,9 @@ def query_journal(conn: Connection, days: int = 60, date_str: str | None = None)
             }
         )
 
+    if can_write is None:
+        can_write = get_settings().web_journal_database_url is not None
+
     return {
         "date": target_date.isoformat(),
         "yesterday_date": yesterday_date.isoformat(),
@@ -1816,6 +1808,9 @@ def query_journal(conn: Connection, days: int = 60, date_str: str | None = None)
         "yesterday": yesterday_chips,
         "insights": insights_formatted,
         "insufficient": insufficient_formatted,
+        "can_write": can_write,
+        "log_date": yesterday_date.isoformat(),
+        "options": JOURNAL_OPTIONS,
         "as_of": quality.as_of(conn),
     }
 

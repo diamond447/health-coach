@@ -26,6 +26,13 @@ vi.mock("./api", () => ({
     const name = path.replace(/^\/api\//, "").split("?")[0] as keyof typeof fixtures;
     return { data: fixtures[name], error: null, asOf: null, isOffline: false, sessionExpired: false };
   },
+  apiSend: async () => ({
+    data: null,
+    error: null,
+    asOf: null,
+    isOffline: false,
+    sessionExpired: false,
+  }),
 }));
 
 const DATE = "2026-10-25";

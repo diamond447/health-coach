@@ -162,3 +162,85 @@ export async function apiFetch<T>(path: string): Promise<ApiResult<T>> {
     };
   }
 }
+
+/**
+ * Send a JSON API request (PUT, DELETE, etc.) with session expiry and error handling.
+ * Never writes to offline cache.
+ */
+export async function apiSend<T>(
+  method: "PUT" | "DELETE" | "POST",
+  path: string,
+  body?: unknown
+): Promise<ApiResult<T>> {
+  try {
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      "X-Healthstats": "1",
+    };
+    if (body !== undefined && body !== null) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    const res = await fetch(path, {
+      method,
+      headers,
+      body: body !== undefined && body !== null ? JSON.stringify(body) : undefined,
+    });
+
+    // Check for session expiry: 401, 403, or redirect
+    if (res.status === 401 || res.status === 403 || res.redirected) {
+      apiState.setSessionExpired(true);
+      return {
+        data: null,
+        error: "Přihlášení vypršelo",
+        asOf: null,
+        isOffline: false,
+        sessionExpired: true,
+      };
+    }
+
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      apiState.setSessionExpired(true);
+      return {
+        data: null,
+        error: "Přihlášení vypršelo",
+        asOf: null,
+        isOffline: false,
+        sessionExpired: true,
+      };
+    }
+
+    if (!res.ok) {
+      apiState.setOffline(false);
+      return {
+        data: null,
+        error: "Nepodařilo se uložit, zkus to znovu",
+        asOf: null,
+        isOffline: false,
+        sessionExpired: false,
+      };
+    }
+
+    const json = (await res.json()) as T & { as_of?: string };
+    apiState.setOffline(false);
+
+    return {
+      data: json,
+      error: null,
+      asOf: json.as_of || null,
+      isOffline: false,
+      sessionExpired: false,
+    };
+  } catch (_err: unknown) {
+    // Network failure or offline
+    apiState.setOffline(true);
+    return {
+      data: null,
+      error: "Nepodařilo se uložit, zkus to znovu",
+      asOf: null,
+      isOffline: true,
+      sessionExpired: false,
+    };
+  }
+}

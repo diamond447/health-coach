@@ -366,6 +366,12 @@ export interface CalendarResponse {
   as_of: string | null;
 }
 
+export interface JournalOption {
+  behavior: string;
+  name: string;
+  unit: string | null;
+}
+
 export interface JournalResponse {
   date: string;
   yesterday_date: string;
@@ -392,6 +398,9 @@ export interface JournalResponse {
     with_count: number;
     without_count: number;
   }[];
+  can_write: boolean;
+  log_date: string;
+  options: JournalOption[];
   as_of: string | null;
 }
 

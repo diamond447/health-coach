@@ -195,6 +195,7 @@ lists them with comments.
 | `HC_WEB_PUBLISH` | `127.0.0.1:8090` | Published host port for the web PWA service. |
 | `HC_WEB_ALLOWED_USERS` | `[]` | JSON list of usernames allowed through forward-auth proxy (empty = no check, dev only). |
 | `HC_WEB_USER_HEADER` | `X-authentik-username` | Header containing the authenticated username from the proxy. |
+| `HC_WEB_JOURNAL_DATABASE_URL` | empty | Optional connection URL for `Role.web_journal`; enables journal logging from the web app. |
 | `FIT_*` | | Same meaning for the fit server; see [docs/fit.md](docs/fit.md). |
 
 ## MCP tools

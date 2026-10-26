@@ -31,13 +31,19 @@ def role_passwords(settings: Settings) -> dict[str, str | None]:
         (Role.ro, settings.ro_database_url),
         (Role.rw, settings.rw_database_url),
         (Role.ingest, settings.ingest_database_url),
+        (Role.web_journal, settings.web_journal_database_url),
     ):
+        if url is None or not url.get_secret_value():
+            passwords[role.value] = None
+            continue
         parsed = make_url(url.get_secret_value())
         if parsed.username != role.value:
             raise ValueError(f"{role.value} URL must log in as {role.value}, not {parsed.username}")
         passwords[role.value] = parsed.password
     grafana = settings.grafana_db_password
-    passwords["grafana_ro"] = grafana.get_secret_value() if grafana else None
+    passwords["grafana_ro"] = (
+        grafana.get_secret_value() if (grafana and grafana.get_secret_value()) else None
+    )
     return passwords
 
 

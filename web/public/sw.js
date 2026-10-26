@@ -36,8 +36,11 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // API requests: network-first, fallback to cache
+  // API requests: network-first, fallback to cache (GET only; never cache writes)
   if (url.pathname.startsWith("/api/")) {
+    if (event.request.method !== "GET") {
+      return;
+    }
     event.respondWith(
       fetch(event.request)
         .then((response) => {

@@ -12,7 +12,9 @@ from starlette.testclient import TestClient
 
 from health_coach.config import Settings
 from health_coach.db.engine import Role, get_engine
+from health_coach.mcp_server.common import today
 from health_coach.web.server import create_app
+from tests.conftest import _role_url
 
 PRAGUE = ZoneInfo("Europe/Prague")
 
@@ -707,6 +709,313 @@ def test_api_healthspan(migrated_db: str, owner: Engine) -> None:
     res = client.get("/api/healthspan?weeks=bad")
     assert res.status_code == 400
     assert res.json()["error"] == "bad_request"
+
+
+def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> None:
+    settings = Settings(
+        database_url=migrated_db,
+        ro_database_url=migrated_db,
+        web_journal_database_url=_role_url(migrated_db, "web_journal"),
+        timezone="Europe/Prague",
+        web_allowed_users=[],
+    )
+    app = create_app(settings)
+    client = TestClient(app, base_url="http://testserver")
+
+    csrf_headers = {
+        "Origin": "http://testserver",
+        "X-Healthstats": "1",
+        "Content-Type": "application/json",
+    }
+
+    # 1. GET-only elsewhere -> 405
+    res = client.post("/api/day", json={})
+    assert res.status_code == 405
+    res = client.post("/api/journal", json={})
+    assert res.status_code == 405
+    res = client.post("/api/journal/entries", json={}, headers=csrf_headers)
+    assert res.status_code == 405
+
+    # 2. CSRF checks on PUT
+    # Missing Origin and Referer
+    res = client.put(
+        "/api/journal/entries",
+        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 2},
+        headers={"X-Healthstats": "1", "Content-Type": "application/json"},
+    )
+    assert res.status_code == 403
+    assert res.json()["error"] == "forbidden"
+
+    # Foreign Origin
+    res = client.put(
+        "/api/journal/entries",
+        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 2},
+        headers={
+            "Origin": "http://evil.com",
+            "X-Healthstats": "1",
+            "Content-Type": "application/json",
+        },
+    )
+    assert res.status_code == 403
+    assert res.json()["error"] == "forbidden"
+
+    # Foreign Referer when Origin is absent
+    res = client.put(
+        "/api/journal/entries",
+        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 2},
+        headers={
+            "Referer": "http://evil.com/page",
+            "X-Healthstats": "1",
+            "Content-Type": "application/json",
+        },
+    )
+    assert res.status_code == 403
+
+    # Missing custom header X-Healthstats
+    res = client.put(
+        "/api/journal/entries",
+        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 2},
+        headers={"Origin": "http://testserver", "Content-Type": "application/json"},
+    )
+    assert res.status_code == 403
+
+    # Wrong content type
+    res = client.put(
+        "/api/journal/entries",
+        content=b'{"date": "2026-10-25"}',
+        headers={"Origin": "http://testserver", "X-Healthstats": "1", "Content-Type": "text/plain"},
+    )
+    assert res.status_code == 403
+
+    # Referer matching Host when Origin is absent passes CSRF
+    res = client.put(
+        "/api/journal/entries",
+        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 2},
+        headers={
+            "Referer": "http://testserver/denik",
+            "X-Healthstats": "1",
+            "Content-Type": "application/json",
+        },
+    )
+    assert res.status_code == 200
+
+    # 3. CSRF checks on DELETE
+    # Missing custom header
+    res = client.delete(
+        "/api/journal/entries?date=2026-10-25&behavior=alcohol",
+        headers={"Origin": "http://testserver"},
+    )
+    assert res.status_code == 403
+
+    # Foreign Origin
+    res = client.delete(
+        "/api/journal/entries?date=2026-10-25&behavior=alcohol",
+        headers={"Origin": "http://evil.com", "X-Healthstats": "1"},
+    )
+    assert res.status_code == 403
+
+    # 4. Upsert (PUT) and verify source is 'web'
+    res = client.put(
+        "/api/journal/entries",
+        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 2, "note": "beer"},
+        headers=csrf_headers,
+    )
+    assert res.status_code == 200
+    assert res.headers["cache-control"] == "no-store"
+    data = res.json()
+    assert any(y["behavior"] == "alcohol" and y["amount"] == 2.0 for y in data["yesterday"])
+
+    with owner.connect() as conn:
+        row = (
+            conn.execute(
+                text(
+                    "SELECT source, amount, note, deleted_at FROM journal_entries "
+                    "WHERE local_date = '2026-10-25' AND behavior = 'alcohol'"
+                )
+            )
+            .mappings()
+            .one()
+        )
+        assert row["source"] == "web"
+        assert row["amount"] == 2.0
+        assert row["note"] == "beer"
+        assert row["deleted_at"] is None
+
+    # 5. Update amount (PUT again)
+    res = client.put(
+        "/api/journal/entries",
+        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 4, "note": "wine"},
+        headers=csrf_headers,
+    )
+    assert res.status_code == 200
+    with owner.connect() as conn:
+        row = (
+            conn.execute(
+                text(
+                    "SELECT source, amount, note FROM journal_entries "
+                    "WHERE local_date = '2026-10-25' AND behavior = 'alcohol'"
+                )
+            )
+            .mappings()
+            .one()
+        )
+        assert row["source"] == "web"
+        assert row["amount"] == 4.0
+        assert row["note"] == "wine"
+
+    # 5b. The app's stepper sends note null: an existing note is kept
+    res = client.put(
+        "/api/journal/entries",
+        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 5, "note": None},
+        headers=csrf_headers,
+    )
+    assert res.status_code == 200
+    with owner.connect() as conn:
+        kept = conn.execute(
+            text(
+                "SELECT amount, note FROM journal_entries "
+                "WHERE local_date = '2026-10-25' AND behavior = 'alcohol'"
+            )
+        ).one()
+        assert (kept.amount, kept.note) == (5, "wine")
+
+    # 6. Delete (soft delete)
+    delete_headers = {"Origin": "http://testserver", "X-Healthstats": "1"}
+    res = client.delete(
+        "/api/journal/entries?date=2026-10-25&behavior=alcohol",
+        headers=delete_headers,
+    )
+    assert res.status_code == 200
+    assert res.json()["deleted"] is True
+    with owner.connect() as conn:
+        row = (
+            conn.execute(
+                text(
+                    "SELECT deleted_at FROM journal_entries "
+                    "WHERE local_date = '2026-10-25' AND behavior = 'alcohol'"
+                )
+            )
+            .mappings()
+            .one()
+        )
+        assert row["deleted_at"] is not None
+
+    # 7. Delete 404 (already deleted or nonexistent)
+    res = client.delete(
+        "/api/journal/entries?date=2026-10-25&behavior=alcohol",
+        headers=delete_headers,
+    )
+    assert res.status_code == 404
+    assert res.json()["error"] == "not_found"
+
+    res = client.delete(
+        "/api/journal/entries?date=2026-10-25&behavior=sauna",
+        headers=delete_headers,
+    )
+    assert res.status_code == 404
+
+    # 8. Validation errors
+    # Bad behavior
+    res = client.put(
+        "/api/journal/entries",
+        json={"date": "2026-10-25", "behavior": "Invalid-Behavior!"},
+        headers=csrf_headers,
+    )
+    assert res.status_code == 400
+    assert res.json()["error"] == "bad_request"
+
+    # Bad amount (< 0)
+    res = client.put(
+        "/api/journal/entries",
+        json={"date": "2026-10-25", "behavior": "alcohol", "amount": -1},
+        headers=csrf_headers,
+    )
+    assert res.status_code == 400
+
+    # Bad amount (> 9999.99)
+    res = client.put(
+        "/api/journal/entries",
+        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 10000},
+        headers=csrf_headers,
+    )
+    assert res.status_code == 400
+
+    # Bad note (> 200 chars)
+    res = client.put(
+        "/api/journal/entries",
+        json={"date": "2026-10-25", "behavior": "alcohol", "note": "x" * 201},
+        headers=csrf_headers,
+    )
+    assert res.status_code == 400
+
+    # Date in future
+    res = client.put(
+        "/api/journal/entries",
+        json={"date": (today() + dt.timedelta(days=1)).isoformat(), "behavior": "alcohol"},
+        headers=csrf_headers,
+    )
+    assert res.status_code == 400
+
+    # Date older than 14 days
+    res = client.put(
+        "/api/journal/entries",
+        json={"date": (today() - dt.timedelta(days=15)).isoformat(), "behavior": "alcohol"},
+        headers=csrf_headers,
+    )
+    assert res.status_code == 400
+
+    # Body > 2 kB
+    res = client.put(
+        "/api/journal/entries",
+        content=b"x" * 2049,
+        headers=csrf_headers,
+    )
+    assert res.status_code == 400
+
+    # 9. 403 for disallowed user
+    auth_settings = Settings(
+        database_url=migrated_db,
+        ro_database_url=migrated_db,
+        web_journal_database_url=_role_url(migrated_db, "web_journal"),
+        web_allowed_users=["allowed_user"],
+        web_user_header="X-authentik-username",
+    )
+    auth_client = TestClient(create_app(auth_settings), base_url="http://testserver")
+    res = auth_client.put(
+        "/api/journal/entries",
+        json={"date": "2026-10-25", "behavior": "alcohol"},
+        headers={**csrf_headers, "X-authentik-username": "disallowed_user"},
+    )
+    assert res.status_code == 403
+    assert res.json()["error"] == "forbidden"
+
+    # 10. 503 when web_journal_database_url is unset
+    disabled_settings = Settings(
+        database_url=migrated_db,
+        ro_database_url=migrated_db,
+        web_journal_database_url=None,
+        web_allowed_users=[],
+    )
+    disabled_client = TestClient(create_app(disabled_settings), base_url="http://testserver")
+    res = disabled_client.put(
+        "/api/journal/entries",
+        json={"date": "2026-10-25", "behavior": "alcohol"},
+        headers=csrf_headers,
+    )
+    assert res.status_code == 503
+    assert res.json()["error"] == "journal_writes_disabled"
+
+    res = disabled_client.delete(
+        "/api/journal/entries?date=2026-10-25&behavior=alcohol",
+        headers=delete_headers,
+    )
+    assert res.status_code == 503
+    assert res.json()["error"] == "journal_writes_disabled"
+
+    # GET /api/journal reports can_write: false when URL unset
+    res = disabled_client.get("/api/journal?date=2026-10-25")
+    assert res.status_code == 200
+    assert res.json()["can_write"] is False
 
 
 FIXTURES_DIR = Path(__file__).resolve().parents[1] / "web" / "src" / "fixtures" / "api"

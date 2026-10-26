@@ -100,3 +100,18 @@ Settings stored in the `app_settings` table override default environment configu
 - `alarm_time`: Fixed wake-up time formatted as `"HH:MM"` (e.g. `"06:30"`). When set, the worker's
   bedtime planner calculates tonight's planned bedtime using this fixed wake target instead of the
   median of recent wake times.
+
+---
+
+## 5. Logging from the Healthstats Web App (PWA)
+
+Instead of typing yesterday's evening habits to the coach in Claude, you can tap them directly
+in the Healthstats PWA on the **Deník (`/denik`)** screen:
+
+- **Quick Toggles**: Tapping a habit chip toggles it on or off for yesterday's date.
+- **Inline Stepper**: For countable habits (`alcohol` in drinks, `caffeine_late` in cups),
+  activating the chip displays an inline stepper (`−` / value / `+`, step 1, min 1). Changes
+  are debounced and saved automatically after ~600 ms.
+- **Audit & Source**: Entries created via the PWA are tagged with `source = 'web'`.
+- **Configuration**: Enabled by providing `HC_WEB_JOURNAL_DATABASE_URL` in `.env` (connects
+  with `Role.web_journal`). When omitted, the Deník screen operates in read-only mode.

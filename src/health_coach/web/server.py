@@ -2,18 +2,24 @@
 
 Runs behind a forward-auth reverse proxy; enforces defence-in-depth header check
 on all /api/* routes when HC_WEB_ALLOWED_USERS is non-empty. Connects to the database
-with Role.ro only. Serves static files and client-side routing fallback.
+with Role.ro, plus Role.web_journal for journal entry writes. Serves static files and
+client-side routing fallback.
 """
 
 from __future__ import annotations
 
 import datetime as dt
+import json
 import logging
+import urllib.parse
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
 import uvicorn
+from sqlalchemy import text
 from starlette.applications import Starlette
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -23,7 +29,8 @@ from starlette.routing import Route
 from health_coach import __version__
 from health_coach.config import Settings, get_settings
 from health_coach.db.engine import Role, get_engine
-from health_coach.mcp_server.common import jsonable
+from health_coach.journal import BEHAVIOR_RE
+from health_coach.mcp_server.common import jsonable, today
 from health_coach.web import queries
 
 log = logging.getLogger(__name__)
@@ -77,6 +84,127 @@ def _bad_request(detail: str) -> JSONResponse:
         status_code=400,
         headers={"Cache-Control": "no-store"},
     )
+
+
+def _check_csrf(request: Request) -> JSONResponse | None:
+    # 1. Custom header check on both PUT and DELETE
+    if request.headers.get("x-healthstats") != "1":
+        return JSONResponse(
+            {"error": "forbidden", "detail": "Missing or invalid X-Healthstats header"},
+            status_code=403,
+            headers={"Cache-Control": "no-store"},
+        )
+
+    # 2. Content-Type check for PUT
+    if request.method == "PUT":
+        ct = request.headers.get("content-type", "")
+        media_type = ct.split(";")[0].strip().lower()
+        if media_type != "application/json":
+            return JSONResponse(
+                {"error": "forbidden", "detail": "Content-Type must be application/json"},
+                status_code=403,
+                headers={"Cache-Control": "no-store"},
+            )
+
+    # 3. Origin / Referer check
+    raw_host = (
+        request.headers.get("x-forwarded-host", "").split(",")[0].strip()
+        or request.headers.get("host")
+        or ""
+    ).lower()
+
+    if not raw_host:
+        return JSONResponse(
+            {"error": "forbidden", "detail": "Missing host header"},
+            status_code=403,
+            headers={"Cache-Control": "no-store"},
+        )
+
+    origin = request.headers.get("origin")
+    source_url = origin if origin is not None else request.headers.get("referer")
+    if not source_url:
+        return JSONResponse(
+            {"error": "forbidden", "detail": "Missing Origin and Referer headers"},
+            status_code=403,
+            headers={"Cache-Control": "no-store"},
+        )
+
+    try:
+        source_host = (
+            (
+                urllib.parse.urlsplit(source_url).netloc
+                or urllib.parse.urlsplit("//" + source_url).netloc
+            )
+            .strip()
+            .lower()
+        )
+    except Exception:
+        return JSONResponse(
+            {"error": "forbidden", "detail": "Invalid Origin or Referer header"},
+            status_code=403,
+            headers={"Cache-Control": "no-store"},
+        )
+
+    if not source_host or source_host != raw_host:
+        return JSONResponse(
+            {"error": "forbidden", "detail": "Origin or Referer does not match Host"},
+            status_code=403,
+            headers={"Cache-Control": "no-store"},
+        )
+
+    return None
+
+
+def _validate_journal_date(date_str: Any) -> dt.date:
+    if not date_str or not isinstance(date_str, str):
+        raise ValueError("Field 'date' is required and must be a string YYYY-MM-DD")
+    parts = date_str.split("-")
+    if len(parts) != 3 or len(parts[0]) != 4 or len(parts[1]) != 2 or len(parts[2]) != 2:
+        raise ValueError(f"Invalid date {date_str!r}, expected YYYY-MM-DD")
+    try:
+        parsed = dt.date.fromisoformat(date_str)
+    except ValueError as e:
+        raise ValueError(f"Invalid date {date_str!r}, expected YYYY-MM-DD") from e
+    today_val = today()
+    if parsed > today_val:
+        raise ValueError("Date cannot be in the future")
+    if parsed < today_val - dt.timedelta(days=14):
+        raise ValueError("Date cannot be older than 14 days")
+    return parsed
+
+
+def _validate_journal_behavior(behavior_str: Any) -> str:
+    if not behavior_str or not isinstance(behavior_str, str):
+        raise ValueError("Field 'behavior' is required and must be a string")
+    b = behavior_str.strip()
+    if not BEHAVIOR_RE.match(b):
+        raise ValueError(f"Invalid behavior key {b!r}: must match ^[a-z][a-z0-9_]{{1,39}}$")
+    return b
+
+
+def _validate_journal_amount(amount_val: Any) -> Decimal | None:
+    if amount_val is None:
+        return None
+    if isinstance(amount_val, bool) or not isinstance(amount_val, (int, float, Decimal, str)):
+        raise ValueError("Amount must be a number between 0 and 9999.99 or null")
+    try:
+        amt = Decimal(str(amount_val))
+    except (InvalidOperation, ValueError) as e:
+        raise ValueError("Amount must be a valid number") from e
+    if amt < Decimal("0") or amt > Decimal("9999.99"):
+        raise ValueError("Amount must be between 0 and 9999.99")
+    return amt
+
+
+def _validate_journal_note(note_val: Any) -> str | None:
+    if note_val is None:
+        return None
+    if not isinstance(note_val, str):
+        raise ValueError("Note must be a string or null")
+    n = note_val.strip()
+    if len(n) > 200:
+        raise ValueError("Note cannot exceed 200 characters")
+    return n or None
 
 
 def _parse_date(param: str | None) -> str | None:
@@ -234,9 +362,116 @@ def api_journal(request: Request) -> Response:
         days = _parse_days(request.query_params.get("days"), default=60)
     except ValueError as e:
         return _bad_request(str(e))
+    settings = getattr(request.app.state, "settings", None) or get_settings()
     with get_engine(Role.ro).connect() as conn:
-        data = queries.query_journal(conn, days=days, date_str=date_param)
+        data = queries.query_journal(
+            conn,
+            days=days,
+            date_str=date_param,
+            can_write=settings.web_journal_database_url is not None,
+        )
     return JSONResponse(jsonable(data))
+
+
+async def api_journal_entries(request: Request) -> Response:
+    csrf_error = _check_csrf(request)
+    if csrf_error:
+        return csrf_error
+
+    settings = getattr(request.app.state, "settings", None) or get_settings()
+    if settings.web_journal_database_url is None:
+        return JSONResponse(
+            {"error": "journal_writes_disabled"},
+            status_code=503,
+            headers={"Cache-Control": "no-store"},
+        )
+
+    if request.method == "PUT":
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                if int(content_length) > 2048:
+                    return _bad_request("Body size exceeds 2 kB")
+            except ValueError:
+                return _bad_request("Invalid Content-Length header")
+
+        body_bytes = await request.body()
+        if len(body_bytes) > 2048:
+            return _bad_request("Body size exceeds 2 kB")
+
+        try:
+            payload = json.loads(body_bytes.decode("utf-8"))
+        except Exception:
+            return _bad_request("Malformed JSON body")
+
+        if not isinstance(payload, dict):
+            return _bad_request("JSON body must be an object")
+
+        try:
+            entry_date = _validate_journal_date(payload.get("date"))
+            behavior = _validate_journal_behavior(payload.get("behavior"))
+            amount = _validate_journal_amount(payload.get("amount"))
+            note = _validate_journal_note(payload.get("note"))
+        except ValueError as e:
+            return _bad_request(str(e))
+
+        def _do_write() -> dict[str, Any]:
+            with get_engine(Role.web_journal).begin() as conn:
+                conn.execute(
+                    text(
+                        "INSERT INTO journal_entries (local_date, behavior, amount, note, source) "
+                        "VALUES (:d, :b, :amt, :note, 'web') "
+                        "ON CONFLICT (local_date, behavior) WHERE deleted_at IS NULL DO UPDATE SET "
+                        "amount = EXCLUDED.amount, "
+                        # The app has no note field: keep a note the coach wrote.
+                        "note = COALESCE(EXCLUDED.note, journal_entries.note), "
+                        "updated_at = now()"
+                    ),
+                    {"d": entry_date, "b": behavior, "amt": amount, "note": note},
+                )
+            screen_date = entry_date + dt.timedelta(days=1)
+            with get_engine(Role.ro).connect() as conn:
+                return queries.query_journal(conn, days=60, date_str=screen_date.isoformat())
+
+        data = await run_in_threadpool(_do_write)
+        return JSONResponse(jsonable(data), headers={"Cache-Control": "no-store"})
+
+    elif request.method == "DELETE":
+        date_param = request.query_params.get("date")
+        behavior_param = request.query_params.get("behavior")
+
+        try:
+            entry_date = _validate_journal_date(date_param)
+            behavior = _validate_journal_behavior(behavior_param)
+        except ValueError as e:
+            return _bad_request(str(e))
+
+        def _do_delete() -> bool:
+            with get_engine(Role.web_journal).begin() as conn:
+                res = conn.execute(
+                    text(
+                        "UPDATE journal_entries SET deleted_at = now(), updated_at = now() "
+                        "WHERE local_date = :d AND behavior = :b AND deleted_at IS NULL "
+                        "RETURNING id"
+                    ),
+                    {"d": entry_date, "b": behavior},
+                ).first()
+                return res is not None
+
+        found = await run_in_threadpool(_do_delete)
+        if not found:
+            return JSONResponse(
+                {"error": "not_found", "detail": "Active journal entry not found"},
+                status_code=404,
+                headers={"Cache-Control": "no-store"},
+            )
+
+        return JSONResponse(
+            {"deleted": True, "date": entry_date.isoformat(), "behavior": behavior},
+            headers={"Cache-Control": "no-store"},
+        )
+
+    return Response(status_code=405, headers={"Cache-Control": "no-store"})
 
 
 def api_report(request: Request) -> Response:
@@ -319,6 +554,7 @@ def create_app(settings: Settings | None = None) -> Starlette:
         Route("/api/trends", api_trends, methods=["GET"]),
         Route("/api/calendar", api_calendar, methods=["GET"]),
         Route("/api/journal", api_journal, methods=["GET"]),
+        Route("/api/journal/entries", api_journal_entries, methods=["PUT", "DELETE"]),
         Route("/api/report", api_report, methods=["GET"]),
         Route("/api/healthspan", api_healthspan, methods=["GET"]),
         # Catch-all for static assets and SPA routes
@@ -329,7 +565,9 @@ def create_app(settings: Settings | None = None) -> Starlette:
         Middleware(WebAuthMiddleware, settings=app_settings),
     ]
 
-    return Starlette(routes=routes, middleware=middleware)
+    app = Starlette(routes=routes, middleware=middleware)
+    app.state.settings = app_settings
+    return app
 
 
 def run(settings: Settings | None = None) -> None:

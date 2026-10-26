@@ -2,7 +2,7 @@
   "date": "2026-10-25",
   "yesterday_date": "2026-10-24",
   "yesterday_weekday": "so",
-  "logged_time": "13:13",
+  "logged_time": "14:28",
   "yesterday": [
     {
       "behavior": "sauna",
@@ -41,6 +41,85 @@
       "name": "Sauna",
       "with_count": 1,
       "without_count": 11
+    }
+  ],
+  "can_write": true,
+  "log_date": "2026-10-24",
+  "options": [
+    {
+      "behavior": "alcohol",
+      "name": "Alkohol",
+      "unit": "nápoje"
+    },
+    {
+      "behavior": "caffeine_late",
+      "name": "Kofein po 14:00",
+      "unit": "šálky"
+    },
+    {
+      "behavior": "late_meal",
+      "name": "Jídlo < 2 h před spaním",
+      "unit": null
+    },
+    {
+      "behavior": "screen_in_bed",
+      "name": "Mobil v posteli",
+      "unit": null
+    },
+    {
+      "behavior": "high_stress",
+      "name": "Vysoký stres",
+      "unit": null
+    },
+    {
+      "behavior": "sauna",
+      "name": "Sauna",
+      "unit": null
+    },
+    {
+      "behavior": "stretching",
+      "name": "Strečink večer",
+      "unit": null
+    },
+    {
+      "behavior": "reading",
+      "name": "Čtení místo mobilu",
+      "unit": null
+    },
+    {
+      "behavior": "meditation",
+      "name": "Meditace",
+      "unit": null
+    },
+    {
+      "behavior": "magnesium",
+      "name": "Hořčík večer",
+      "unit": null
+    },
+    {
+      "behavior": "cold_exposure",
+      "name": "Chladová terapie",
+      "unit": null
+    },
+    {
+      "behavior": "nap",
+      "name": "Zdřímnutí",
+      "unit": null
+    },
+    {
+      "behavior": "travel",
+      "name": "Cestování",
+      "unit": null
+    },
+    {
+      "behavior": "illness",
+      "name": "Nemoc",
+      "unit": null
+    },
+    {
+      "behavior": "sex",
+      "name": "Sex",
+      "unit": null
     }
   ],
   "as_of": "2026-10-25T12:00+01:00"

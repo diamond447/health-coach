@@ -31,10 +31,11 @@ def test_views_are_empty_on_empty_db(owner: Engine, view: str) -> None:
 
 
 def test_downgrade_and_upgrade_again(owner: Engine) -> None:
-    from health_coach.db.admin import upgrade
+    from health_coach.db.admin import sync_roles, upgrade
 
     upgrade("base")
     upgrade("head")
+    sync_roles()
     with owner.connect() as conn:
         assert conn.execute(text("SELECT count(*) FROM v_daily")).scalar_one() == 0
 
@@ -273,10 +274,74 @@ def test_recovery_baseline_zscores(owner: Engine) -> None:
     assert row.rhr_z > 4
 
 
-@pytest.mark.parametrize("role", [Role.ro, Role.rw, Role.ingest])
+@pytest.mark.parametrize("role", [Role.ro, Role.rw, Role.ingest, Role.web_journal])
 def test_no_temp_tables(owner: Engine, role: Role) -> None:
     with (
         get_engine(role).connect() as conn,
         pytest.raises(DBAPIError, match=r"permission|read-only"),
     ):
         conn.execute(text("CREATE TEMP TABLE t (x int)"))
+
+
+def test_web_journal_role_permissions(owner: Engine) -> None:
+    # 1. web_journal can SELECT and INSERT into journal_entries
+    with get_engine(Role.web_journal).begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO journal_entries (local_date, behavior, amount, note, source) "
+                "VALUES ('2026-10-25', 'alcohol', 2.0, 'beer', 'web')"
+            )
+        )
+    with get_engine(Role.web_journal).connect() as conn:
+        count = conn.execute(
+            text("SELECT count(*) FROM journal_entries WHERE local_date = '2026-10-25'")
+        ).scalar_one()
+        assert count == 1
+
+    # 2. web_journal can UPDATE allowed columns (amount, note, updated_at, deleted_at)
+    with get_engine(Role.web_journal).begin() as conn:
+        conn.execute(
+            text(
+                "UPDATE journal_entries SET amount = 3.0, note = 'wine', updated_at = now() "
+                "WHERE local_date = '2026-10-25' AND behavior = 'alcohol'"
+            )
+        )
+
+    # 3. web_journal CANNOT UPDATE behavior or local_date
+    with (
+        get_engine(Role.web_journal).begin() as conn,
+        pytest.raises(DBAPIError, match=r"permission denied for (column|table)"),
+    ):
+        conn.execute(text("UPDATE journal_entries SET behavior = 'sauna'"))
+
+    with (
+        get_engine(Role.web_journal).begin() as conn,
+        pytest.raises(DBAPIError, match=r"permission denied for (column|table)"),
+    ):
+        conn.execute(text("UPDATE journal_entries SET local_date = '2026-10-24'"))
+
+    # 4. web_journal CANNOT SELECT from other tables (e.g. daily_vitals)
+    with (
+        get_engine(Role.web_journal).connect() as conn,
+        pytest.raises(DBAPIError, match="permission denied"),
+    ):
+        conn.execute(text("SELECT * FROM daily_vitals"))
+
+    # 5. web_journal CANNOT INSERT into other tables (e.g. nutrition_entries)
+    with (
+        get_engine(Role.web_journal).begin() as conn,
+        pytest.raises(DBAPIError, match="permission denied"),
+    ):
+        conn.execute(
+            text(
+                "INSERT INTO nutrition_entries "
+                "(local_date, ts, meal, description, kcal, protein_g, carbs_g, fat_g, "
+                "confidence) VALUES ('2026-10-25', now(), 'lunch', 'apple', 80, 0.3, "
+                "20.0, 0.2, 'exact')"
+            )
+        )
+
+    # 6. Session settings: statement_timeout = 5s, idle_in_transaction_session_timeout = 30s
+    with get_engine(Role.web_journal).connect() as conn:
+        assert conn.execute(text("SHOW statement_timeout")).scalar_one() == "5s"
+        assert conn.execute(text("SHOW idle_in_transaction_session_timeout")).scalar_one() == "30s"
