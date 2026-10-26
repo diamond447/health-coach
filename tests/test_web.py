@@ -115,17 +115,20 @@ def _seed_test_data(conn: Any, day: dt.date) -> None:
             text(
                 "INSERT INTO daily_scores (local_date, recovery, recovery_z, "
                 "recovery_components, flags, strain, cardio_load, muscular_load, "
-                "zone_minutes, activities, strain_target_low, strain_target_high, "
-                "sleep_need_min, sleep_actual_min, sleep_debt_min, sleep_performance, "
-                "sleep_efficiency, sleep_consistency, planned_bedtime, planned_wake, "
-                "inputs, algo_version, source) VALUES "
-                "(:d, :rec, 0.8, :comp, :flags, :strain, 74.0, 18.0, :zones, :acts, "
-                "12.0, 15.0, 491, 432, 14, 88, 95, 81, :bed, :wake, :inp, 1, 'worker') "
+                "muscular_score, zone_minutes, activities, strain_target_low, "
+                "strain_target_high, sleep_need_min, sleep_actual_min, "
+                "sleep_debt_min, sleep_performance, sleep_efficiency, "
+                "sleep_consistency, planned_bedtime, planned_wake, inputs, "
+                "algo_version, source) VALUES "
+                "(:d, :rec, 0.8, :comp, :flags, :strain, 74.0, 18.0, :muscular_score, "
+                ":zones, :acts, 12.0, 15.0, 491, 432, 14, 88, 95, 81, :bed, :wake, "
+                ":inp, 2, 'worker') "
                 "ON CONFLICT (local_date) DO NOTHING"
             ),
             {
                 "d": d,
                 "rec": 74 if i == 0 else 60 + (i % 20),
+                "muscular_score": 64 if i == 0 or (i % 3 == 0) else None,
                 "comp": json.dumps(
                     [
                         {"signal": "hrv", "value": 62.0, "z": 1.1, "weight": 0.5, "points": 9},
@@ -152,6 +155,7 @@ def _seed_test_data(conn: Any, day: dt.date) -> None:
                             "max_hr": 152,
                             "load": 40.0,
                             "strain": 6.1,
+                            "score": 64.0,
                         }
                     ]
                 ),
@@ -310,9 +314,12 @@ def test_web_endpoints(migrated_db: str, owner: Engine) -> None:
     assert data["scores"]["recovery"] == 74
     assert data["scores"]["recovery_zone"] == "green"
     assert data["scores"]["strain"] == 11.8
+    assert data["scores"]["cardio_strain"] is not None
+    assert data["scores"]["muscular_score"] == 64
     assert data["vitals"]["resting_hr"] is not None
     assert data["activity"]["steps"] is not None
     assert "as_of" in data
+    assert any(a.get("score") == 64.0 for a in data.get("activities", []))
 
     # 3. /api/recovery
     res = client.get(f"/api/recovery?date={today_d.isoformat()}&days=30")
@@ -345,9 +352,14 @@ def test_web_endpoints(migrated_db: str, owner: Engine) -> None:
     assert res.status_code == 200
     data = res.json()
     assert data["strain"] == 11.8
+    assert data["cardio_strain"] is not None
+    assert data["muscular_score"] == 64
     assert len(data["zones"]) == 5
     assert len(data["hr_points"]) > 0
     assert len(data["week_strains"]) == 30
+    assert "cardio_strain" in data["week_strains"][0]
+    assert "muscular_score" in data["week_strains"][0]
+    assert any(a.get("score") == 64.0 for a in data.get("activities", []))
 
     # 6. /api/nutrition
     res = client.get(f"/api/nutrition?date={today_d.isoformat()}")
@@ -368,6 +380,9 @@ def test_web_endpoints(migrated_db: str, owner: Engine) -> None:
     assert "rhr" in data
     assert "sleep" in data
     assert "strain" in data
+    assert "cardio_series" in data["strain"]
+    assert "muscular_series" in data["strain"]
+    assert data["strain"]["cardio_avg"] is not None
     assert "weight" in data
     assert "kcal" in data
 
@@ -393,6 +408,8 @@ def test_web_endpoints(migrated_db: str, owner: Engine) -> None:
     assert "tiles" in data
     assert "daily_recovery" in data
     assert data["coach_review"] is not None
+    assert data["tiles"]["strain"]["cardio_avg"] is not None
+    assert "muscular_avg" in data["tiles"]["strain"]
 
     # 11. /api/activity
     res = client.get(f"/api/activity?date={today_d.isoformat()}&days=30")

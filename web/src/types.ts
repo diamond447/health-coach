@@ -19,6 +19,8 @@ export interface DayResponse {
     components: RecoveryComponent[] | null;
     flags: string[];
     strain: number | null;
+    cardio_strain: number | null;
+    muscular_score: number | null;
     strain_target_low: number | null;
     strain_target_high: number | null;
     sleep_need_min: number | null;
@@ -47,6 +49,7 @@ export interface DayResponse {
     start_ts: string | null;
     end_ts: string | null;
     strain: number | null;
+    score?: number | null;
     // Strength sessions only
     hard_sets?: number | null;
     volume_kg?: number | null;
@@ -198,8 +201,10 @@ export interface SleepResponse {
 export interface StrainResponse {
   date: string;
   strain: number | null;
+  cardio_strain: number | null;
   cardio_load: number | null;
   muscular_load: number | null;
+  muscular_score: number | null;
   strain_target_low: number | null;
   strain_target_high: number | null;
   recovery: number | null;
@@ -231,6 +236,7 @@ export interface StrainResponse {
     start_time: string | null;
     end_time: string | null;
     strain: number | null;
+    score?: number | null;
     // Strength sessions only
     hard_sets?: number | null;
     volume_kg?: number | null;
@@ -245,6 +251,8 @@ export interface StrainResponse {
     date: string;
     weekday: string;
     strain: number | null;
+    cardio_strain: number | null;
+    muscular_score: number | null;
   }[];
   avg_week_strain: number | null;
   as_of: string | null;
@@ -321,8 +329,12 @@ export interface TrendsResponse {
   };
   strain: {
     avg: number | null;
+    cardio_avg: number | null;
+    muscular_avg: number | null;
     acwr: number | null;
     series: { date: string; val: number | null }[];
+    cardio_series: { date: string; val: number | null }[];
+    muscular_series: { date: string; val: number | null }[];
   };
   weight: {
     last: number | null;
@@ -410,7 +422,12 @@ export interface ReportResponse {
   end: string;
   tiles: {
     recovery: { val: number | null; delta: number | null };
-    strain: { val: number | null; delta: number | null };
+    strain: {
+      val: number | null;
+      delta: number | null;
+      cardio_avg: number | null;
+      muscular_avg: number | null;
+    };
     sleep_min: { val: number | null; delta: number | null; debt_min: number };
     consistency: { val: number | null; delta: number | null };
     kcal: {

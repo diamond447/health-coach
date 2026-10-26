@@ -303,6 +303,10 @@ export function ReportScreen({
                   <div style={{ fontSize: "20px", fontWeight: 700 }}>
                     {data.tiles.strain.val !== null ? formatDecimal(data.tiles.strain.val, 1) : "–"}
                   </div>
+                  <div style={{ fontSize: "11px", color: "#9BA3AF" }}>
+                    kardio {data.tiles.strain.cardio_avg !== null ? formatDecimal(data.tiles.strain.cardio_avg, 1) : "–"} · svaly{" "}
+                    {data.tiles.strain.muscular_avg !== null ? `${Math.round(data.tiles.strain.muscular_avg)} %` : "–"}
+                  </div>
                   <div style={{ fontSize: "12px", fontWeight: 600, color: d.color }}>{d.text}</div>
                 </div>
               );

@@ -15,7 +15,7 @@ from sqlalchemy import Connection, text
 
 from health_coach.analytics.journal import compute_journal_insights
 from health_coach.analytics.recovery import calculate_acute_chronic
-from health_coach.analytics.scores import recovery_zone
+from health_coach.analytics.scores import calculate_strain_from_load, recovery_zone
 from health_coach.analytics.tdee import estimate_from_db
 from health_coach.config import get_settings
 from health_coach.journal import BEHAVIOR_LABELS, JOURNAL_OPTIONS
@@ -115,6 +115,21 @@ def _activity_strains(
     return strains
 
 
+def _activity_scores(
+    score_row: dict[str, Any] | None,
+) -> dict[tuple[bool, dt.datetime], float]:
+    """Score per activity from daily_scores.activities, keyed by (is strength, start)."""
+    raw = score_row.get("activities") if score_row else None
+    if isinstance(raw, str):
+        raw = json.loads(raw)
+    scores: dict[tuple[bool, dt.datetime], float] = {}
+    for act in raw if isinstance(raw, list) else []:
+        if act.get("start") and act.get("score") is not None:
+            key = (act.get("kind") == "strength", dt.datetime.fromisoformat(act["start"]))
+            scores[key] = float(act["score"])
+    return scores
+
+
 def query_day(conn: Connection, date_str: str | None = None) -> dict[str, Any]:
     target_date = _parse_date(date_str)
     score_row = _get_daily_score_row(conn, target_date)
@@ -155,6 +170,19 @@ def query_day(conn: Connection, date_str: str | None = None) -> dict[str, Any]:
     strain = (
         float(score_row["strain"]) if score_row and score_row.get("strain") is not None else None
     )
+    cardio_load_raw = (
+        float(score_row["cardio_load"])
+        if score_row and score_row.get("cardio_load") is not None
+        else None
+    )
+    cardio_strain = (
+        calculate_strain_from_load(cardio_load_raw) if cardio_load_raw is not None else None
+    )
+    muscular_score = (
+        int(score_row["muscular_score"])
+        if score_row and score_row.get("muscular_score") is not None
+        else None
+    )
     strain_target_low = (
         float(score_row["strain_target_low"])
         if score_row and score_row.get("strain_target_low") is not None
@@ -177,6 +205,7 @@ def query_day(conn: Connection, date_str: str | None = None) -> dict[str, Any]:
     # Activities from the sessions, with the strain the scores job computed for each
     activities: list[dict[str, Any]] = []
     strains = _activity_strains(score_row)
+    scores = _activity_scores(score_row)
     st_rows = (
         conn.execute(
             text(
@@ -209,6 +238,7 @@ def query_day(conn: Connection, date_str: str | None = None) -> dict[str, Any]:
                 "hard_sets": st["hard_sets"],
                 "volume_kg": float(st["volume_kg"]) if st["volume_kg"] else 0.0,
                 "strain": strains.get((True, st["start_ts"])),
+                "score": scores.get((True, st["start_ts"])),
             }
         )
 
@@ -250,6 +280,8 @@ def query_day(conn: Connection, date_str: str | None = None) -> dict[str, Any]:
             "components": components,
             "flags": flags,
             "strain": strain,
+            "cardio_strain": cardio_strain,
+            "muscular_score": muscular_score,
             "strain_target_low": strain_target_low,
             "strain_target_high": strain_target_high,
             "sleep_need_min": sleep_need_min,
@@ -861,6 +893,12 @@ def query_strain(conn: Connection, date_str: str | None = None, days: int = 30) 
         if score_row and score_row.get("muscular_load") is not None
         else None
     )
+    cardio_strain = calculate_strain_from_load(cardio_load) if cardio_load is not None else None
+    muscular_score = (
+        int(score_row["muscular_score"])
+        if score_row and score_row.get("muscular_score") is not None
+        else None
+    )
     zone_minutes = score_row["zone_minutes"] if score_row else None
     if isinstance(zone_minutes, str):
         zone_minutes = json.loads(zone_minutes)
@@ -989,6 +1027,7 @@ def query_strain(conn: Connection, date_str: str | None = None, days: int = 30) 
 
     activities: list[dict[str, Any]] = []
     strains = _activity_strains(score_row)
+    scores = _activity_scores(score_row)
     for st in st_sessions:
         st_start = st["start_ts"].astimezone(tz) if st["start_ts"] else None
         st_end = st["end_ts"].astimezone(tz) if st["end_ts"] else None
@@ -1010,6 +1049,7 @@ def query_strain(conn: Connection, date_str: str | None = None, days: int = 30) 
                 "volume_kg": float(st["volume_kg"]) if st["volume_kg"] else 0.0,
                 "mean_rpe": float(st["mean_rpe"]) if st["mean_rpe"] else None,
                 "strain": strains.get((True, st["start_ts"])),
+                "score": scores.get((True, st["start_ts"])),
             }
         )
 
@@ -1058,7 +1098,7 @@ def query_strain(conn: Connection, date_str: str | None = None, days: int = 30) 
     week_strains_rows = (
         conn.execute(
             text(
-                "SELECT local_date, strain FROM daily_scores "
+                "SELECT local_date, strain, cardio_load, muscular_score FROM daily_scores "
                 "WHERE local_date BETWEEN :s AND :e ORDER BY local_date"
             ),
             {"s": week_start, "e": target_date},
@@ -1066,23 +1106,30 @@ def query_strain(conn: Connection, date_str: str | None = None, days: int = 30) 
         .mappings()
         .all()
     )
-    week_strain_map = {r["local_date"]: r["strain"] for r in week_strains_rows}
+    week_strain_map = {r["local_date"]: r for r in week_strains_rows}
 
     week_strains: list[dict[str, Any]] = []
     w_d = week_start
     sum_strain = 0.0
     cnt_strain = 0
     while w_d <= target_date:
-        val = week_strain_map.get(w_d)
-        f_val = float(val) if val is not None else None
-        if f_val is not None:
-            sum_strain += f_val
+        row = week_strain_map.get(w_d)
+        st_val = float(row["strain"]) if row and row.get("strain") is not None else None
+        cl_val = float(row["cardio_load"]) if row and row.get("cardio_load") is not None else None
+        cs_val = calculate_strain_from_load(cl_val) if cl_val is not None else None
+        ms_val = (
+            int(row["muscular_score"]) if row and row.get("muscular_score") is not None else None
+        )
+        if st_val is not None:
+            sum_strain += st_val
             cnt_strain += 1
         week_strains.append(
             {
                 "date": w_d.isoformat(),
                 "weekday": CZECH_WEEKDAYS[w_d.weekday()],
-                "strain": f_val,
+                "strain": st_val,
+                "cardio_strain": cs_val,
+                "muscular_score": ms_val,
             }
         )
         w_d += dt.timedelta(days=1)
@@ -1092,8 +1139,10 @@ def query_strain(conn: Connection, date_str: str | None = None, days: int = 30) 
     return {
         "date": target_date.isoformat(),
         "strain": strain,
+        "cardio_strain": cardio_strain,
         "cardio_load": cardio_load,
         "muscular_load": muscular_load,
+        "muscular_score": muscular_score,
         "strain_target_low": float(score_row["strain_target_low"])
         if score_row and score_row.get("strain_target_low") is not None
         else None,
@@ -1353,7 +1402,8 @@ def query_trends(conn: Connection, date_str: str | None = None, days: int = 30) 
     sc_rows = (
         conn.execute(
             text(
-                "SELECT local_date, recovery, strain, sleep_actual_min, sleep_performance "
+                "SELECT local_date, recovery, strain, cardio_load, muscular_score, "
+                "       sleep_actual_min, sleep_performance "
                 "FROM daily_scores WHERE local_date BETWEEN :s AND :e ORDER BY local_date"
             ),
             {"s": start_date, "e": target_date},
@@ -1428,6 +1478,8 @@ def query_trends(conn: Connection, date_str: str | None = None, days: int = 30) 
     rhr_points: list[dict[str, Any]] = []
     sleep_points: list[dict[str, Any]] = []
     strain_points: list[dict[str, Any]] = []
+    cardio_points: list[dict[str, Any]] = []
+    muscular_points: list[dict[str, Any]] = []
     weight_points: list[dict[str, Any]] = []
     kcal_points: list[dict[str, Any]] = []
 
@@ -1457,6 +1509,12 @@ def query_trends(conn: Connection, date_str: str | None = None, days: int = 30) 
         st_val = float(sc["strain"]) if sc and sc["strain"] is not None else None
         strain_points.append({"date": curr_d.isoformat(), "val": st_val})
 
+        cl_val = float(sc["cardio_load"]) if sc and sc.get("cardio_load") is not None else None
+        cs_val = calculate_strain_from_load(cl_val) if cl_val is not None else None
+        ms_val = int(sc["muscular_score"]) if sc and sc.get("muscular_score") is not None else None
+        cardio_points.append({"date": curr_d.isoformat(), "val": cs_val})
+        muscular_points.append({"date": curr_d.isoformat(), "val": ms_val})
+
         w_raw = float(wt["weight_kg"]) if wt and wt["weight_kg"] is not None else None
         w_avg = float(wt["avg_7d_kg"]) if wt and wt["avg_7d_kg"] is not None else None
         weight_points.append({"date": curr_d.isoformat(), "raw": w_raw, "avg": w_avg})
@@ -1485,6 +1543,12 @@ def query_trends(conn: Connection, date_str: str | None = None, days: int = 30) 
 
     valid_strains = [p["val"] for p in strain_points if p["val"] is not None]
     avg_strain = round(sum(valid_strains) / len(valid_strains), 1) if valid_strains else None
+
+    valid_cardio = [p["val"] for p in cardio_points if p["val"] is not None]
+    avg_cardio = round(sum(valid_cardio) / len(valid_cardio), 1) if valid_cardio else None
+
+    valid_muscular = [p["val"] for p in muscular_points if p["val"] is not None]
+    avg_muscular = round(sum(valid_muscular) / len(valid_muscular), 1) if valid_muscular else None
 
     valid_weights = [p["avg"] for p in weight_points if p["avg"] is not None]
     last_weight = valid_weights[-1] if valid_weights else None
@@ -1522,8 +1586,12 @@ def query_trends(conn: Connection, date_str: str | None = None, days: int = 30) 
         },
         "strain": {
             "avg": avg_strain,
+            "cardio_avg": avg_cardio,
+            "muscular_avg": avg_muscular,
             "acwr": acwr,
             "series": strain_points,
+            "cardio_series": cardio_points,
+            "muscular_series": muscular_points,
         },
         "weight": {
             "last": last_weight,
@@ -1843,6 +1911,7 @@ def query_report(
                 text(
                     "SELECT round(avg(recovery)) AS avg_rec, "
                     "       round(avg(strain), 1) AS avg_strain, "
+                    "       round(avg(muscular_score), 1) AS avg_muscular, "
                     "       round(avg(sleep_actual_min)) AS avg_sleep, "
                     "       round(avg(sleep_consistency)) AS avg_consist "
                     "FROM daily_scores WHERE local_date BETWEEN :s AND :e"
@@ -1852,6 +1921,20 @@ def query_report(
             .mappings()
             .first()
         )
+
+        cl_rows = (
+            conn.execute(
+                text(
+                    "SELECT cardio_load FROM daily_scores "
+                    "WHERE local_date BETWEEN :s AND :e AND cardio_load IS NOT NULL"
+                ),
+                {"s": s, "e": e},
+            )
+            .scalars()
+            .all()
+        )
+        cardio_strains = [calculate_strain_from_load(float(cl)) for cl in cl_rows]
+        avg_cardio = round(sum(cardio_strains) / len(cardio_strains), 1) if cardio_strains else None
 
         nt = (
             conn.execute(
@@ -1888,6 +1971,10 @@ def query_report(
         return {
             "avg_rec": float(sc["avg_rec"]) if sc and sc["avg_rec"] is not None else None,
             "avg_strain": float(sc["avg_strain"]) if sc and sc["avg_strain"] is not None else None,
+            "avg_cardio": avg_cardio,
+            "avg_muscular": float(sc["avg_muscular"])
+            if sc and sc["avg_muscular"] is not None
+            else None,
             "avg_sleep": float(sc["avg_sleep"]) if sc and sc["avg_sleep"] is not None else None,
             "avg_consist": float(sc["avg_consist"])
             if sc and sc["avg_consist"] is not None
@@ -2012,6 +2099,8 @@ def query_report(
             "strain": {
                 "val": curr["avg_strain"],
                 "delta": _delta(curr["avg_strain"], prev["avg_strain"]),
+                "cardio_avg": curr["avg_cardio"],
+                "muscular_avg": curr["avg_muscular"],
             },
             "sleep_min": {
                 "val": curr["avg_sleep"],

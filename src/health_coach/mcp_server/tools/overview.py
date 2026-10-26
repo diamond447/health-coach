@@ -234,20 +234,23 @@ def _fmt_duration(minutes: int | None) -> str | None:
 
 
 def get_scores(start: DateArg = None, end: DateArg = None) -> dict[str, Any]:
-    """Daily WHOOP-style recovery score (0-100), day strain (0-21) and sleep need/performance.
+    """Daily WHOOP-style recovery score (0-100), day strain (0-21, cardio strain 0-21 and
+    muscular load 0-100%) and sleep need/performance.
 
     Default: last 7 days. Returns rows with recovery score, zone ('green' >= 67, 'yellow' 34-66,
-    'red' <= 33), z-score, component breakdown, flags, strain, target range, cardio/muscular loads,
-    zone minutes, activities, and sleep need/actual/debt/performance/efficiency/consistency.
+    'red' <= 33), z-score, component breakdown, flags, strain, cardio strain, muscular score,
+    target range, cardio/muscular loads, zone minutes, activities, and
+    sleep need/actual/debt/performance/efficiency/consistency.
     """
     s, e = date_range(start, end)
-    from health_coach.analytics.scores import recovery_zone
+    from health_coach.analytics.scores import calculate_strain_from_load, recovery_zone
 
     with get_engine(Role.ro).connect() as conn:
         rows = conn.execute(
             text(
                 "SELECT local_date, recovery, recovery_z, recovery_components, flags, "
-                "       strain, cardio_load, muscular_load, zone_minutes, activities, "
+                "       strain, cardio_load, muscular_load, muscular_score, "
+                "       zone_minutes, activities, "
                 "       strain_target_low, strain_target_high, sleep_need_min, "
                 "       sleep_actual_min, sleep_debt_min, sleep_performance, "
                 "       sleep_efficiency, sleep_consistency, planned_bedtime, "
@@ -269,6 +272,12 @@ def get_scores(start: DateArg = None, end: DateArg = None) -> dict[str, Any]:
                     "recovery_components": r.recovery_components,
                     "flags": r.flags,
                     "strain": jsonable(r.strain),
+                    "cardio_strain": (
+                        calculate_strain_from_load(float(r.cardio_load))
+                        if r.cardio_load is not None
+                        else None
+                    ),
+                    "muscular_score": r.muscular_score,
                     "strain_target": (
                         [jsonable(r.strain_target_low), jsonable(r.strain_target_high)]
                         if r.strain_target_low is not None

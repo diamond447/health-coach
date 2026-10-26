@@ -140,6 +140,15 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
                 sublabel="STRAIN"
                 sublabelColor="#7DB8FF"
               />
+              {data?.scores && data.scores.strain !== null && data.scores.strain !== undefined && (
+                <div style={{ fontSize: "11px", color: "#9BA3AF", textAlign: "center", whiteSpace: "nowrap" }}>
+                  kardio {data.scores.cardio_strain !== null && data.scores.cardio_strain !== undefined ? formatDecimal(data.scores.cardio_strain, 1) : "–"}
+                  {" · "}
+                  {data.scores.muscular_score !== null && data.scores.muscular_score !== undefined
+                    ? `svaly ${data.scores.muscular_score} %`
+                    : "žádné posilování"}
+                </div>
+              )}
             </a>
           </div>
 

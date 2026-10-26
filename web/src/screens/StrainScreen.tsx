@@ -5,7 +5,15 @@ import { Header } from "../components/Header";
 import { RingDial } from "../components/RingDial";
 import { Skeleton } from "../components/Skeleton";
 import { TimeChart } from "../components/TimeChart";
-import { formatDateCzech, formatDecimal, formatNumber, formatTime, strainColor } from "../helpers";
+import {
+  formatDateCzech,
+  formatDecimal,
+  formatNumber,
+  formatTime,
+  muscularBand,
+  muscularColor,
+  strainColor,
+} from "../helpers";
 import { StrainResponse } from "../types";
 
 interface StrainScreenProps {
@@ -86,32 +94,87 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
         />
       ) : (
         <>
-          {/* Ring dial & summary */}
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <RingDial
-              value={data.strain}
-              max={21}
-              size={132}
-              strokeWidth={9}
-              displayValue={formatDecimal(data.strain, 1)}
-              color={strainColor()}
-              ariaLabel={`Strain ${formatDecimal(data.strain, 1)} z 21`}
-              sublabel={strainCategory}
-              sublabelColor="#7DB8FF"
-            />
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              {data.strain_target_low !== null && data.strain_target_high !== null && (
-                <div style={{ fontSize: "14px", color: "#C9CED6" }}>
-                  Doporučeno {Math.round(data.strain_target_low)}–{Math.round(data.strain_target_high)} podle
-                  dnešní recovery {data.recovery !== null ? `${data.recovery} %` : "–"}
+          {/* Two rings side by side & Celkový strain summary */}
+          <div
+            style={{
+              background: "#16191E",
+              borderRadius: "16px",
+              padding: "16px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "14px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-around", alignItems: "flex-start", gap: "12px" }}>
+              {/* Kardio Ring */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: "#9BA3AF", letterSpacing: "0.08em" }}>
+                  KARDIO
                 </div>
-              )}
-              <div style={{ fontSize: "13px", color: "#9BA3AF" }}>
-                Kardio zátěž {data.cardio_load !== null ? Math.round(data.cardio_load) : "–"} · svaly{" "}
-                {data.muscular_load !== null ? Math.round(data.muscular_load) : "0"} (TRIMP)
+                <RingDial
+                  value={data.cardio_strain}
+                  max={21}
+                  size={120}
+                  strokeWidth={8}
+                  displayValue={data.cardio_strain !== null && data.cardio_strain !== undefined ? formatDecimal(data.cardio_strain, 1) : "–"}
+                  color={strainColor()}
+                  ariaLabel={`Kardio strain ${data.cardio_strain !== null && data.cardio_strain !== undefined ? formatDecimal(data.cardio_strain, 1) : 0} z 21`}
+                  sublabel={data.cardio_strain !== null && data.cardio_strain !== undefined ? strainCategory : undefined}
+                  sublabelColor="#7DB8FF"
+                />
+                <div style={{ fontSize: "12px", color: "#9BA3AF", textAlign: "center" }}>
+                  zátěž {data.cardio_load !== null ? Math.round(data.cardio_load) : "–"}
+                </div>
               </div>
-              <div style={{ fontSize: "13px", color: "#9BA3AF" }}>
+
+              {/* Svaly Ring */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: "#9BA3AF", letterSpacing: "0.08em" }}>
+                  SVALY
+                </div>
+                <RingDial
+                  value={data.muscular_score}
+                  max={100}
+                  size={120}
+                  strokeWidth={8}
+                  displayValue={data.muscular_score !== null && data.muscular_score !== undefined ? `${data.muscular_score}` : "–"}
+                  unit={data.muscular_score !== null && data.muscular_score !== undefined ? "%" : undefined}
+                  color={muscularColor()}
+                  ariaLabel={`Svalová zátěž ${data.muscular_score ?? 0} procent`}
+                  sublabel={data.muscular_score !== null && data.muscular_score !== undefined ? (muscularBand(data.muscular_score) ?? undefined) : undefined}
+                  sublabelColor="#C38BFF"
+                />
+                <div style={{ fontSize: "12px", color: "#9BA3AF", textAlign: "center" }}>
+                  {data.muscular_score !== null && data.muscular_score !== undefined
+                    ? `zátěž ${data.muscular_load !== null ? Math.round(data.muscular_load) : 0}`
+                    : "Žádné posilování"}
+                </div>
+              </div>
+            </div>
+
+            {/* Celkový strain & target range */}
+            <div
+              style={{
+                borderTop: "1px solid #23272E",
+                paddingTop: "12px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "4px",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: "16px", fontWeight: 700 }}>
+                Celkový strain {data.strain !== null && data.strain !== undefined ? formatDecimal(data.strain, 1) : "–"}
+                {data.strain_target_low !== null && data.strain_target_high !== null && (
+                  <span style={{ fontSize: "14px", fontWeight: 500, color: "#C9CED6", marginLeft: "8px" }}>
+                    (cíl {Math.round(data.strain_target_low)}–{Math.round(data.strain_target_high)})
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
                 Max tep {data.hr_max} · klidový {data.rest_hr}
+                {data.recovery !== null ? ` · dnešní recovery ${data.recovery} %` : ""}
               </div>
             </div>
           </div>
@@ -321,56 +384,101 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
                         </div>
                       ) : null}
                     </div>
-                    {act.strain !== null && act.strain !== undefined && (
-                      <div style={{ fontSize: "15px", fontWeight: 700, color: "#7DB8FF" }}>
+                    {isStrength && act.score !== null && act.score !== undefined ? (
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div style={{ fontSize: "15px", fontWeight: 700, color: "#C38BFF" }}>
+                          {Math.round(act.score)} %
+                        </div>
+                        {act.strain !== null && act.strain !== undefined && (
+                          <div style={{ fontSize: "11px", color: "#9BA3AF" }}>
+                            +{formatDecimal(act.strain, 1)}
+                          </div>
+                        )}
+                      </div>
+                    ) : act.strain !== null && act.strain !== undefined ? (
+                      <div style={{ fontSize: "15px", fontWeight: 700, color: "#7DB8FF", flexShrink: 0 }}>
                         +{formatDecimal(act.strain, 1)}
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 );
               })}
             </div>
           )}
 
-          {/* Last 30 days strain */}
+          {/* Last 30 days charts: cardio strain (line) and muscular load (bars) */}
           {data.week_strains && data.week_strains.length > 0 && (
-            <div
-              style={{
-                background: "#16191E",
-                borderRadius: "16px",
-                padding: "16px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "10px",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <div style={{ fontSize: "15px", fontWeight: 700 }}>Posledních 30 dní</div>
-                <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
-                  Ø {data.avg_week_strain !== null ? formatDecimal(data.avg_week_strain, 1) : "–"}
+            <>
+              <div
+                style={{
+                  background: "#16191E",
+                  borderRadius: "16px",
+                  padding: "16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <div style={{ fontSize: "15px", fontWeight: 700 }}>Kardio strain (30 dní)</div>
                 </div>
+
+                <TimeChart
+                  points={data.week_strains.map((d) => ({
+                    date: d.date,
+                    values: [d.cardio_strain],
+                  }))}
+                  series={[
+                    {
+                      label: "Kardio",
+                      color: "#3D9BFF",
+                      unit: "",
+                      format: (v) => formatDecimal(v, 1),
+                      kind: "line",
+                    },
+                  ]}
+                  height={110}
+                  yAxis={true}
+                  xAxis={true}
+                  ariaLabel="Graf kardio strainu za 30 dní"
+                />
               </div>
 
-              <TimeChart
-                points={data.week_strains.map((d) => ({
-                  date: d.date,
-                  values: [d.strain],
-                }))}
-                series={[
-                  {
-                    label: "Strain",
-                    color: "#3D9BFF",
-                    unit: "",
-                    format: (v) => formatDecimal(v, 1),
-                    kind: "bar",
-                  },
-                ]}
-                height={110}
-                yAxis={true}
-                xAxis={true}
-                ariaLabel="Graf strainu za 30 dní"
-              />
-            </div>
+              <div
+                style={{
+                  background: "#16191E",
+                  borderRadius: "16px",
+                  padding: "16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <div style={{ fontSize: "15px", fontWeight: 700 }}>Svalová zátěž (30 dní)</div>
+                </div>
+
+                <TimeChart
+                  points={data.week_strains.map((d) => ({
+                    date: d.date,
+                    values: [d.muscular_score],
+                  }))}
+                  series={[
+                    {
+                      label: "Svaly",
+                      color: "#C38BFF",
+                      unit: "%",
+                      format: (v) => `${Math.round(v)} %`,
+                      kind: "bar",
+                    },
+                  ]}
+                  height={110}
+                  yAxis={true}
+                  xAxis={true}
+                  ariaLabel="Graf svalové zátěže za 30 dní"
+                />
+              </div>
+            </>
           )}
         </>
       )}

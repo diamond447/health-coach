@@ -22,6 +22,8 @@
     ],
     "flags": [],
     "strain": 11.8,
+    "cardio_strain": 11.0,
+    "muscular_score": 64,
     "strain_target_low": 12.0,
     "strain_target_high": 15.0,
     "sleep_need_min": 491,
@@ -52,7 +54,8 @@
       "end_ts": "2026-10-25T08:12+01:00",
       "hard_sets": 2,
       "volume_kg": 1480.0,
-      "strain": 6.1
+      "strain": 6.1,
+      "score": 64.0
     },
     {
       "type": "run",

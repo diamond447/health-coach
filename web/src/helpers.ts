@@ -200,6 +200,23 @@ export function strainColor(): string {
 }
 
 /**
+ * Muscular load color (#C38BFF).
+ */
+export function muscularColor(): string {
+  return "#C38BFF";
+}
+
+/**
+ * Muscular load band in Czech (lehká, střední, vysoká).
+ */
+export function muscularBand(score: number | null | undefined): string | null {
+  if (score === null || score === undefined || isNaN(score)) return null;
+  if (score <= 33) return "lehká";
+  if (score <= 66) return "střední";
+  return "vysoká";
+}
+
+/**
  * Sleep color (#9C8CFF or darker purple).
  */
 export function sleepColor(perf: number | null | undefined): string {

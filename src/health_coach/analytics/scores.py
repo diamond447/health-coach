@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-ALGO_VERSION = 1
+ALGO_VERSION = 2
 
 # Recovery baseline scale floors
 FLOOR_LN_HRV = 0.08
@@ -297,6 +297,7 @@ class DayStrainResult:
     strain: float
     cardio_load: float
     muscular_load: float
+    muscular_score: int | None
     zone_minutes: dict[str, int]
     activities: list[dict[str, Any]]
 
@@ -393,12 +394,34 @@ def calculate_session_muscular_load(
     session: StrengthSessionData,
     cap_vol: float,
     cap_srpe: float,
-) -> tuple[float, float, float]:
-    """Compute (volume, sRPE, muscular_load) for one strength session."""
+) -> tuple[float, float, float, float]:
+    """Compute (volume, sRPE, muscular_load, score) for one strength session."""
     volume, srpe = _session_volume_srpe(session)
     score = min(100.0, max(0.0, 50.0 * volume / cap_vol + 50.0 * srpe / cap_srpe))
     muscular_load = 45.0 * ((score / 100.0) ** 1.6)
-    return volume, srpe, muscular_load
+    return volume, srpe, muscular_load, round(score, 1)
+
+
+def day_muscular_score(scores: Sequence[float]) -> int | None:
+    """Compute day muscular score (0-100%) from session scores.
+
+    Returns None if there were no strength sessions.
+    Day value = min(100, sum of the day's session scores), rounded to an integer.
+    """
+    if not scores:
+        return None
+    return max(0, min(100, round(sum(scores))))
+
+
+def muscular_band(score: int | float | None) -> str | None:
+    """Return band label for a 0-100% muscular score: 'lehká', 'střední', 'vysoká'."""
+    if score is None:
+        return None
+    if score <= 33:
+        return "lehká"
+    if score <= 66:
+        return "střední"
+    return "vysoká"
 
 
 def hr_gate(x: float, inside_window: bool) -> float:
@@ -443,6 +466,7 @@ def _build_activity_load(
     extra_load: float = 0.0,
     fallback_avg_hr: int | None = None,
     fallback_max_hr: int | None = None,
+    score: float | None = None,
 ) -> dict[str, Any]:
     """Compute activity load, strain, and HR stats within a time window."""
     hrs_in_window = [hr for ts, hr in minute_hr if start_ts <= ts <= end_ts]
@@ -454,7 +478,7 @@ def _build_activity_load(
     avg_hr = round(sum(hrs_in_window) / len(hrs_in_window)) if hrs_in_window else fallback_avg_hr
     max_hr = round(max(hrs_in_window)) if hrs_in_window else fallback_max_hr
     total_load = round(window_cardio + extra_load, 1)
-    return {
+    act: dict[str, Any] = {
         "kind": kind,
         "name": name,
         "start": start_ts.isoformat(),
@@ -464,6 +488,9 @@ def _build_activity_load(
         "load": total_load,
         "strain": calculate_strain_from_load(total_load),
     }
+    if score is not None:
+        act["score"] = score
+    return act
 
 
 def calculate_day_strain(
@@ -515,11 +542,14 @@ def calculate_day_strain(
     # Muscular load per strength session
     total_muscular_load = 0.0
     strength_muscular_loads: dict[Any, float] = {}
+    strength_scores: dict[Any, float] = {}
     for st in strength_sessions:
-        _, _, m_load = calculate_session_muscular_load(st, cap_vol, cap_srpe)
+        _, _, m_load, s_score = calculate_session_muscular_load(st, cap_vol, cap_srpe)
         total_muscular_load += m_load
         strength_muscular_loads[st.id] = m_load
+        strength_scores[st.id] = s_score
 
+    day_m_score = day_muscular_score(list(strength_scores.values()))
     total_load = cardio_load + total_muscular_load
     strain = calculate_strain_from_load(total_load)
 
@@ -548,6 +578,7 @@ def calculate_day_strain(
         if not (st.start_ts and st.end_ts):
             continue
         m_load = strength_muscular_loads.get(st.id, 0.0)
+        sess_score = strength_scores.get(st.id)
         activities.append(
             _build_activity_load(
                 kind="strength",
@@ -559,6 +590,7 @@ def calculate_day_strain(
                 hr_max=hr_max,
                 sex=sex,
                 extra_load=m_load,
+                score=sess_score,
             )
         )
 
@@ -569,6 +601,7 @@ def calculate_day_strain(
         strain=strain,
         cardio_load=round(cardio_load, 1),
         muscular_load=round(total_muscular_load, 1),
+        muscular_score=day_m_score,
         zone_minutes=zone_minutes,
         activities=activities,
     )

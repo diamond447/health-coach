@@ -42,14 +42,14 @@ log = logging.getLogger(__name__)
 _UPSERT_DAILY_SCORE = """
 INSERT INTO daily_scores (
     local_date, recovery, recovery_z, recovery_components, flags,
-    strain, cardio_load, muscular_load, zone_minutes, activities,
+    strain, cardio_load, muscular_load, muscular_score, zone_minutes, activities,
     strain_target_low, strain_target_high, sleep_need_min,
     sleep_actual_min, sleep_debt_min, sleep_performance,
     sleep_efficiency, sleep_consistency, planned_bedtime,
     planned_wake, inputs, algo_version, source
 ) VALUES (
     :local_date, :recovery, :recovery_z, CAST(:recovery_components AS jsonb),
-    :flags, :strain, :cardio_load, :muscular_load, CAST(:zone_minutes AS jsonb),
+    :flags, :strain, :cardio_load, :muscular_load, :muscular_score, CAST(:zone_minutes AS jsonb),
     CAST(:activities AS jsonb), :strain_target_low, :strain_target_high,
     :sleep_need_min, :sleep_actual_min, :sleep_debt_min, :sleep_performance,
     :sleep_efficiency, :sleep_consistency, :planned_bedtime, :planned_wake,
@@ -62,6 +62,7 @@ INSERT INTO daily_scores (
     strain = EXCLUDED.strain,
     cardio_load = EXCLUDED.cardio_load,
     muscular_load = EXCLUDED.muscular_load,
+    muscular_score = EXCLUDED.muscular_score,
     zone_minutes = EXCLUDED.zone_minutes,
     activities = EXCLUDED.activities,
     strain_target_low = EXCLUDED.strain_target_low,
@@ -549,12 +550,14 @@ def compute_scores(
             strain_val: float | None = strain_res.strain
             cardio_val: float | None = strain_res.cardio_load
             muscular_val: float | None = strain_res.muscular_load
+            muscular_score_val: int | None = strain_res.muscular_score
             zones_val: str | None = json.dumps(strain_res.zone_minutes)
             activities_val: str | None = json.dumps(strain_res.activities)
         else:
             strain_val = None
             cardio_val = None
             muscular_val = None
+            muscular_score_val = None
             zones_val = None
             activities_val = None
 
@@ -613,6 +616,7 @@ def compute_scores(
                 "strain": strain_val,
                 "cardio_load": cardio_val,
                 "muscular_load": muscular_val,
+                "muscular_score": muscular_score_val,
                 "zone_minutes": zones_val,
                 "activities": activities_val,
                 "strain_target_low": (rec_result.strain_target_low if rec_result else None),
