@@ -44,15 +44,17 @@ export interface DayResponse {
   activities: {
     type: string;
     name: string;
-    start_ts?: string | null;
-    end_ts?: string | null;
+    start_ts: string | null;
+    end_ts: string | null;
+    strain: number | null;
+    // Strength sessions only
+    hard_sets?: number | null;
+    volume_kg?: number | null;
+    // Other exercise only
     duration_min?: number | null;
     calories?: number | null;
     distance_km?: number | null;
     avg_hr?: number | null;
-    strain?: number | null;
-    hard_sets?: number | null;
-    volume_kg?: number | null;
   }[];
   as_of: string | null;
 }
@@ -168,14 +170,16 @@ export interface StrainResponse {
     name: string;
     start_time: string | null;
     end_time: string | null;
+    strain: number | null;
+    // Strength sessions only
+    hard_sets?: number | null;
+    volume_kg?: number | null;
+    mean_rpe?: number | null;
+    // Other exercise only
     duration_min?: number | null;
     avg_hr?: number | null;
     max_hr?: number | null;
     distance_km?: number | null;
-    hard_sets?: number | null;
-    volume_kg?: number | null;
-    mean_rpe?: number | null;
-    strain: number | null;
   }[];
   week_strains: {
     date: string;

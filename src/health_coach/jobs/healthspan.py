@@ -6,11 +6,13 @@ import datetime as dt
 import json
 import logging
 import statistics
+from typing import Any
 
 from sqlalchemy import Connection, Engine, text
 
 from health_coach.analytics.healthspan import (
     ALGO_VERSION,
+    TOTAL_YEARS_CLAMP,
     FactorResult,
     HealthspanResult,
     body_composition_factor,
@@ -47,6 +49,13 @@ INSERT INTO healthspan_weekly (
     algo_version = EXCLUDED.algo_version,
     updated_at = now()
 """
+
+
+def _keys_with_data(factors: Any) -> set[str]:
+    """Keys of the stored factors (healthspan_weekly.factors) that had data."""
+    if isinstance(factors, str):
+        factors = json.loads(factors)
+    return {f["key"] for f in factors or [] if f.get("has_data") and f.get("years") is not None}
 
 
 def _to_week_start(d: dt.date) -> dt.date:
@@ -247,24 +256,29 @@ def compute_healthspan_for_week(
         f_fat,
     ]
 
-    # Pace compares like with like: only previous weeks of the trailing 26 that had the
-    # same number of factors with data. Otherwise a factor gaining data (or the weeks
-    # before the first sync) would show up as a jump in the delta and fake a fast pace.
+    # Pace compares like with like: only previous weeks of the trailing 26 whose factors
+    # with data are the same as this week's. Otherwise a factor gaining or losing data (or
+    # the weeks before the first sync) would show up as a jump in the delta and fake a
+    # fast or slow pace.
     active_factors = [f for f in factors if f.has_data and f.years is not None]
+    active_keys = {f.key for f in active_factors}
     weekly_series: list[tuple[dt.date, float]] = []
     if active_factors:
         prev_rows = conn.execute(
             text(
-                "SELECT week_start, delta_years FROM healthspan_weekly "
+                "SELECT week_start, delta_years, factors FROM healthspan_weekly "
                 "WHERE week_start >= :s AND week_start < :w AND delta_years IS NOT NULL "
-                "  AND factors_with_data = :n "
                 "ORDER BY week_start"
             ),
-            {"s": window_start, "w": week_start, "n": len(active_factors)},
+            {"s": window_start, "w": week_start},
         ).all()
         raw_delta = sum(f.years for f in active_factors if f.years is not None)
-        current_delta = max(-10.0, min(10.0, raw_delta))
-        weekly_series = [(r.week_start, float(r.delta_years)) for r in prev_rows]
+        current_delta = round(max(TOTAL_YEARS_CLAMP[0], min(TOTAL_YEARS_CLAMP[1], raw_delta)), 1)
+        weekly_series = [
+            (r.week_start, float(r.delta_years))
+            for r in prev_rows
+            if _keys_with_data(r.factors) == active_keys
+        ]
         weekly_series.append((week_start, current_delta))
 
     result = calculate_healthspan(factors, age=age, weekly_deltas=weekly_series)

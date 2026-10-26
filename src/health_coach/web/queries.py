@@ -116,15 +116,18 @@ def _get_daily_score_row(conn: Connection, d: dt.date) -> dict[str, Any] | None:
 # -----------------------------------------------------------------------------
 
 
-def _activity_strains(score_row: dict[str, Any] | None) -> dict[dt.datetime, float]:
-    """Strain per activity from daily_scores.activities, keyed by the session start."""
+def _activity_strains(
+    score_row: dict[str, Any] | None,
+) -> dict[tuple[bool, dt.datetime], float]:
+    """Strain per activity from daily_scores.activities, keyed by (is strength, start)."""
     raw = score_row.get("activities") if score_row else None
     if isinstance(raw, str):
         raw = json.loads(raw)
-    strains: dict[dt.datetime, float] = {}
+    strains: dict[tuple[bool, dt.datetime], float] = {}
     for act in raw if isinstance(raw, list) else []:
         if act.get("start") and act.get("strain") is not None:
-            strains[dt.datetime.fromisoformat(act["start"])] = float(act["strain"])
+            key = (act.get("kind") == "strength", dt.datetime.fromisoformat(act["start"]))
+            strains[key] = float(act["strain"])
     return strains
 
 
@@ -221,7 +224,7 @@ def query_day(conn: Connection, date_str: str | None = None) -> dict[str, Any]:
                 "end_ts": jsonable(st["end_ts"]),
                 "hard_sets": st["hard_sets"],
                 "volume_kg": float(st["volume_kg"]) if st["volume_kg"] else 0.0,
-                "strain": strains.get(st["start_ts"]),
+                "strain": strains.get((True, st["start_ts"])),
             }
         )
 
@@ -249,9 +252,10 @@ def query_day(conn: Connection, date_str: str | None = None) -> dict[str, Any]:
                 "calories": ex["calories"],
                 "distance_km": dist_km,
                 "avg_hr": ex["avg_hr"],
-                "strain": strains.get(ex["start_ts"]),
+                "strain": strains.get((False, ex["start_ts"])),
             }
         )
+    activities.sort(key=lambda a: a["start_ts"] or "")
 
     return {
         "date": target_date.isoformat(),
@@ -812,7 +816,7 @@ def query_strain(conn: Connection, date_str: str | None = None) -> dict[str, Any
                 "hard_sets": st["hard_sets"],
                 "volume_kg": float(st["volume_kg"]) if st["volume_kg"] else 0.0,
                 "mean_rpe": float(st["mean_rpe"]) if st["mean_rpe"] else None,
-                "strain": strains.get(st["start_ts"]),
+                "strain": strains.get((True, st["start_ts"])),
             }
         )
 
@@ -851,9 +855,10 @@ def query_strain(conn: Connection, date_str: str | None = None) -> dict[str, Any
                 ),
                 "avg_hr": ex["avg_hr"],
                 "max_hr": ex["max_hr"],
-                "strain": strains.get(ex["start_ts"]),
+                "strain": strains.get((False, ex["start_ts"])),
             }
         )
+    activities.sort(key=lambda a: a["start_time"] or "")
 
     # Last 7 days strain
     week_start = target_date - dt.timedelta(days=6)
@@ -1866,7 +1871,8 @@ def query_healthspan(conn: Connection, weeks: int = 26) -> dict[str, Any]:
 
     asc_rows = list(reversed(rows))
     latest_row = asc_rows[-1]
-    weeks_with_data = sum(1 for r in asc_rows if r.delta_years is not None)
+    # Rows from before ALGO_VERSION 2 stored 0.0 for weeks without any data.
+    weeks_with_data = sum(1 for r in asc_rows if r.factors_with_data > 0)
     has_enough_data = weeks_with_data >= 4 and latest_row.factors_with_data >= 4
 
     history = [
@@ -1875,7 +1881,7 @@ def query_healthspan(conn: Connection, weeks: int = 26) -> dict[str, Any]:
             "delta_years": float(r.delta_years) if r.delta_years is not None else None,
         }
         for r in asc_rows
-        if r.delta_years is not None
+        if r.factors_with_data > 0
     ]
 
     age_val = latest_row.age
