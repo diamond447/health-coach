@@ -22,6 +22,9 @@ export interface TimeChartSeries {
   format?: (v: number) => string;
   kind?: "line" | "bar" | "dots";
   strokeDasharray?: string;
+  maxGap?: number;
+  colors?: (string | null)[];
+  colorOf?: (v: number | null, index: number) => string;
 }
 
 export interface TimeChartProps {
@@ -34,6 +37,7 @@ export interface TimeChartProps {
   height?: number;
   yAxis?: boolean;
   xAxis?: boolean;
+  tickFormat?: (v: number) => string;
   ariaLabel?: string;
   workoutWindows?: { start_minute: number; end_minute: number; name?: string }[];
 }
@@ -48,6 +52,7 @@ export function TimeChart({
   height = 120,
   yAxis = true,
   xAxis = false,
+  tickFormat,
   ariaLabel,
   workoutWindows,
 }: TimeChartProps) {
@@ -110,6 +115,7 @@ export function TimeChart({
 
   // Format tick labels
   const formatTick = (val: number) => {
+    if (tickFormat) return tickFormat(val);
     if (Math.abs(val) >= 1000) return formatNumber(val);
     if (val % 1 !== 0) return formatDecimal(val, 1);
     return val.toString();
@@ -153,15 +159,98 @@ export function TimeChart({
     }
   }
 
-  // Pointer scrub handler
-  const handlePointer = (e: PointerEvent) => {
+  // Pointer scrub handler: mouse scrubs immediately; touch waits for horizontal drag
+  const touchStateRef = useRef<{
+    startX: number;
+    startY: number;
+    isScrubbing: boolean;
+    pointerId: number;
+  } | null>(null);
+
+  const updateSelectionFromClientX = (clientX: number) => {
     if (points.length === 0 || !svgRef.current) return;
-    if (e.type === "pointerdown" || e.buttons > 0) {
-      const rect = svgRef.current.getBoundingClientRect();
-      if (rect.width <= 0) return;
-      const svgX = ((e.clientX - rect.left) / rect.width) * viewBoxWidth;
-      const nearest = findNearestIndex(svgX, points.length, plotLeft, plotRight);
-      setSelectedIndex(nearest);
+    const rect = svgRef.current.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const svgX = ((clientX - rect.left) / rect.width) * viewBoxWidth;
+    const nearest = findNearestIndex(svgX, points.length, plotLeft, plotRight);
+    setSelectedIndex(nearest);
+  };
+
+  const handlePointerDown = (e: PointerEvent) => {
+    if (points.length === 0 || !svgRef.current) return;
+    if (e.pointerType === "mouse") {
+      updateSelectionFromClientX(e.clientX);
+      return;
+    }
+    touchStateRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      isScrubbing: false,
+      pointerId: e.pointerId,
+    };
+  };
+
+  const handlePointerMove = (e: PointerEvent) => {
+    if (points.length === 0 || !svgRef.current) return;
+    if (e.pointerType === "mouse") {
+      if (e.buttons > 0) {
+        updateSelectionFromClientX(e.clientX);
+      }
+      return;
+    }
+    const touch = touchStateRef.current;
+    if (!touch || touch.pointerId !== e.pointerId) return;
+
+    if (touch.isScrubbing) {
+      updateSelectionFromClientX(e.clientX);
+    } else {
+      const dx = e.clientX - touch.startX;
+      const dy = e.clientY - touch.startY;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 6) {
+        touch.isScrubbing = true;
+        try {
+          svgRef.current.setPointerCapture(e.pointerId);
+        } catch {
+          // ignore if capture fails
+        }
+        updateSelectionFromClientX(e.clientX);
+      }
+    }
+  };
+
+  const handlePointerUp = (e: PointerEvent) => {
+    if (e.pointerType === "mouse") return;
+    const touch = touchStateRef.current;
+    if (!touch || touch.pointerId !== e.pointerId) return;
+
+    if (!touch.isScrubbing) {
+      // Tap (pointerup with little movement) selects tapped point
+      const dx = Math.abs(e.clientX - touch.startX);
+      const dy = Math.abs(e.clientY - touch.startY);
+      if (dx <= 6 && dy <= 6) {
+        updateSelectionFromClientX(e.clientX);
+      }
+    }
+    try {
+      if (svgRef.current && svgRef.current.hasPointerCapture(e.pointerId)) {
+        svgRef.current.releasePointerCapture(e.pointerId);
+      }
+    } catch {
+      // ignore
+    }
+    touchStateRef.current = null;
+  };
+
+  const handlePointerCancel = (e: PointerEvent) => {
+    if (touchStateRef.current?.pointerId === e.pointerId) {
+      try {
+        if (svgRef.current && svgRef.current.hasPointerCapture(e.pointerId)) {
+          svgRef.current.releasePointerCapture(e.pointerId);
+        }
+      } catch {
+        // ignore
+      }
+      touchStateRef.current = null;
     }
   };
 
@@ -236,12 +325,21 @@ export function TimeChart({
           minHeight: "18px",
           display: "flex",
           alignItems: "center",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
+          minWidth: 0,
         }}
       >
-        {readout}
+        <span
+          style={{
+            display: "block",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            minWidth: 0,
+            width: "100%",
+          }}
+        >
+          {readout}
+        </span>
       </div>
 
       <svg
@@ -254,11 +352,15 @@ export function TimeChart({
           height: "auto",
           touchAction: "pan-y",
           userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTouchCallout: "none",
           cursor: "crosshair",
           overflow: "visible",
         }}
-        onPointerDown={handlePointer}
-        onPointerMove={handlePointer}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
       >
         {/* Workout windows background overlay (for intraday HR) */}
         {workoutWindows &&
@@ -347,6 +449,10 @@ export function TimeChart({
                     const cx = pointX(pIdx, points.length, plotLeft, plotRight);
                     const y = yOf(v);
                     const h = Math.max(1, baselineY - y);
+                    const barFill =
+                      (s.colors && s.colors[pIdx]) ||
+                      (s.colorOf ? s.colorOf(v, pIdx) : null) ||
+                      s.color;
                     return (
                       <rect
                         key={pIdx}
@@ -354,7 +460,7 @@ export function TimeChart({
                         y={y.toFixed(1)}
                         width={barWidth.toFixed(1)}
                         height={h.toFixed(1)}
-                        fill={s.color}
+                        fill={barFill}
                         rx="1.5"
                       />
                     );
@@ -385,34 +491,46 @@ export function TimeChart({
               );
             }
 
-            // Default: line with breaks across nulls
-            const lineSegments: string[] = [];
-            let currentSeg: string[] = [];
+            // Line series with maxGap option (default 0 = break on every null)
+            const maxGap = s.maxGap ?? 0;
+            const lineSegments: { x: number; y: number }[][] = [];
+            let currentSeg: { x: number; y: number }[] = [];
+            let lastValidIdx: number | null = null;
+
             for (let i = 0; i < points.length; i++) {
               const v = points[i].values[sIdx];
               if (v !== null && v !== undefined && !isNaN(v)) {
                 const x = pointX(i, points.length, plotLeft, plotRight);
                 const y = yOf(v);
-                currentSeg.push(`${x.toFixed(1)},${y.toFixed(1)}`);
-              } else {
-                if (currentSeg.length > 0) {
-                  lineSegments.push(currentSeg.join(" "));
-                  currentSeg = [];
+                if (lastValidIdx !== null && i - lastValidIdx - 1 > maxGap) {
+                  if (currentSeg.length > 0) {
+                    lineSegments.push(currentSeg);
+                    currentSeg = [];
+                  }
                 }
+                currentSeg.push({ x, y });
+                lastValidIdx = i;
               }
             }
             if (currentSeg.length > 0) {
-              lineSegments.push(currentSeg.join(" "));
+              lineSegments.push(currentSeg);
             }
 
             return (
               <g key={sIdx}>
-                {lineSegments.map((pts, segIdx) => {
-                  const ptsList = pts.split(" ");
-                  if (ptsList.length === 1) {
-                    const [px, py] = ptsList[0].split(",").map(Number);
-                    return <circle key={segIdx} cx={px} cy={py} r="2.5" fill={s.color} />;
+                {lineSegments.map((seg, segIdx) => {
+                  if (seg.length === 1) {
+                    return (
+                      <circle
+                        key={segIdx}
+                        cx={seg[0].x.toFixed(1)}
+                        cy={seg[0].y.toFixed(1)}
+                        r="2.5"
+                        fill={s.color}
+                      />
+                    );
                   }
+                  const pts = seg.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
                   return (
                     <polyline
                       key={segIdx}

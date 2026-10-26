@@ -201,7 +201,9 @@ def api_nutrition(request: Request) -> Response:
 
 def api_trends(request: Request) -> Response:
     try:
-        date_param = _parse_date(request.query_params.get("date"))
+        date_param = _parse_date(
+            request.query_params.get("end") or request.query_params.get("date")
+        )
     except ValueError as e:
         return _bad_request(str(e))
     days_param = request.query_params.get("days", "30")
@@ -242,7 +244,7 @@ def api_report(request: Request) -> Response:
     if period_param not in ("week", "month"):
         return _bad_request(f"Invalid period {period_param!r}, expected 'week' or 'month'")
     try:
-        end_param = _parse_date(request.query_params.get("end"))
+        end_param = _parse_date(request.query_params.get("end") or request.query_params.get("date"))
     except ValueError as e:
         return _bad_request(str(e))
     with get_engine(Role.ro).connect() as conn:

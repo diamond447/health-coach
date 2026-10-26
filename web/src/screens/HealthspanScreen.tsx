@@ -36,7 +36,6 @@ export function HealthspanScreen({ date }: HealthspanScreenProps) {
     loadData();
   }, [date]);
 
-  const query = date ? `?date=${encodeURIComponent(date)}` : "";
   const latest = data?.latest;
 
   // Headline: the biological age ("22,3 roku") once the birth year is known, else
@@ -69,7 +68,7 @@ export function HealthspanScreen({ date }: HealthspanScreenProps) {
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
       <Header
         title="Healthspan"
-        backHref={`/trendy${query}`}
+        backHref="/trendy"
         backLabel="Zpět na Trendy"
         asOf={data?.as_of}
         onRefresh={() => loadData(true)}

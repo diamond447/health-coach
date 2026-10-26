@@ -175,15 +175,37 @@ describe("healthspan helpers", () => {
 
 describe("niceTicks", () => {
   it("calculates 3-4 nice ticks covering the range", () => {
-    expect(niceTicks(50, 70, 3)).toEqual([50, 60, 70]);
-    expect(niceTicks(52, 68, 3)).toEqual([50, 60, 70]);
-    expect(niceTicks(0, 100, 3)).toEqual([0, 50, 100]);
-    expect(niceTicks(0, 8500, 3)).toEqual([0, 5000, 10000]);
-    expect(niceTicks(0, 21, 3)).toEqual([0, 10, 20, 30]);
+    expect(niceTicks(50, 70)).toEqual([50, 60, 70]);
+    expect(niceTicks(52, 68)).toEqual([50, 60, 70]);
+    expect(niceTicks(0, 100)).toEqual([0, 50, 100]);
+    expect(niceTicks(0, 8500)).toEqual([0, 5000, 10000]);
+    expect(niceTicks(0, 21)).toEqual([0, 10, 20, 30]);
   });
 
   it("handles decimal values", () => {
-    expect(niceTicks(-0.4, 0.6, 3)).toEqual([-0.5, 0, 0.5, 1]);
+    expect(niceTicks(-0.4, 0.6)).toEqual([-0.5, 0, 0.5, 1]);
+  });
+
+  it("covers SpO2 95.8-97.2 tightly with <= 4 ticks", () => {
+    const ticks = niceTicks(95.8, 97.2);
+    expect(ticks.length).toBeLessThanOrEqual(4);
+    expect(ticks[0]).toBeLessThanOrEqual(95.8);
+    expect(ticks[ticks.length - 1]).toBeGreaterThanOrEqual(97.2);
+  });
+
+  it("covers HRV 9-41 tightly with <= 4 ticks and span under 60", () => {
+    const ticks = niceTicks(9, 41);
+    expect(ticks.length).toBeLessThanOrEqual(4);
+    expect(ticks[0]).toBeLessThanOrEqual(9);
+    expect(ticks[ticks.length - 1]).toBeGreaterThanOrEqual(41);
+    expect(ticks[ticks.length - 1] - ticks[0]).toBeLessThan(60);
+  });
+
+  it("covers negative range -0.3 to 0.25 with <= 4 ticks", () => {
+    const ticks = niceTicks(-0.3, 0.25);
+    expect(ticks.length).toBeLessThanOrEqual(4);
+    expect(ticks[0]).toBeLessThanOrEqual(-0.3);
+    expect(ticks[ticks.length - 1]).toBeGreaterThanOrEqual(0.25);
   });
 
   it("handles identical or invalid bounds", () => {

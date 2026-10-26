@@ -303,12 +303,9 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
           )}
 
           {/* Activity card */}
-          <a
-            href={`/aktivita${query}`}
-            aria-label="Aktivita"
+          <div
             style={{
-              textDecoration: "none",
-              color: "#F2F4F7",
+              position: "relative",
               background: "#16191E",
               borderRadius: "16px",
               padding: "16px",
@@ -317,23 +314,72 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
               gap: "12px",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: "15px", fontWeight: 700 }}>Aktivita</div>
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#9BA3AF"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
+            {/* Stretched card link to /aktivita */}
+            <a
+              href={`/aktivita${query}`}
+              aria-label="Aktivita: detail"
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: "16px",
+                zIndex: 1,
+              }}
+            />
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                position: "relative",
+                zIndex: 2,
+                pointerEvents: "none",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <div style={{ fontSize: "15px", fontWeight: 700 }}>Aktivita</div>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#9BA3AF"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </div>
+              <a
+                href={`/strain${query}`}
+                style={{
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "#7DB8FF",
+                  textDecoration: "none",
+                  pointerEvents: "auto",
+                  padding: "4px 8px",
+                  margin: "-4px -8px",
+                  minHeight: "44px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                }}
               >
-                <path d="M9 18l6-6-6-6" />
-              </svg>
+                Strain ›
+              </a>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "8px" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gap: "8px",
+                position: "relative",
+                zIndex: 1,
+                pointerEvents: "none",
+              }}
+            >
               <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                 <div style={{ fontSize: "20px", fontWeight: 700 }}>
                   {formatNumber(data?.activity.steps)}
@@ -356,7 +402,17 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
 
             {/* Activities list */}
             {data?.activities && data.activities.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px", paddingTop: "4px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                  paddingTop: "4px",
+                  position: "relative",
+                  zIndex: 1,
+                  pointerEvents: "none",
+                }}
+              >
                 {data.activities.map((act, i) => {
                   const startTime = act.start_ts ? formatTime(act.start_ts) : "";
                   const endTime = act.end_ts ? formatTime(act.end_ts) : "";
@@ -441,7 +497,7 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
                 })}
               </div>
             )}
-          </a>
+          </div>
 
           {/* In night vitals card */}
           <a

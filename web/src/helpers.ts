@@ -299,41 +299,89 @@ export function valueRange(values: (number | null)[], pad: number): [number, num
 }
 
 /**
- * Compute 3-4 nicely rounded ticks for a chart axis covering [min, max].
- * E.g. niceTicks(50, 70, 3) -> [50, 60, 70]
+ * Compute nicely rounded ticks for a chart axis tightly covering [min, max].
+ * Tries 2, 3 and 4 intervals with nice steps (1, 2, 2.5, 5 × 10^n) and picks
+ * the candidate with <= 4 ticks whose span is the smallest that still contains [min, max].
+ * E.g. niceTicks(50, 70) -> [50, 60, 70]
  */
-export function niceTicks(min: number, max: number, count: number = 3): number[] {
+export function niceTicks(min: number, max: number, _count: number = 3): number[] {
   if (isNaN(min) || isNaN(max)) return [0];
   if (min >= max) return [min];
 
   const range = max - min;
-  const roughStep = range / Math.max(1, count - 1);
-  const exponent = Math.floor(Math.log10(roughStep));
-  const fraction = roughStep / Math.pow(10, exponent);
+  const niceFractions = [1, 2, 2.5, 5];
 
-  let niceFraction = 1;
-  if (fraction <= 1.5) {
-    niceFraction = 1;
-  } else if (fraction <= 3) {
-    niceFraction = 2;
-  } else if (fraction <= 7) {
-    niceFraction = 5;
-  } else {
-    niceFraction = 10;
+  interface Candidate {
+    step: number;
+    start: number;
+    end: number;
+    tickCount: number;
+    span: number;
+    ticks: number[];
   }
 
-  const step = niceFraction * Math.pow(10, exponent);
-  const startTick = Math.floor(min / step) * step;
-  const endTick = Math.ceil(max / step) * step;
+  const candidates: Candidate[] = [];
 
-  const decimals = Math.max(0, -exponent + 2);
-  const ticks: number[] = [];
-  for (let t = startTick; t <= endTick + step * 0.5; t += step) {
-    const rounded = Number(t.toFixed(decimals));
-    ticks.push(rounded === 0 ? 0 : rounded);
+  // Try 2, 3, and 4 intervals
+  for (const targetIntervals of [2, 3, 4]) {
+    const roughStep = range / targetIntervals;
+    const exponent = Math.floor(Math.log10(roughStep));
+    for (const exp of [exponent - 1, exponent, exponent + 1]) {
+      for (const frac of niceFractions) {
+        const step = Number((frac * Math.pow(10, exp)).toPrecision(10));
+        if (step <= 0) continue;
+        const start = Math.floor(min / step) * step;
+        const end = Math.ceil(max / step) * step;
+        const numTicks = Math.round((end - start) / step) + 1;
+        if (numTicks >= 3 && numTicks <= 4 && start <= min + 1e-9 && end >= max - 1e-9) {
+          const decimals = Math.max(0, -Math.floor(Math.log10(step)) + 2);
+          const ticks: number[] = [];
+          for (let t = start; t <= end + step * 0.5; t += step) {
+            const rounded = Number(t.toFixed(decimals));
+            ticks.push(rounded === 0 ? 0 : rounded);
+          }
+          candidates.push({
+            step,
+            start,
+            end,
+            tickCount: ticks.length,
+            span: end - start,
+            ticks,
+          });
+        }
+      }
+    }
   }
 
-  return ticks.length > 0 ? ticks : [min, max];
+  // Pick the one with <= 4 ticks whose span is the smallest that still contains [min, max]
+  candidates.sort((a, b) => {
+    const spanDiff = a.span - b.span;
+    if (Math.abs(spanDiff) > 1e-9) return spanDiff;
+    if (b.tickCount !== a.tickCount) return b.tickCount - a.tickCount;
+    return a.step - b.step;
+  });
+
+  if (candidates.length > 0) {
+    return candidates[0].ticks;
+  }
+
+  // Fallback if no 3-4 tick candidate exists: try 2 ticks
+  for (const exp of [
+    Math.floor(Math.log10(range)) - 1,
+    Math.floor(Math.log10(range)),
+    Math.floor(Math.log10(range)) + 1,
+  ]) {
+    for (const frac of niceFractions) {
+      const step = Number((frac * Math.pow(10, exp)).toPrecision(10));
+      const start = Math.floor(min / step) * step;
+      const end = Math.ceil(max / step) * step;
+      if (start <= min + 1e-9 && end >= max - 1e-9) {
+        return [start, end];
+      }
+    }
+  }
+
+  return [min, max];
 }
 
 /**

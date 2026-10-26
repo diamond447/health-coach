@@ -19,25 +19,46 @@ import {
 import { ReportResponse } from "../types";
 
 interface ReportScreenProps {
-  date: string;
+  end?: string;
+  period?: "week" | "month";
+  onNavigate?: (newEnd: string | undefined, newPeriod: "week" | "month") => void;
+  date?: string;
   onDateChange?: (newDate: string) => void;
 }
 
-export function ReportScreen({ date, onDateChange }: ReportScreenProps) {
-  const [period, setPeriod] = useState<"week" | "month">("week");
+export function ReportScreen({
+  end,
+  period: initialPeriod,
+  onNavigate,
+  date,
+  onDateChange,
+}: ReportScreenProps) {
+  const [period, setPeriod] = useState<"week" | "month">(() => initialPeriod || "week");
   const [data, setData] = useState<ReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const currentDate = date || getTodayString();
+  useEffect(() => {
+    if (initialPeriod && initialPeriod !== period) {
+      setPeriod(initialPeriod);
+    }
+  }, [initialPeriod]);
+
+  // Trendy and Přehled without ?end= show the window ending today
+  const currentDate =
+    end || (date && date !== getTodayString() ? date : undefined) || getTodayString();
   const isCurrentPeriod = isToday(currentDate) || currentDate >= getTodayString();
 
   const loadData = async (isRef = false) => {
     if (isRef) setRefreshing(true);
     else setLoading(true);
 
+    const queryEnd =
+      end || (date && date !== getTodayString() ? date : undefined)
+        ? `&end=${encodeURIComponent(currentDate)}`
+        : "";
     const res = await apiFetch<ReportResponse>(
-      `/api/report?period=${period}&end=${encodeURIComponent(currentDate)}`
+      `/api/report?period=${period}${queryEnd}`
     );
     if (res.data) {
       setData(res.data);
@@ -50,10 +71,21 @@ export function ReportScreen({ date, onDateChange }: ReportScreenProps) {
     loadData();
   }, [period, currentDate]);
 
+  const handlePeriodChange = (newPeriod: "week" | "month") => {
+    setPeriod(newPeriod);
+    if (onNavigate) {
+      onNavigate(end, newPeriod);
+    }
+  };
+
   const handlePrevPeriod = () => {
     const step = period === "week" ? 7 : 30;
     const newDate = addDays(currentDate, -step);
-    if (onDateChange) onDateChange(newDate);
+    if (onNavigate) {
+      onNavigate(newDate, period);
+    } else if (onDateChange) {
+      onDateChange(newDate);
+    }
   };
 
   const handleNextPeriod = () => {
@@ -61,11 +93,13 @@ export function ReportScreen({ date, onDateChange }: ReportScreenProps) {
     const step = period === "week" ? 7 : 30;
     const nextDate = addDays(currentDate, step);
     const todayStr = getTodayString();
-    const clampedDate = nextDate > todayStr ? todayStr : nextDate;
-    if (onDateChange) onDateChange(clampedDate);
+    const clampedDate = nextDate >= todayStr ? undefined : nextDate;
+    if (onNavigate) {
+      onNavigate(clampedDate, period);
+    } else if (onDateChange) {
+      onDateChange(clampedDate || todayStr);
+    }
   };
-
-  const query = date ? `?date=${encodeURIComponent(date)}` : "";
 
   const deltaText = (delta: number | null | undefined, unit: string = ""): { text: string; color: string } => {
     if (delta === null || delta === undefined) {
@@ -93,7 +127,7 @@ export function ReportScreen({ date, onDateChange }: ReportScreenProps) {
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
       <Header
         title={periodTitle}
-        backHref={`/trendy${query}`}
+        backHref="/trendy"
         backLabel="Zpět na Trendy"
         asOf={data?.as_of}
         onRefresh={() => loadData(true)}
@@ -118,6 +152,7 @@ export function ReportScreen({ date, onDateChange }: ReportScreenProps) {
             style={{
               width: "44px",
               height: "44px",
+              minHeight: "44px",
               borderRadius: "12px",
               border: "none",
               background: "#16191E",
@@ -140,6 +175,7 @@ export function ReportScreen({ date, onDateChange }: ReportScreenProps) {
             style={{
               width: "44px",
               height: "44px",
+              minHeight: "44px",
               borderRadius: "12px",
               border: "none",
               background: "#16191E",
@@ -173,10 +209,10 @@ export function ReportScreen({ date, onDateChange }: ReportScreenProps) {
         >
           <button
             type="button"
-            onClick={() => setPeriod("week")}
+            onClick={() => handlePeriodChange("week")}
             aria-pressed={period === "week"}
             style={{
-              minHeight: "36px",
+              minHeight: "44px",
               padding: "0 10px",
               border: "none",
               borderRadius: "9px",
@@ -192,10 +228,10 @@ export function ReportScreen({ date, onDateChange }: ReportScreenProps) {
           </button>
           <button
             type="button"
-            onClick={() => setPeriod("month")}
+            onClick={() => handlePeriodChange("month")}
             aria-pressed={period === "month"}
             style={{
-              minHeight: "36px",
+              minHeight: "44px",
               padding: "0 10px",
               border: "none",
               borderRadius: "9px",

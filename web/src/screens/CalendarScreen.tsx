@@ -34,8 +34,6 @@ export function CalendarScreen({ date, onDateChange }: CalendarScreenProps) {
     loadData();
   }, [monthStr]);
 
-  const query = date ? `?date=${encodeURIComponent(date)}` : "";
-
   const changeMonth = (delta: number) => {
     const [y, m] = monthStr.split("-").map(Number);
     const d = new Date(y, m - 1 + delta, 1);
@@ -87,7 +85,7 @@ export function CalendarScreen({ date, onDateChange }: CalendarScreenProps) {
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
       <Header
         title={data?.month_label || "Kalendář"}
-        backHref={`/trendy${query}`}
+        backHref="/trendy"
         backLabel="Zpět na Trendy"
         asOf={data?.as_of}
         onRefresh={() => loadData(true)}

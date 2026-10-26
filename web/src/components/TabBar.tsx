@@ -98,7 +98,7 @@ export function TabBar({ currentPath, date }: TabBarProps) {
     },
     {
       id: "trends",
-      href: `/trendy${query}`,
+      href: "/trendy",
       label: "Trendy",
       isActive:
         currentPath === "/trendy" ||

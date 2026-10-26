@@ -13,25 +13,51 @@ import {
   formatNumber,
   getTodayString,
   isToday,
+  recoveryColor,
 } from "../helpers";
 import { TrendsResponse } from "../types";
 
 interface TrendsScreenProps {
-  date: string;
+  end?: string;
+  days?: 7 | 30 | 90;
+  onNavigate?: (newEnd: string | undefined, newDays: 7 | 30 | 90) => void;
+  date?: string;
   onDateChange?: (newDate: string) => void;
 }
 
-export function TrendsScreen({ date, onDateChange }: TrendsScreenProps) {
-  const [days, setDays] = useState<7 | 30 | 90>(30);
+export function TrendsScreen({
+  end,
+  days: initialDays,
+  onNavigate,
+  date,
+  onDateChange,
+}: TrendsScreenProps) {
+  const [days, setDays] = useState<7 | 30 | 90>(() => initialDays || 30);
   const [data, setData] = useState<TrendsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (initialDays && initialDays !== days) {
+      setDays(initialDays);
+    }
+  }, [initialDays]);
+
+  // Trendy without ?end= shows the window ending today, regardless of date on other tabs
+  const currentDate =
+    end || (date && date !== getTodayString() ? date : undefined) || getTodayString();
+  const startDate = addDays(currentDate, -(days - 1));
+  const rangeLabel = formatDateRangeCzech(startDate, currentDate);
+  const isAtToday = isToday(currentDate) || currentDate >= getTodayString();
 
   const loadData = async (isRef = false) => {
     if (isRef) setRefreshing(true);
     else setLoading(true);
 
-    const queryDate = date ? `&date=${encodeURIComponent(date)}` : "";
+    const queryDate =
+      end || (date && date !== getTodayString() ? date : undefined)
+        ? `&date=${encodeURIComponent(currentDate)}`
+        : "";
     const res = await apiFetch<TrendsResponse>(`/api/trends?days=${days}${queryDate}`);
     if (res.data) {
       setData(res.data);
@@ -42,25 +68,34 @@ export function TrendsScreen({ date, onDateChange }: TrendsScreenProps) {
 
   useEffect(() => {
     loadData();
-  }, [days, date]);
+  }, [days, currentDate]);
 
-  const query = date ? `?date=${encodeURIComponent(date)}` : "";
-  const currentDate = date || getTodayString();
-  const startDate = addDays(currentDate, -(days - 1));
-  const rangeLabel = formatDateRangeCzech(startDate, currentDate);
-  const isAtToday = isToday(currentDate) || currentDate >= getTodayString();
+  const handleDaysChange = (newDays: 7 | 30 | 90) => {
+    setDays(newDays);
+    if (onNavigate) {
+      onNavigate(end, newDays);
+    }
+  };
 
   const handlePrevWindow = () => {
     const newDate = addDays(currentDate, -days);
-    if (onDateChange) onDateChange(newDate);
+    if (onNavigate) {
+      onNavigate(newDate, days);
+    } else if (onDateChange) {
+      onDateChange(newDate);
+    }
   };
 
   const handleNextWindow = () => {
     if (isAtToday) return;
     const nextDate = addDays(currentDate, days);
     const todayStr = getTodayString();
-    const clampedDate = nextDate > todayStr ? todayStr : nextDate;
-    if (onDateChange) onDateChange(clampedDate);
+    const clampedDate = nextDate >= todayStr ? undefined : nextDate;
+    if (onNavigate) {
+      onNavigate(clampedDate, days);
+    } else if (onDateChange) {
+      onDateChange(clampedDate || todayStr);
+    }
   };
 
   const targetKcal = data?.kcal.target || 2400;
@@ -77,7 +112,7 @@ export function TrendsScreen({ date, onDateChange }: TrendsScreenProps) {
       {/* Sub-nav tiles: Kalendář, Deník, Přehled, Healthspan (2x2 grid) */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px" }}>
         <a
-          href={`/kalendar${query}`}
+          href="/kalendar"
           style={{
             textDecoration: "none",
             color: "#F2F4F7",
@@ -94,7 +129,7 @@ export function TrendsScreen({ date, onDateChange }: TrendsScreenProps) {
           <span style={{ fontSize: "12px", color: "#9BA3AF" }}>měsíc přehled</span>
         </a>
         <a
-          href={`/denik${query}`}
+          href="/denik"
           style={{
             textDecoration: "none",
             color: "#F2F4F7",
@@ -111,7 +146,7 @@ export function TrendsScreen({ date, onDateChange }: TrendsScreenProps) {
           <span style={{ fontSize: "12px", color: "#9BA3AF" }}>vliv návyků</span>
         </a>
         <a
-          href={`/prehled${query}`}
+          href="/prehled"
           style={{
             textDecoration: "none",
             color: "#F2F4F7",
@@ -128,7 +163,7 @@ export function TrendsScreen({ date, onDateChange }: TrendsScreenProps) {
           <span style={{ fontSize: "12px", color: "#9BA3AF" }}>týden / měsíc</span>
         </a>
         <a
-          href={`/healthspan${query}`}
+          href="/healthspan"
           style={{
             textDecoration: "none",
             color: "#F2F4F7",
@@ -164,6 +199,7 @@ export function TrendsScreen({ date, onDateChange }: TrendsScreenProps) {
             style={{
               width: "44px",
               height: "44px",
+              minHeight: "44px",
               borderRadius: "12px",
               border: "none",
               background: "#16191E",
@@ -186,6 +222,7 @@ export function TrendsScreen({ date, onDateChange }: TrendsScreenProps) {
             style={{
               width: "44px",
               height: "44px",
+              minHeight: "44px",
               borderRadius: "12px",
               border: "none",
               background: "#16191E",
@@ -224,10 +261,10 @@ export function TrendsScreen({ date, onDateChange }: TrendsScreenProps) {
               <button
                 key={d}
                 type="button"
-                onClick={() => setDays(d)}
+                onClick={() => handleDaysChange(d)}
                 aria-pressed={isSelected}
                 style={{
-                  minHeight: "36px",
+                  minHeight: "44px",
                   padding: "0 10px",
                   border: "none",
                   borderRadius: "9px",
@@ -286,6 +323,7 @@ export function TrendsScreen({ date, onDateChange }: TrendsScreenProps) {
                   color: "#2BD47D",
                   unit: "%",
                   kind: "bar",
+                  colorOf: (v) => recoveryColor(v),
                 },
               ]}
               height={90}
@@ -385,6 +423,10 @@ export function TrendsScreen({ date, onDateChange }: TrendsScreenProps) {
               height={80}
               yAxis={true}
               xAxis={false}
+              tickFormat={(min) => {
+                const h = min / 60;
+                return `${h % 1 === 0 ? h : formatDecimal(h, 1)} h`;
+              }}
               ariaLabel="Trend spánku"
             />
           </div>
@@ -453,14 +495,14 @@ export function TrendsScreen({ date, onDateChange }: TrendsScreenProps) {
               }))}
               series={[
                 {
-                  label: "Vážení",
+                  label: "vážení",
                   color: "#5C636D",
                   unit: "kg",
                   format: (v) => `${formatDecimal(v, 1)} kg`,
                   kind: "dots",
                 },
                 {
-                  label: "7denní průměr",
+                  label: "průměr",
                   color: "#F2F4F7",
                   unit: "kg",
                   format: (v) => `${formatDecimal(v, 1)} kg`,

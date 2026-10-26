@@ -5,7 +5,7 @@ import { Header } from "../components/Header";
 import { RingDial } from "../components/RingDial";
 import { Skeleton } from "../components/Skeleton";
 import { TimeChart } from "../components/TimeChart";
-import { formatDateCzech, formatDuration, formatDurationShort, formatTime, sleepColor } from "../helpers";
+import { formatDateCzech, formatDecimal, formatDuration, formatDurationShort, formatTime, sleepColor } from "../helpers";
 import { SleepResponse, SleepStage } from "../types";
 
 interface SleepScreenProps {
@@ -468,6 +468,10 @@ export function SleepScreen({ date, onDateChange }: SleepScreenProps) {
                 height={120}
                 yAxis={true}
                 xAxis={true}
+                tickFormat={(min) => {
+                  const h = min / 60;
+                  return `${h % 1 === 0 ? h : formatDecimal(h, 1)} h`;
+                }}
                 ariaLabel="Graf spánku za 30 nocí"
               />
             </div>

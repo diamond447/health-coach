@@ -142,6 +142,7 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
                   color: "#FF7A6B",
                   unit: "bpm",
                   kind: "line",
+                  maxGap: 3,
                 },
               ]}
               target={z3Min !== null ? z3Min : undefined}

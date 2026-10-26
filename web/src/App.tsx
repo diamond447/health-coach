@@ -18,14 +18,29 @@ import { SleepScreen } from "./screens/SleepScreen";
 import { StrainScreen } from "./screens/StrainScreen";
 import { TrendsScreen } from "./screens/TrendsScreen";
 
-function parseLocation(): { path: string; date: string } {
+export interface RouteLocation {
+  path: string;
+  date: string;
+  end?: string;
+  days?: 7 | 30 | 90;
+  period?: "week" | "month";
+}
+
+function parseLocation(): RouteLocation {
   if (typeof window === "undefined") {
     return { path: "/", date: getTodayString() };
   }
   const path = window.location.pathname || "/";
   const params = new URLSearchParams(window.location.search);
-  const date = params.get("date") || params.get("end") || getTodayString();
-  return { path, date };
+  const date = params.get("date") || getTodayString();
+  const end = params.get("end") || undefined;
+  const daysNum = Number(params.get("days"));
+  const days: 7 | 30 | 90 | undefined =
+    daysNum === 7 || daysNum === 30 || daysNum === 90 ? daysNum : undefined;
+  const periodParam = params.get("period");
+  const period: "week" | "month" | undefined =
+    periodParam === "week" || periodParam === "month" ? periodParam : undefined;
+  return { path, date, end, days, period };
 }
 
 export function App() {
@@ -85,16 +100,33 @@ export function App() {
 
   const handleDateChange = (newDate: string) => {
     const params = new URLSearchParams(window.location.search);
-    if (route.path.startsWith("/prehled")) {
-      params.set("end", newDate);
-      params.delete("date");
-    } else {
-      params.set("date", newDate);
-      params.delete("end");
-    }
+    params.set("date", newDate);
+    params.delete("end");
     const newUrl = `${route.path}?${params.toString()}`;
     window.history.pushState({}, "", newUrl);
-    setRoute({ path: route.path, date: newDate });
+    setRoute(parseLocation());
+  };
+
+  const handleTrendsNavigate = (newEnd: string | undefined, newDays: 7 | 30 | 90) => {
+    const params = new URLSearchParams();
+    if (newEnd && newEnd < getTodayString()) {
+      params.set("end", newEnd);
+    }
+    params.set("days", String(newDays));
+    const newUrl = `${route.path}?${params.toString()}`;
+    window.history.pushState({}, "", newUrl);
+    setRoute(parseLocation());
+  };
+
+  const handleReportNavigate = (newEnd: string | undefined, newPeriod: "week" | "month") => {
+    const params = new URLSearchParams();
+    if (newEnd && newEnd < getTodayString()) {
+      params.set("end", newEnd);
+    }
+    params.set("period", newPeriod);
+    const newUrl = `${route.path}?${params.toString()}`;
+    window.history.pushState({}, "", newUrl);
+    setRoute(parseLocation());
   };
 
   // Screen rendering
@@ -124,7 +156,13 @@ export function App() {
       content = <NutritionScreen date={route.date} onDateChange={handleDateChange} />;
       break;
     case "/trendy":
-      content = <TrendsScreen date={route.date} onDateChange={handleDateChange} />;
+      content = (
+        <TrendsScreen
+          end={route.end}
+          days={route.days}
+          onNavigate={handleTrendsNavigate}
+        />
+      );
       break;
     case "/kalendar":
       content = <CalendarScreen date={route.date} onDateChange={handleDateChange} />;
@@ -133,7 +171,13 @@ export function App() {
       content = <JournalScreen date={route.date} />;
       break;
     case "/prehled":
-      content = <ReportScreen date={route.date} onDateChange={handleDateChange} />;
+      content = (
+        <ReportScreen
+          end={route.end}
+          period={route.period}
+          onNavigate={handleReportNavigate}
+        />
+      );
       break;
     case "/healthspan":
       content = <HealthspanScreen date={route.date} />;
@@ -171,7 +215,13 @@ export function App() {
           flexGrow: 1,
         }}
       >
-        <ScreenBoundary resetKey={`${normalizedPath}?${route.date}`}>{content}</ScreenBoundary>
+        <ScreenBoundary
+          resetKey={`${normalizedPath}?${
+            typeof window !== "undefined" ? window.location.search : route.date
+          }`}
+        >
+          {content}
+        </ScreenBoundary>
       </main>
 
       <TabBar currentPath={normalizedPath} date={route.date} />
