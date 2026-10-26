@@ -84,11 +84,11 @@ export function JournalScreen({ date }: JournalScreenProps) {
                       fontSize: "13px",
                       padding: "6px 10px",
                       borderRadius: "999px",
-                      background: y.present ? "#1F3550" : "#1D2127",
-                      color: y.present ? "#CFE4FF" : "#9BA3AF",
+                      background: y.active ? "#1F3550" : "#1D2127",
+                      color: y.active ? "#CFE4FF" : "#9BA3AF",
                     }}
                   >
-                    {y.label}
+                    {y.name}
                   </span>
                 ))}
               </div>
@@ -128,7 +128,7 @@ export function JournalScreen({ date }: JournalScreenProps) {
 
             {data.insights && data.insights.length > 0 ? (
               data.insights.map((ins, idx) => {
-                const diff = ins.diff_recovery_pct;
+                const diff = ins.difference_pp;
                 const isPositive = diff > 0;
                 const absPct = Math.min(100, Math.round((Math.abs(diff) / 15) * 100));
                 const sign = isPositive ? "+" : "−";
@@ -146,7 +146,7 @@ export function JournalScreen({ date }: JournalScreenProps) {
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                      <span style={{ fontSize: "14px" }}>{ins.label}</span>
+                      <span style={{ fontSize: "14px" }}>{ins.name}</span>
                       <span style={{ fontSize: "14px", fontWeight: 700, color: labelColor }}>
                         {sign}
                         {Math.abs(diff)} %
@@ -193,7 +193,9 @@ export function JournalScreen({ date }: JournalScreenProps) {
                       </div>
                     </div>
 
-                    <span style={{ fontSize: "12px", color: "#9BA3AF" }}>{ins.n_days}</span>
+                    <span style={{ fontSize: "12px", color: "#9BA3AF" }}>
+                      {ins.with_count} dní s · {ins.without_count} bez
+                    </span>
                   </div>
                 );
               })
@@ -233,7 +235,7 @@ export function JournalScreen({ date }: JournalScreenProps) {
                       color: "#C9CED6",
                     }}
                   >
-                    {item.label} · {item.text}
+                    {item.name} · {item.with_count} s / {item.without_count} bez
                   </span>
                 ))}
               </div>

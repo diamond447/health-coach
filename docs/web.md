@@ -158,3 +158,16 @@ uv run health-coach web
 
 By default, the server binds to `127.0.0.1:8090`. During development when
 `HC_WEB_ALLOWED_USERS` is left empty (`[]`), the username header check is disabled.
+
+### API contract
+
+The frontend types in `web/src/types.ts` must match what the API really returns. Two
+checks keep them in step:
+
+- `tests/test_web.py` writes one sample response per endpoint to `web/src/fixtures/api/`
+  (synthetic data) and fails when the committed samples no longer have the shape the API
+  returns. After changing a response, regenerate them:
+  `HC_UPDATE_WEB_FIXTURES=1 uv run pytest tests/test_web.py`.
+- `npm run typecheck` checks every sample against its response type
+  (`web/src/fixtures.ts`), and `npm test` renders every screen with the samples
+  (`web/src/screens.test.tsx`) and fails on any render error.

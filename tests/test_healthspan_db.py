@@ -131,7 +131,7 @@ def test_compute_healthspan_persists_to_db(owner: Engine) -> None:
         assert float(row.delta_years) == res.delta_years
         assert row.factors_with_data == 9
         assert row.age == 42
-        assert row.algo_version == 1
+        assert row.algo_version == 2
 
 
 def test_refresh_healthspan_backfill_and_pace(owner: Engine) -> None:
@@ -156,6 +156,41 @@ def test_refresh_healthspan_backfill_and_pace(owner: Engine) -> None:
         latest_row = rows[-1]
         assert latest_row.pace is not None
         assert 0.5 <= float(latest_row.pace) <= 1.5
+
+
+def test_backfill_before_first_data_does_not_fake_pace(owner: Engine) -> None:
+    """Weeks before the first sync store no delta, and pace ignores them."""
+    engine = get_engine(Role.owner)
+    week_start = dt.date(2026, 10, 19)
+    first_data = week_start - dt.timedelta(weeks=14)
+    settings = Settings(birth_year=1984, sex="male", timezone="Europe/Prague")
+
+    with engine.begin() as conn:
+        _seed_synthetic_healthspan_data(conn, week_start)
+        for table in (
+            "daily_vitals",
+            "daily_activity",
+            "daily_scores",
+            "body_metrics",
+            "strength_sessions",
+        ):
+            conn.execute(text(f"DELETE FROM {table} WHERE local_date < :d"), {"d": first_data})
+
+    refresh_healthspan(engine, weeks_back=26, settings=settings)
+
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT week_start, delta_years, pace, factors_with_data "
+                "FROM healthspan_weekly ORDER BY week_start"
+            )
+        ).all()
+    empty = [r for r in rows if r.factors_with_data == 0]
+    assert empty and all(r.delta_years is None and r.pace is None for r in empty)
+    # The synthetic lifestyle is constant, so the pace must be 1.0, not the 1.5 clamp
+    # that the jump from the empty weeks used to produce.
+    assert rows[-1].pace is not None
+    assert float(rows[-1].pace) == 1.0
 
 
 async def test_mcp_get_healthspan_tool(owner: Engine) -> None:

@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-25",
+  "yesterday_date": "2026-10-24",
+  "yesterday_weekday": "so",
+  "logged_time": "12:41",
+  "yesterday": [
+    {
+      "behavior": "sauna",
+      "name": "Sauna",
+      "amount": 1.0,
+      "note": "sauna večer",
+      "active": true
+    },
+    {
+      "behavior": "alcohol",
+      "name": "Alkohol",
+      "amount": null,
+      "note": null,
+      "active": true
+    }
+  ],
+  "insights": [
+    {
+      "behavior": "alcohol",
+      "name": "Alkohol",
+      "difference_pp": 1,
+      "with_count": 6,
+      "without_count": 6
+    },
+    {
+      "behavior": "late_meal",
+      "name": "Jídlo < 2 h před spaním",
+      "difference_pp": -1,
+      "with_count": 6,
+      "without_count": 6
+    }
+  ],
+  "insufficient": [
+    {
+      "behavior": "sauna",
+      "name": "Sauna",
+      "with_count": 1,
+      "without_count": 11
+    }
+  ],
+  "as_of": "2026-10-26T12:41+01:00"
+}

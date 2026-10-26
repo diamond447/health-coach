@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { apiState } from "./api";
 import { OfflineBanner } from "./components/OfflineBanner";
+import { ScreenBoundary } from "./components/ScreenBoundary";
 import { SessionExpiryBanner } from "./components/SessionExpiryBanner";
 import { TabBar } from "./components/TabBar";
 import { getTodayString } from "./helpers";
@@ -147,14 +148,16 @@ export function App() {
 
       <main
         style={{
-          padding: "max(16px, env(safe-area-inset-top, 16px)) 16px 0 16px",
+          // The bottom padding keeps the last card clear of the fixed tab bar.
+          padding:
+            "max(16px, env(safe-area-inset-top, 16px)) 16px calc(88px + env(safe-area-inset-bottom, 0px)) 16px",
           display: "flex",
           flexDirection: "column",
           gap: "16px",
           flexGrow: 1,
         }}
       >
-        {content}
+        <ScreenBoundary resetKey={`${normalizedPath}?${route.date}`}>{content}</ScreenBoundary>
       </main>
 
       <TabBar currentPath={normalizedPath} date={route.date} />

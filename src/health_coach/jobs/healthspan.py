@@ -247,27 +247,25 @@ def compute_healthspan_for_week(
         f_fat,
     ]
 
-    # Load previous weeks in the trailing 26 weeks for pace calculation
-    prev_rows = conn.execute(
-        text(
-            "SELECT week_start, delta_years FROM healthspan_weekly "
-            "WHERE week_start >= :s AND week_start < :w AND delta_years IS NOT NULL "
-            "ORDER BY week_start"
-        ),
-        {"s": window_start, "w": week_start},
-    ).all()
-
-    # Pre-calculate delta_years for current week to append to series
+    # Pace compares like with like: only previous weeks of the trailing 26 that had the
+    # same number of factors with data. Otherwise a factor gaining data (or the weeks
+    # before the first sync) would show up as a jump in the delta and fake a fast pace.
     active_factors = [f for f in factors if f.has_data and f.years is not None]
-    raw_delta = (
-        sum(f.years for f in active_factors if f.years is not None) if active_factors else 0.0
-    )
-    current_delta = max(-10.0, min(10.0, raw_delta))
-
-    weekly_series: list[tuple[dt.date, float]] = [
-        (r.week_start, float(r.delta_years)) for r in prev_rows
-    ]
-    weekly_series.append((week_start, current_delta))
+    weekly_series: list[tuple[dt.date, float]] = []
+    if active_factors:
+        prev_rows = conn.execute(
+            text(
+                "SELECT week_start, delta_years FROM healthspan_weekly "
+                "WHERE week_start >= :s AND week_start < :w AND delta_years IS NOT NULL "
+                "  AND factors_with_data = :n "
+                "ORDER BY week_start"
+            ),
+            {"s": window_start, "w": week_start, "n": len(active_factors)},
+        ).all()
+        raw_delta = sum(f.years for f in active_factors if f.years is not None)
+        current_delta = max(-10.0, min(10.0, raw_delta))
+        weekly_series = [(r.week_start, float(r.delta_years)) for r in prev_rows]
+        weekly_series.append((week_start, current_delta))
 
     result = calculate_healthspan(factors, age=age, weekly_deltas=weekly_series)
 

@@ -1,0 +1,335 @@
+{
+  "month": "2026-10",
+  "month_label": "Říjen 2026",
+  "cells": [
+    {
+      "day": null,
+      "date": null,
+      "has_data": false,
+      "recovery": null,
+      "recovery_zone": null,
+      "strain": null,
+      "sleep_hours": null
+    },
+    {
+      "day": null,
+      "date": null,
+      "has_data": false,
+      "recovery": null,
+      "recovery_zone": null,
+      "strain": null,
+      "sleep_hours": null
+    },
+    {
+      "day": null,
+      "date": null,
+      "has_data": false,
+      "recovery": null,
+      "recovery_zone": null,
+      "strain": null,
+      "sleep_hours": null
+    },
+    {
+      "day": 1,
+      "date": "2026-10-01",
+      "has_data": true,
+      "recovery": 64,
+      "recovery_zone": "yellow",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 2,
+      "date": "2026-10-02",
+      "has_data": true,
+      "recovery": 63,
+      "recovery_zone": "yellow",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 3,
+      "date": "2026-10-03",
+      "has_data": true,
+      "recovery": 62,
+      "recovery_zone": "yellow",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 4,
+      "date": "2026-10-04",
+      "has_data": true,
+      "recovery": 61,
+      "recovery_zone": "yellow",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 5,
+      "date": "2026-10-05",
+      "has_data": true,
+      "recovery": 60,
+      "recovery_zone": "yellow",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 6,
+      "date": "2026-10-06",
+      "has_data": true,
+      "recovery": 79,
+      "recovery_zone": "green",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 7,
+      "date": "2026-10-07",
+      "has_data": true,
+      "recovery": 78,
+      "recovery_zone": "green",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 8,
+      "date": "2026-10-08",
+      "has_data": true,
+      "recovery": 77,
+      "recovery_zone": "green",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 9,
+      "date": "2026-10-09",
+      "has_data": true,
+      "recovery": 76,
+      "recovery_zone": "green",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 10,
+      "date": "2026-10-10",
+      "has_data": true,
+      "recovery": 75,
+      "recovery_zone": "green",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 11,
+      "date": "2026-10-11",
+      "has_data": true,
+      "recovery": 74,
+      "recovery_zone": "green",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 12,
+      "date": "2026-10-12",
+      "has_data": true,
+      "recovery": 73,
+      "recovery_zone": "green",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 13,
+      "date": "2026-10-13",
+      "has_data": true,
+      "recovery": 72,
+      "recovery_zone": "green",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 14,
+      "date": "2026-10-14",
+      "has_data": true,
+      "recovery": 71,
+      "recovery_zone": "green",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 15,
+      "date": "2026-10-15",
+      "has_data": true,
+      "recovery": 70,
+      "recovery_zone": "green",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 16,
+      "date": "2026-10-16",
+      "has_data": true,
+      "recovery": 69,
+      "recovery_zone": "green",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 17,
+      "date": "2026-10-17",
+      "has_data": true,
+      "recovery": 68,
+      "recovery_zone": "green",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 18,
+      "date": "2026-10-18",
+      "has_data": true,
+      "recovery": 67,
+      "recovery_zone": "green",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 19,
+      "date": "2026-10-19",
+      "has_data": true,
+      "recovery": 66,
+      "recovery_zone": "yellow",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 20,
+      "date": "2026-10-20",
+      "has_data": true,
+      "recovery": 65,
+      "recovery_zone": "yellow",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 21,
+      "date": "2026-10-21",
+      "has_data": true,
+      "recovery": 64,
+      "recovery_zone": "yellow",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 22,
+      "date": "2026-10-22",
+      "has_data": true,
+      "recovery": 63,
+      "recovery_zone": "yellow",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 23,
+      "date": "2026-10-23",
+      "has_data": true,
+      "recovery": 62,
+      "recovery_zone": "yellow",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 24,
+      "date": "2026-10-24",
+      "has_data": true,
+      "recovery": 61,
+      "recovery_zone": "yellow",
+      "strain": 10.5,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 25,
+      "date": "2026-10-25",
+      "has_data": true,
+      "recovery": 74,
+      "recovery_zone": "green",
+      "strain": 11.8,
+      "sleep_hours": 7.2
+    },
+    {
+      "day": 26,
+      "date": "2026-10-26",
+      "has_data": false,
+      "recovery": null,
+      "recovery_zone": null,
+      "strain": null,
+      "sleep_hours": null
+    },
+    {
+      "day": 27,
+      "date": "2026-10-27",
+      "has_data": false,
+      "recovery": null,
+      "recovery_zone": null,
+      "strain": null,
+      "sleep_hours": null
+    },
+    {
+      "day": 28,
+      "date": "2026-10-28",
+      "has_data": false,
+      "recovery": null,
+      "recovery_zone": null,
+      "strain": null,
+      "sleep_hours": null
+    },
+    {
+      "day": 29,
+      "date": "2026-10-29",
+      "has_data": false,
+      "recovery": null,
+      "recovery_zone": null,
+      "strain": null,
+      "sleep_hours": null
+    },
+    {
+      "day": 30,
+      "date": "2026-10-30",
+      "has_data": false,
+      "recovery": null,
+      "recovery_zone": null,
+      "strain": null,
+      "sleep_hours": null
+    },
+    {
+      "day": 31,
+      "date": "2026-10-31",
+      "has_data": false,
+      "recovery": null,
+      "recovery_zone": null,
+      "strain": null,
+      "sleep_hours": null
+    }
+  ],
+  "stats": {
+    "avg_recovery": 69,
+    "green_days": 14,
+    "yellow_days": 11,
+    "red_days": 0,
+    "avg_sleep_hours": 7.2,
+    "sleep_debt_end_min": 14,
+    "avg_strain": 10.6,
+    "max_strain": 11.8,
+    "max_strain_date": "25. 10.",
+    "workouts_total": 2,
+    "workouts_breakdown": [
+      {
+        "name": "posilování",
+        "count": 1
+      },
+      {
+        "name": "run",
+        "count": 1
+      }
+    ]
+  },
+  "as_of": "2026-10-26T12:41+01:00"
+}

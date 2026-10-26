@@ -163,7 +163,11 @@ Values outside the lowest and highest anchor points are held flat at the endpoin
 
 The pace of aging reflects whether biological age is diverging from or catching up to
 chronological time.
-- For each of the last 26 weeks, the weekly biological age delta is calculated.
+- For each of the last 26 weeks, the weekly biological age delta is calculated. A week in
+  which no factor has data stores no delta (`NULL`) and is left out.
+- Only weeks with the **same number of factors with data** as the current week enter the
+  fit. A factor that starts having data changes the delta in one step, which is not aging;
+  mixing such weeks would fake a very fast or very slow pace.
 - An ordinary least squares (OLS) linear regression is fitted across calendar years:
   $$\text{pace} = 1.0 + \text{slope}(\text{delta\_years} \text{ per calendar year})$$
 - A stable lifestyle with constant delta gives $\text{slope} = 0 \implies \text{pace} = 1.0\times$.

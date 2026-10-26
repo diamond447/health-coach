@@ -267,3 +267,33 @@ export function formatFactorValue(key: string, val: number | null | undefined, u
       return `${formatDecimal(val, 1)} ${unit}`;
   }
 }
+
+/**
+ * Labels and value formats for the recovery components written by the scores job.
+ */
+export const RECOVERY_SIGNALS: Record<string, { label: string; format: (v: number) => string }> = {
+  hrv: { label: "HRV", format: (v) => `${Math.round(v)} ms` },
+  resting_hr: { label: "Klidový tep", format: (v) => `${Math.round(v)} bpm` },
+  sleep_performance: { label: "Výkon spánku", format: (v) => `${Math.round(v)} %` },
+  breathing_rate: { label: "Dech", format: (v) => `${formatDecimal(v, 1)} /min` },
+  skin_temperature: { label: "Teplota kůže", format: (v) => `${formatDecimal(v, 1, true)} °C` },
+  spo2: { label: "SpO₂", format: (v) => `${formatDecimal(v, 1)} %` },
+};
+
+/**
+ * Recovery points of one component: "+9", "−2" or "0", with a colour.
+ */
+export function formatPoints(points: number): { text: string; color: string } {
+  if (points > 0) return { text: `+${points}`, color: "#5FE39E" };
+  if (points < 0) return { text: `−${Math.abs(points)}`, color: "#FFB15C" };
+  return { text: "0", color: "#9BA3AF" };
+}
+
+/**
+ * Chart value range [min - pad, max + pad] over the known values; [0, 1] without any.
+ */
+export function valueRange(values: (number | null)[], pad: number): [number, number] {
+  const known = values.filter((v): v is number => v !== null && !isNaN(v));
+  if (known.length === 0) return [0, 1];
+  return [Math.min(...known) - pad, Math.max(...known) + pad];
+}

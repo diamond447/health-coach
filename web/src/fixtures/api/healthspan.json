@@ -1,0 +1,123 @@
+{
+  "has_enough_data": true,
+  "latest": {
+    "week_start": "2026-10-19",
+    "delta_years": -2.6,
+    "pace": 0.8,
+    "age": 42,
+    "biological_age": 39.4,
+    "factors_with_data": 8,
+    "factors": [
+      {
+        "hr": 0.95,
+        "key": "sleep_regularity",
+        "goal": "≥ 85 %",
+        "name": "Pravidelnost spánku",
+        "unit": "%",
+        "value": 78.0,
+        "years": -0.3,
+        "has_data": true
+      },
+      {
+        "hr": 1.0,
+        "key": "sleep_duration",
+        "goal": "7–9 h",
+        "name": "Délka spánku",
+        "unit": "h",
+        "value": 7.1,
+        "years": 0.0,
+        "has_data": true
+      },
+      {
+        "hr": 0.85,
+        "key": "moderate_activity",
+        "goal": "≥ 150 min",
+        "name": "Minuty v zónách 1–3",
+        "unit": "min/týden",
+        "value": 210.0,
+        "years": -1.9,
+        "has_data": true
+      },
+      {
+        "hr": 1.0,
+        "key": "vigorous_activity",
+        "goal": "≥ 75 min",
+        "name": "Minuty v zónách 4–5",
+        "unit": "min/týden",
+        "value": 22.0,
+        "years": 0.0,
+        "has_data": true
+      },
+      {
+        "hr": 0.92,
+        "key": "strength_training",
+        "goal": "1–2,5 h",
+        "name": "Posilování",
+        "unit": "h/týden",
+        "value": 3.2,
+        "years": -0.9,
+        "has_data": true
+      },
+      {
+        "hr": 0.85,
+        "key": "steps",
+        "goal": "≥ 8 000/den",
+        "name": "Kroky",
+        "unit": "/den",
+        "value": 8900.0,
+        "years": -1.9,
+        "has_data": true
+      },
+      {
+        "hr": 0.95,
+        "key": "resting_hr",
+        "goal": "≤ 60 bpm",
+        "name": "Klidový tep",
+        "unit": "bpm",
+        "value": 54.0,
+        "years": -0.6,
+        "has_data": true
+      },
+      {
+        "hr": null,
+        "key": "vo2max",
+        "goal": "—",
+        "name": "VO2max",
+        "unit": "ml/kg/min",
+        "value": null,
+        "years": null,
+        "has_data": false
+      },
+      {
+        "hr": 1.0,
+        "key": "body_composition",
+        "goal": "podle věku",
+        "name": "Podíl svalové hmoty",
+        "unit": "%",
+        "value": 16.5,
+        "years": 0.0,
+        "has_data": true
+      }
+    ],
+    "algo_version": 1
+  },
+  "history": [
+    {
+      "week_start": "2026-09-28",
+      "delta_years": -2.6
+    },
+    {
+      "week_start": "2026-10-05",
+      "delta_years": -2.6
+    },
+    {
+      "week_start": "2026-10-12",
+      "delta_years": -2.6
+    },
+    {
+      "week_start": "2026-10-19",
+      "delta_years": -2.6
+    }
+  ],
+  "as_of": "2026-10-26T12:41+01:00"
+}

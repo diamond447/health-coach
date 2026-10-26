@@ -56,16 +56,16 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
     return (H - ((bpm - loBpm) / (hiBpm - loBpm)) * H).toFixed(1);
   };
 
-  const xOf = (h: number) => {
-    return ((h / 24) * W).toFixed(1);
+  const xOf = (minute: number) => {
+    return ((minute / 1440) * W).toFixed(1);
   };
 
   const hrPointsStr = (data?.hr_points || [])
-    .map((p) => `${xOf(p.hour)},${yOf(p.bpm)}`)
+    .map((p) => `${xOf(p.minute)},${yOf(p.bpm)}`)
     .join(" ");
 
-  const z3Min = data?.zones.find((z) => z.zone === 3)?.min_bpm ?? 156;
-  const z3Y = yOf(z3Min);
+  const z3Min = data?.zones.find((z) => z.key === "Z3")?.min_hr ?? null;
+  const z3Y = z3Min !== null ? yOf(z3Min) : null;
 
   const maxZoneMin = Math.max(1, ...(data?.zones.map((z) => z.minutes) || [1]));
 
@@ -151,8 +151,8 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
             >
               {/* Workout windows */}
               {data.workout_windows.map((w, idx) => {
-                const x1 = parseFloat(xOf(w.start_hour));
-                const x2 = parseFloat(xOf(w.end_hour));
+                const x1 = parseFloat(xOf(w.start_minute));
+                const x2 = parseFloat(xOf(w.end_minute));
                 const width = Math.max(2, x2 - x1);
                 return (
                   <rect
@@ -167,7 +167,7 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
               })}
 
               {/* Zone 3 threshold line */}
-              <rect x="0" y={z3Y} width="326" height="1" fill="#2C323A" />
+              {z3Y !== null && <rect x="0" y={z3Y} width="326" height="1" fill="#2C323A" />}
 
               {/* Heart rate line */}
               {hrPointsStr && (
@@ -189,7 +189,7 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
               <span>24:00</span>
             </div>
             <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
-              Modře = workouty · čára = začátek zóny 3 ({z3Min} bpm)
+              Modře = workouty{z3Min !== null ? ` · čára = začátek zóny 3 (${z3Min} bpm)` : ""}
             </div>
           </div>
 
@@ -210,7 +210,7 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
                 const barPct = Math.min(100, Math.round((z.minutes / maxZoneMin) * 100));
                 return (
                   <div
-                    key={z.zone}
+                    key={z.key}
                     style={{
                       display: "grid",
                       gridTemplateColumns: "92px minmax(0, 1fr) 52px",
@@ -221,7 +221,9 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
                   >
                     <div style={{ display: "flex", flexDirection: "column" }}>
                       <span style={{ fontSize: "13px", fontWeight: 600 }}>{z.name}</span>
-                      <span style={{ fontSize: "11px", color: "#9BA3AF" }}>{z.range}</span>
+                      <span style={{ fontSize: "11px", color: "#9BA3AF" }}>
+                        {z.min_hr}–{z.max_hr} bpm
+                      </span>
                     </div>
                     <div style={{ height: "10px", borderRadius: "5px", background: "#23272E" }}>
                       <div
@@ -349,7 +351,7 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
           )}
 
           {/* Week strain */}
-          {data.week_strain && data.week_strain.length > 0 && (
+          {data.week_strains && data.week_strains.length > 0 && (
             <div
               style={{
                 background: "#16191E",
@@ -365,8 +367,8 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
                 <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
                   Ø{" "}
                   {formatDecimal(
-                    data.week_strain.reduce((acc, d) => acc + (d.strain || 0), 0) /
-                      (data.week_strain.filter((d) => d.strain !== null).length || 1),
+                    data.week_strains.reduce((acc, d) => acc + (d.strain || 0), 0) /
+                      (data.week_strains.filter((d) => d.strain !== null).length || 1),
                     1
                   )}
                 </div>
@@ -381,10 +383,10 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
                   height: "110px",
                 }}
               >
-                {data.week_strain.map((d, idx) => {
+                {data.week_strains.map((d, idx) => {
                   const s = d.strain || 0;
                   const h = Math.round((s / 21) * 90);
-                  const isCurrent = idx === data.week_strain.length - 1;
+                  const isCurrent = idx === data.week_strains.length - 1;
                   const c = isCurrent ? "#3D9BFF" : "#2A5C94";
 
                   return (
@@ -425,7 +427,7 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
                   textAlign: "center",
                 }}
               >
-                {data.week_strain.map((d, idx) => (
+                {data.week_strains.map((d, idx) => (
                   <span key={idx}>{d.weekday}</span>
                 ))}
               </div>

@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-25",
+  "weekday": "ne",
+  "scores": {
+    "recovery": 74,
+    "recovery_zone": "green",
+    "components": [
+      {
+        "z": 1.1,
+        "value": 62.0,
+        "points": 9,
+        "signal": "hrv",
+        "weight": 0.5
+      },
+      {
+        "z": 0.9,
+        "value": 52.0,
+        "points": 4,
+        "signal": "resting_hr",
+        "weight": 0.2
+      }
+    ],
+    "flags": [],
+    "strain": 11.8,
+    "strain_target_low": 12.0,
+    "strain_target_high": 15.0,
+    "sleep_need_min": 491,
+    "sleep_actual_min": 432,
+    "sleep_debt_min": 14,
+    "sleep_performance": 88,
+    "sleep_efficiency": 95,
+    "planned_bedtime": "2026-10-25T22:00+01:00",
+    "planned_wake": "2026-10-26T06:30+01:00"
+  },
+  "vitals": {
+    "resting_hr": 55,
+    "hrv_rmssd_ms": 52.0,
+    "breathing_rate": 14.1,
+    "skin_temp_delta": 0.2,
+    "spo2_avg": 96.0
+  },
+  "activity": {
+    "steps": 8432,
+    "active_minutes": 46,
+    "calories_out": 2640
+  },
+  "activities": [
+    {
+      "type": "strength",
+      "name": "Push",
+      "start_ts": "2026-10-25T07:10+01:00",
+      "end_ts": "2026-10-25T08:12+01:00",
+      "hard_sets": 2,
+      "volume_kg": 1480.0,
+      "strain": 6.1
+    },
+    {
+      "type": "run",
+      "name": "Run",
+      "start_ts": "2026-10-25T17:30+01:00",
+      "end_ts": "2026-10-25T18:02+01:00",
+      "duration_min": 32,
+      "calories": 380,
+      "distance_km": 5.2,
+      "avg_hr": 148,
+      "strain": null
+    }
+  ],
+  "as_of": "2026-10-26T12:41+01:00"
+}

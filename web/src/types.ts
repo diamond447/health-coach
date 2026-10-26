@@ -2,20 +2,21 @@
  * TypeScript types matching healthstats API responses.
  */
 
+export interface RecoveryComponent {
+  signal: string;
+  value: number | null;
+  z: number;
+  weight: number;
+  points: number;
+}
+
 export interface DayResponse {
   date: string;
   weekday: string;
   scores: {
     recovery: number | null;
     recovery_zone: string | null;
-    components: {
-      hrv_rmssd?: number | null;
-      resting_hr?: number | null;
-      sleep_performance?: number | null;
-      breathing_rate?: number | null;
-      skin_temp_delta?: number | null;
-      spo2?: number | null;
-    } | null;
+    components: RecoveryComponent[] | null;
     flags: string[];
     strain: number | null;
     strain_target_low: number | null;
@@ -43,17 +44,15 @@ export interface DayResponse {
   activities: {
     type: string;
     name: string;
-    start_time: string | null;
-    end_time: string | null;
-    duration_min: number | null;
-    calories: number | null;
-    distance_km: number | null;
-    avg_hr: number | null;
-    max_hr: number | null;
-    strain: number | null;
-    hard_sets: number | null;
-    volume_kg: number | null;
-    mean_rpe: number | null;
+    start_ts?: string | null;
+    end_ts?: string | null;
+    duration_min?: number | null;
+    calories?: number | null;
+    distance_km?: number | null;
+    avg_hr?: number | null;
+    strain?: number | null;
+    hard_sets?: number | null;
+    volume_kg?: number | null;
   }[];
   as_of: string | null;
 }
@@ -64,38 +63,29 @@ export interface RecoveryResponse {
   zone: string | null;
   recovery_z: number | null;
   summary: string;
-  components: {
-    name: string;
-    weight: string;
-    deviation: string;
-    raw: string;
-    status: "good" | "bad" | "neutral";
-  }[];
+  components: RecoveryComponent[];
   flags: string[];
   current_hrv: number | null;
   current_rhr: number | null;
-  hrv_band: {
-    lo: number;
-    hi: number;
-  } | null;
-  rhr_band: {
-    lo: number;
-    hi: number;
-  } | null;
+  /** [low, high] of the personal normal range, from the latest baseline. */
+  hrv_band: [number, number] | null;
+  rhr_band: [number, number] | null;
   hrv_series: {
     date: string;
     val: number | null;
-    band_lo: number;
-    band_hi: number;
+    band_lo: number | null;
+    band_hi: number | null;
   }[];
   rhr_series: {
     date: string;
     val: number | null;
-    band_lo: number;
-    band_hi: number;
+    band_lo: number | null;
+    band_hi: number | null;
   }[];
   as_of: string | null;
 }
+
+export type SleepStage = "awake" | "rem" | "light" | "deep";
 
 export interface SleepResponse {
   date: string;
@@ -110,19 +100,14 @@ export interface SleepResponse {
   performance: number | null;
   consistency: number | null;
   stages: {
-    stage: "awake" | "rem" | "light" | "deep";
+    stage: SleepStage;
     duration_sec: number;
-    start_ts: string | null;
-    end_ts: string | null;
+    duration_min: number;
+    start_ts: string;
+    end_ts: string;
   }[];
-  stage_totals: {
-    stage: "awake" | "rem" | "light" | "deep";
-    label: string;
-    color: string;
-    min: number;
-    formatted: string;
-    percentage: number;
-  }[];
+  /** Minutes per stage. */
+  stage_totals: Record<SleepStage, number>;
   need_breakdown: {
     base_need_min: number;
     debt_min: number;
@@ -136,17 +121,15 @@ export interface SleepResponse {
     weekday: string;
     actual_min: number | null;
     need_min: number | null;
-    perf: number | null;
+    performance: number | null;
   }[];
   tonight_plan: {
-    target_sleep_min: number;
-    target_bed_min: number;
-    bedtime: string;
-    wake_time: string;
-    reminder_time: string;
-    efficiency_assumed: number;
-    strain_bonus_min: number;
-  } | null;
+    planned_bedtime: string | null;
+    planned_wake: string | null;
+    sleep_need_min: number | null;
+    today_strain: number | null;
+    today_strain_bonus_min: number;
+  };
   as_of: string | null;
 }
 
@@ -162,23 +145,22 @@ export interface StrainResponse {
   hr_max: number;
   peak_hr: number | null;
   zones: {
-    zone: number;
+    key: string;
     name: string;
-    range: string;
-    min_bpm: number;
-    max_bpm: number;
+    min_hr: number;
+    max_hr: number;
     minutes: number;
-    pct: number;
     color: string;
   }[];
   hr_points: {
     time: string;
-    hour: number;
+    /** Minutes since local midnight. */
+    minute: number;
     bpm: number;
   }[];
   workout_windows: {
-    start_hour: number;
-    end_hour: number;
+    start_minute: number;
+    end_minute: number;
     name: string;
   }[];
   activities: {
@@ -186,20 +168,21 @@ export interface StrainResponse {
     name: string;
     start_time: string | null;
     end_time: string | null;
-    duration_min: number | null;
-    avg_hr: number | null;
-    max_hr: number | null;
+    duration_min?: number | null;
+    avg_hr?: number | null;
+    max_hr?: number | null;
+    distance_km?: number | null;
+    hard_sets?: number | null;
+    volume_kg?: number | null;
+    mean_rpe?: number | null;
     strain: number | null;
-    distance_km: number | null;
-    hard_sets: number | null;
-    volume_kg: number | null;
-    mean_rpe: number | null;
   }[];
-  week_strain: {
+  week_strains: {
     date: string;
     weekday: string;
     strain: number | null;
   }[];
+  avg_week_strain: number | null;
   as_of: string | null;
 }
 
@@ -213,18 +196,21 @@ export interface NutritionResponse {
   macros: {
     name: string;
     val: number;
-    target: number;
+    target: number | null;
     unit: string;
     color: string;
   }[];
   meals: {
-    meal_type: string;
+    key: string;
     name: string;
     time: string | null;
     kcal: number;
     items: {
       name: string;
       protein_g: number;
+      carbs_g: number | null;
+      fat_g: number | null;
+      fiber_g: number | null;
       kcal: number;
     }[];
   }[];
@@ -250,8 +236,7 @@ export interface NutritionResponse {
 
 export interface TrendsResponse {
   days: number;
-  start: string;
-  end: string;
+  date: string;
   recovery: {
     avg: number | null;
     green_count: number;
@@ -268,7 +253,7 @@ export interface TrendsResponse {
   sleep: {
     avg_min: number | null;
     avg_perf: number | null;
-    series: { date: string; val: number | null }[];
+    series: { date: string; val: number | null; perf: number | null }[];
   };
   strain: {
     avg: number | null;
@@ -284,7 +269,7 @@ export interface TrendsResponse {
     avg: number | null;
     avg_protein: number | null;
     target: number | null;
-    series: { date: string; val: number | null }[];
+    series: { date: string; val: number | null; protein: number | null }[];
   };
   as_of: string | null;
 }
@@ -295,7 +280,9 @@ export interface CalendarResponse {
   cells: {
     date: string | null;
     day: number | null;
+    has_data: boolean;
     recovery: number | null;
+    recovery_zone: string | null;
     sleep_hours: number | null;
     strain: number | null;
   }[];
@@ -310,7 +297,7 @@ export interface CalendarResponse {
     max_strain: number | null;
     max_strain_date: string | null;
     workouts_total: number;
-    workouts_breakdown: string;
+    workouts_breakdown: { name: string; count: number }[];
   };
   as_of: string | null;
 }
@@ -322,23 +309,24 @@ export interface JournalResponse {
   logged_time: string | null;
   yesterday: {
     behavior: string;
-    label: string;
-    present: boolean;
+    name: string;
+    amount: number | null;
+    note: string | null;
+    active: boolean;
   }[];
   insights: {
     behavior: string;
-    label: string;
-    diff_recovery: number;
-    diff_recovery_pct: number;
-    days_present: number;
-    days_absent: number;
-    n_days: string;
+    name: string;
+    /** Next-day recovery with minus without, in percentage points. */
+    difference_pp: number;
+    with_count: number;
+    without_count: number;
   }[];
   insufficient: {
     behavior: string;
-    label: string;
-    count: number;
-    text: string;
+    name: string;
+    with_count: number;
+    without_count: number;
   }[];
   as_of: string | null;
 }
@@ -364,7 +352,7 @@ export interface ReportResponse {
     date: string;
     weekday: string;
     recovery: number | null;
-    sleep_min: number | null;
+    zone: string | null;
   }[];
   best_day: {
     date: string;
@@ -379,12 +367,12 @@ export interface ReportResponse {
     sleep_min: number | null;
   } | null;
   muscles: {
-    name: string;
+    muscle: string;
     sets: number;
-    pct: number;
   }[];
   workouts_count: number;
   coach_review: {
+    id: number;
     title: string | null;
     body: string | null;
     ts: string | null;

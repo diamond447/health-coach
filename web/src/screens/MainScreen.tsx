@@ -7,7 +7,9 @@ import { Skeleton } from "../components/Skeleton";
 import {
   formatDecimal,
   formatNumber,
+  formatPoints,
   formatTime,
+  RECOVERY_SIGNALS,
   recoveryColor,
   sleepColor,
   strainColor,
@@ -263,151 +265,31 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
                 </a>
               </div>
 
-              {/* Rows */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(0, 1fr) 84px 64px",
-                  gap: "8px",
-                  alignItems: "center",
-                  minHeight: "40px",
-                  borderTop: "1px solid #23272E",
-                }}
-              >
-                <div style={{ fontSize: "14px" }}>HRV</div>
-                <div style={{ fontSize: "14px", fontWeight: 600, textAlign: "right" }}>
-                  {data.vitals.hrv_rmssd_ms !== null ? `${Math.round(data.vitals.hrv_rmssd_ms)} ms` : "–"}
-                </div>
-                <div
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    color: (data.scores.components?.hrv_rmssd ?? 0) >= 0 ? "#5FE39E" : "#FF5A5F",
-                    textAlign: "right",
-                  }}
-                >
-                  {data.scores.components?.hrv_rmssd !== null && data.scores.components?.hrv_rmssd !== undefined
-                    ? `${data.scores.components.hrv_rmssd > 0 ? "+" : ""}${Math.round(data.scores.components.hrv_rmssd)}`
-                    : "–"}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(0, 1fr) 84px 64px",
-                  gap: "8px",
-                  alignItems: "center",
-                  minHeight: "40px",
-                  borderTop: "1px solid #23272E",
-                }}
-              >
-                <div style={{ fontSize: "14px" }}>Klidový tep</div>
-                <div style={{ fontSize: "14px", fontWeight: 600, textAlign: "right" }}>
-                  {data.vitals.resting_hr !== null ? `${data.vitals.resting_hr} bpm` : "–"}
-                </div>
-                <div
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    color: (data.scores.components?.resting_hr ?? 0) >= 0 ? "#5FE39E" : "#FF5A5F",
-                    textAlign: "right",
-                  }}
-                >
-                  {data.scores.components?.resting_hr !== null && data.scores.components?.resting_hr !== undefined
-                    ? `${data.scores.components.resting_hr > 0 ? "+" : ""}${Math.round(data.scores.components.resting_hr)}`
-                    : "–"}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(0, 1fr) 84px 64px",
-                  gap: "8px",
-                  alignItems: "center",
-                  minHeight: "40px",
-                  borderTop: "1px solid #23272E",
-                }}
-              >
-                <div style={{ fontSize: "14px" }}>Výkon spánku</div>
-                <div style={{ fontSize: "14px", fontWeight: 600, textAlign: "right" }}>
-                  {data.scores.sleep_performance !== null ? `${data.scores.sleep_performance} %` : "–"}
-                </div>
-                <div
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    color: (data.scores.components?.sleep_performance ?? 0) >= 0 ? "#5FE39E" : "#FF5A5F",
-                    textAlign: "right",
-                  }}
-                >
-                  {data.scores.components?.sleep_performance !== null &&
-                  data.scores.components?.sleep_performance !== undefined
-                    ? `${data.scores.components.sleep_performance > 0 ? "+" : ""}${Math.round(data.scores.components.sleep_performance)}`
-                    : "–"}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(0, 1fr) 84px 64px",
-                  gap: "8px",
-                  alignItems: "center",
-                  minHeight: "40px",
-                  borderTop: "1px solid #23272E",
-                }}
-              >
-                <div style={{ fontSize: "14px" }}>Dech</div>
-                <div style={{ fontSize: "14px", fontWeight: 600, textAlign: "right" }}>
-                  {data.vitals.breathing_rate !== null ? `${formatDecimal(data.vitals.breathing_rate, 1)} /min` : "–"}
-                </div>
-                <div
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    color: (data.scores.components?.breathing_rate ?? 0) < 0 ? "#FFB15C" : "#9BA3AF",
-                    textAlign: "right",
-                  }}
-                >
-                  {data.scores.components?.breathing_rate !== null &&
-                  data.scores.components?.breathing_rate !== undefined
-                    ? `${data.scores.components.breathing_rate > 0 ? "+" : ""}${Math.round(data.scores.components.breathing_rate)}`
-                    : "0"}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(0, 1fr) 84px 64px",
-                  gap: "8px",
-                  alignItems: "center",
-                  minHeight: "40px",
-                  borderTop: "1px solid #23272E",
-                }}
-              >
-                <div style={{ fontSize: "14px" }}>Teplota kůže</div>
-                <div style={{ fontSize: "14px", fontWeight: 600, textAlign: "right" }}>
-                  {data.vitals.skin_temp_delta !== null
-                    ? `${formatDecimal(data.vitals.skin_temp_delta, 1, true)} °C`
-                    : "–"}
-                </div>
-                <div
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    color: (data.scores.components?.skin_temp_delta ?? 0) < 0 ? "#FFB15C" : "#9BA3AF",
-                    textAlign: "right",
-                  }}
-                >
-                  {data.scores.components?.skin_temp_delta !== null &&
-                  data.scores.components?.skin_temp_delta !== undefined
-                    ? `${data.scores.components.skin_temp_delta > 0 ? "+" : ""}${Math.round(data.scores.components.skin_temp_delta)}`
-                    : "0"}
-                </div>
-              </div>
+              {(data.scores.components ?? []).map((c) => {
+                const signal = RECOVERY_SIGNALS[c.signal];
+                const pts = formatPoints(c.points);
+                return (
+                  <div
+                    key={c.signal}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 1fr) 84px 64px",
+                      gap: "8px",
+                      alignItems: "center",
+                      minHeight: "40px",
+                      borderTop: "1px solid #23272E",
+                    }}
+                  >
+                    <div style={{ fontSize: "14px" }}>{signal?.label ?? c.signal}</div>
+                    <div style={{ fontSize: "14px", fontWeight: 600, textAlign: "right" }}>
+                      {c.value !== null ? (signal ? signal.format(c.value) : formatDecimal(c.value, 1)) : "–"}
+                    </div>
+                    <div style={{ fontSize: "13px", fontWeight: 700, color: pts.color, textAlign: "right" }}>
+                      {pts.text}
+                    </div>
+                  </div>
+                );
+              })}
 
               <div style={{ fontSize: "12px", color: "#9BA3AF", paddingTop: "4px" }}>
                 Body oproti tvému normálu za 30 nocí (57 % = běžná noc).
@@ -457,8 +339,8 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
             {data?.activities && data.activities.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px", paddingTop: "4px" }}>
                 {data.activities.map((act, i) => {
-                  const startTime = act.start_time ? formatTime(act.start_time) : "";
-                  const endTime = act.end_time ? formatTime(act.end_time) : "";
+                  const startTime = act.start_ts ? formatTime(act.start_ts) : "";
+                  const endTime = act.end_ts ? formatTime(act.end_ts) : "";
                   const timeRange = startTime && endTime ? `${startTime}–${endTime}` : "";
                   const isStrength = act.type === "strength";
 

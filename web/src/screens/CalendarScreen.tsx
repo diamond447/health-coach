@@ -396,7 +396,9 @@ export function CalendarScreen({ date, onDateChange }: CalendarScreenProps) {
               <div style={{ fontSize: "12px", color: "#9BA3AF" }}>Tréninky</div>
               <div style={{ fontSize: "20px", fontWeight: 700 }}>{data.stats.workouts_total}×</div>
               <div style={{ fontSize: "12px", color: "#9BA3AF" }}>
-                {data.stats.workouts_breakdown || "Zatím žádné"}
+                {data.stats.workouts_breakdown.length > 0
+                  ? data.stats.workouts_breakdown.map((w) => `${w.count}× ${w.name}`).join(", ")
+                  : "Zatím žádné"}
               </div>
             </div>
           </div>

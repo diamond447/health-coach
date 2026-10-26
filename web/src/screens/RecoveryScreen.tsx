@@ -6,7 +6,11 @@ import { RingDial } from "../components/RingDial";
 import { Skeleton } from "../components/Skeleton";
 import {
   calculateBand,
+  valueRange,
   formatDateCzech,
+  formatDecimal,
+  formatPoints,
+  RECOVERY_SIGNALS,
   recoveryColor,
   recoveryZoneLabel,
   seriesPoints,
@@ -46,24 +50,26 @@ export function RecoveryScreen({ date }: RecoveryScreenProps) {
   // HRV chart calculations
   const hrvVals = data?.hrv_series.map((s) => s.val) || [];
   const validHrv = hrvVals.filter((v): v is number => v !== null && !isNaN(v));
-  const hrvBandLo = data?.hrv_band?.lo ?? 48;
-  const hrvBandHi = data?.hrv_band?.hi ?? 60;
-  const minHrv = Math.min(hrvBandLo - 5, ...validHrv.length ? validHrv : [40]);
-  const maxHrv = Math.max(hrvBandHi + 5, ...validHrv.length ? validHrv : [70]);
+  const [hrvBandLo, hrvBandHi] = data?.hrv_band ?? [null, null];
+  const [minHrv, maxHrv] = valueRange([...validHrv, hrvBandLo, hrvBandHi], 5);
 
   const hrvPts = seriesPoints(hrvVals, 326, 110, minHrv, maxHrv, 8);
-  const hrvBand = calculateBand(hrvBandLo, hrvBandHi, 110, minHrv, maxHrv, 8);
+  const hrvBand =
+    hrvBandLo !== null && hrvBandHi !== null
+      ? calculateBand(hrvBandLo, hrvBandHi, 110, minHrv, maxHrv, 8)
+      : null;
 
   // RHR chart calculations
   const rhrVals = data?.rhr_series.map((s) => s.val) || [];
   const validRhr = rhrVals.filter((v): v is number => v !== null && !isNaN(v));
-  const rhrBandLo = data?.rhr_band?.lo ?? 52;
-  const rhrBandHi = data?.rhr_band?.hi ?? 57;
-  const minRhr = Math.min(rhrBandLo - 5, ...validRhr.length ? validRhr : [45]);
-  const maxRhr = Math.max(rhrBandHi + 5, ...validRhr.length ? validRhr : [65]);
+  const [rhrBandLo, rhrBandHi] = data?.rhr_band ?? [null, null];
+  const [minRhr, maxRhr] = valueRange([...validRhr, rhrBandLo, rhrBandHi], 3);
 
   const rhrPts = seriesPoints(rhrVals, 326, 110, minRhr, maxRhr, 8);
-  const rhrBand = calculateBand(rhrBandLo, rhrBandHi, 110, minRhr, maxRhr, 8);
+  const rhrBand =
+    rhrBandLo !== null && rhrBandHi !== null
+      ? calculateBand(rhrBandLo, rhrBandHi, 110, minRhr, maxRhr, 8)
+      : null;
 
   const startDateCzech = data?.hrv_series.length
     ? formatDateCzech(data.hrv_series[0].date)
@@ -155,7 +161,9 @@ export function RecoveryScreen({ date }: RecoveryScreenProps) {
               aria-label={`Graf HRV za 30 dní, dnes ${data.current_hrv !== null ? Math.round(data.current_hrv) : "–"} ms`}
               style={{ width: "100%", height: "auto", overflow: "visible" }}
             >
-              <rect x="0" y={hrvBand.y} width="326" height={hrvBand.h} fill="#1B3A2B" rx="3" />
+              {hrvBand && (
+                <rect x="0" y={hrvBand.y} width="326" height={hrvBand.h} fill="#1B3A2B" rx="3" />
+              )}
               {hrvPts.points && (
                 <>
                   <polyline
@@ -173,9 +181,11 @@ export function RecoveryScreen({ date }: RecoveryScreenProps) {
 
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#9BA3AF" }}>
               <span>{startDateCzech}</span>
-              <span>
-                pásmo = tvůj normál ({Math.round(hrvBandLo)}–{Math.round(hrvBandHi)} ms)
-              </span>
+              {hrvBandLo !== null && hrvBandHi !== null && (
+                <span>
+                  pásmo = tvůj normál ({Math.round(hrvBandLo)}–{Math.round(hrvBandHi)} ms)
+                </span>
+              )}
               <span>dnes</span>
             </div>
           </div>
@@ -206,7 +216,9 @@ export function RecoveryScreen({ date }: RecoveryScreenProps) {
               aria-label={`Graf klidového tepu za 30 dní, dnes ${data.current_rhr !== null ? Math.round(data.current_rhr) : "–"} bpm`}
               style={{ width: "100%", height: "auto", overflow: "visible" }}
             >
-              <rect x="0" y={rhrBand.y} width="326" height={rhrBand.h} fill="#1B2E44" rx="3" />
+              {rhrBand && (
+                <rect x="0" y={rhrBand.y} width="326" height={rhrBand.h} fill="#1B2E44" rx="3" />
+              )}
               {rhrPts.points && (
                 <>
                   <polyline
@@ -224,9 +236,11 @@ export function RecoveryScreen({ date }: RecoveryScreenProps) {
 
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#9BA3AF" }}>
               <span>{startDateCzech}</span>
-              <span>
-                pásmo = tvůj normál ({Math.round(rhrBandLo)}–{Math.round(rhrBandHi)} bpm)
-              </span>
+              {rhrBandLo !== null && rhrBandHi !== null && (
+                <span>
+                  pásmo = tvůj normál ({Math.round(rhrBandLo)}–{Math.round(rhrBandHi)} bpm)
+                </span>
+              )}
               <span>dnes</span>
             </div>
           </div>
@@ -262,12 +276,7 @@ export function RecoveryScreen({ date }: RecoveryScreenProps) {
               </div>
 
               {data.components.map((comp, idx) => {
-                const devColor =
-                  comp.status === "good"
-                    ? "#5FE39E"
-                    : comp.status === "bad"
-                      ? "#FFB15C"
-                      : "#9BA3AF";
+                const devColor = formatPoints(comp.points).color;
 
                 return (
                   <div
@@ -282,10 +291,12 @@ export function RecoveryScreen({ date }: RecoveryScreenProps) {
                       fontSize: "14px",
                     }}
                   >
-                    <span>{comp.name}</span>
-                    <span style={{ textAlign: "right", color: "#C9CED6" }}>{comp.weight}</span>
+                    <span>{RECOVERY_SIGNALS[comp.signal]?.label ?? comp.signal}</span>
+                    <span style={{ textAlign: "right", color: "#C9CED6" }}>
+                      {Math.round(comp.weight * 100)} %
+                    </span>
                     <span style={{ textAlign: "right", fontWeight: 700, color: devColor }}>
-                      {comp.deviation}
+                      {formatDecimal(comp.z, 1, true)}
                     </span>
                   </div>
                 );
