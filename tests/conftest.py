@@ -49,6 +49,7 @@ def migrated_db(database_url: str) -> Iterator[str]:
     mp.setenv("HC_RO_DATABASE_URL", _role_url(database_url, "coach_ro"))
     mp.setenv("HC_RW_DATABASE_URL", _role_url(database_url, "coach_rw"))
     mp.setenv("HC_INGEST_DATABASE_URL", _role_url(database_url, "ingest"))
+    mp.setenv("HC_WEB_JOURNAL_DATABASE_URL", _role_url(database_url, "web_journal"))
     # The fixtures build data around Prague calendar days.
     mp.setenv("HC_TIMEZONE", "Europe/Prague")
     get_settings.cache_clear()

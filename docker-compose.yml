@@ -42,6 +42,7 @@ services:
       HC_RO_DATABASE_URL: postgresql+psycopg://coach_ro:${HC_COACH_RO_PASSWORD:?}@db:5432/health
       HC_RW_DATABASE_URL: postgresql+psycopg://coach_rw:${HC_COACH_RW_PASSWORD:?}@db:5432/health
       HC_INGEST_DATABASE_URL: postgresql+psycopg://ingest:${HC_INGEST_PASSWORD:?}@db:5432/health
+      HC_WEB_JOURNAL_DATABASE_URL: ${HC_WEB_JOURNAL_DATABASE_URL:-}
       HC_GRAFANA_DB_PASSWORD: ${HC_GRAFANA_DB_PASSWORD:-}
       HC_TIMEZONE: ${HC_TIMEZONE:-UTC}
     depends_on:
@@ -107,6 +108,7 @@ services:
     command: ["web"]
     environment:
       HC_RO_DATABASE_URL: postgresql+psycopg://coach_ro:${HC_COACH_RO_PASSWORD:?}@db:5432/health
+      HC_WEB_JOURNAL_DATABASE_URL: ${HC_WEB_JOURNAL_DATABASE_URL:-}
       HC_TIMEZONE: ${HC_TIMEZONE:-UTC}
       HC_LOG_LEVEL: ${HC_LOG_LEVEL:-INFO}
       HC_WEB_HOST: 0.0.0.0

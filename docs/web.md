@@ -8,7 +8,8 @@ directly from your health database.
 The frontend is implemented in Preact and TypeScript with custom hand-written SVG charts,
 achieving a tiny bundle footprint (< 30 kB gzipped) with zero external chart or UI dependencies.
 The backend is served by Starlette and uvicorn directly from `health-coach web`, connecting
-to PostgreSQL using the read-only `Role.ro` credentials.
+to PostgreSQL using the read-only `Role.ro` credentials (with a narrow exception for journal
+writes using `Role.web_journal` when configured).
 
 ## Screens and features
 
@@ -59,8 +60,8 @@ durations (`7 h 12 min`), and standard WHOOP-style color coding:
   Spánek, Strain), color-coded daily tiles, month statistics (average recovery, green/yellow/red
   counts, average sleep, ending sleep debt, total workouts).
 - **Deník (`/denik`)**: Habit impact analysis over the last 60 days. Shows yesterday's
-  habits (logged via Claude) and two-sided recovery impact bars showing the difference in
-  next-day recovery with and without each habit.
+  habits (tappable to log or remove when write access is enabled) and two-sided recovery
+  impact bars showing the difference in next-day recovery with and without each habit.
 - **Týdenní přehled (`/prehled`)**: Weekly or monthly review card comparing metrics to the
   previous period, daily recovery bars, best and worst days, volume of hard sets per muscle
   group, and the weekly coaching review text from the coach log. Includes "‹" and "›" period
@@ -112,7 +113,9 @@ All daily time-series and intraday charts use a shared SVG component (`TimeChart
 - `GET /api/trends?date=YYYY-MM-DD&days=30`: trends over 7, 30, or 90 days for recovery, HRV, RHR,
   sleep, strain, weight, and calories.
 - `GET /api/calendar?month=YYYY-MM`: monthly calendar cells with recovery/sleep/strain data.
-- `GET /api/journal?date=YYYY-MM-DD&days=60`: habit impact on next-day recovery.
+- `GET /api/journal?date=YYYY-MM-DD&days=60`: habit impact on next-day recovery, tappable options, and write status.
+- `PUT /api/journal/entries`: upsert a journal entry for `date` (body: `{"date": "YYYY-MM-DD", "behavior": "alcohol", "amount": 2 | null, "note": "..." | null}`). Returns the refreshed `/api/journal` payload for the date shown.
+- `DELETE /api/journal/entries?date=YYYY-MM-DD&behavior=alcohol`: soft-delete an entry.
 - `GET /api/report?period=week|month&end=YYYY-MM-DD`: weekly/monthly comparative review and coaching note.
 - `GET /api/healthspan?weeks=26`: biological age and pace of aging factor breakdown.
 
@@ -128,6 +131,35 @@ disallowed, the server immediately returns a `403 Forbidden` JSON response.
 
 All API responses set `Cache-Control: no-store` to prevent caching of personal health data on
 intermediate proxies.
+
+### Journal Write Exception and CSRF Security
+
+The web app is read-only by default (`Role.ro`). One narrow exception is allowed: logging
+journal entries (`PUT /api/journal/entries` and `DELETE /api/journal/entries`).
+
+The write exception adheres to strict defense-in-depth principles:
+- **Least Privilege Role (`Role.web_journal`)**: Connects using credentials configured via
+  `HC_WEB_JOURNAL_DATABASE_URL`. The role possesses `SELECT, INSERT` and column-level
+  `UPDATE (amount, note, updated_at, deleted_at)` on `journal_entries` and sequence usage only.
+  It has no read or write access to any other tables.
+- **CSRF Protection**:
+  - `Content-Type: application/json` is required for `PUT` requests (rejects `text/plain` or form submissions).
+  - The `Origin` header (or `Referer` if `Origin` is omitted) must match the request's own host
+    (`Host` or `X-Forwarded-Host`) and scheme (from `X-Forwarded-Proto` or request URL); mismatches return `403 Forbidden`.
+  - Both `PUT` and `DELETE` require the custom header `X-Healthstats: 1`.
+- **User Authentication Requirement**: Write routes strictly require `HC_WEB_ALLOWED_USERS` to be
+  configured and non-empty. In unauthenticated dev mode (empty allowed users), write routes return `403 Forbidden`.
+- **Validation and Size Limits**:
+  - Request body is streamed and stopped after 2048 bytes with `400 Bad Request` (handles chunked bodies).
+  - Amount must be a finite number between 0 and 9999.99 with at most 2 decimal places (strings and non-finite values rejected).
+  - Notes are limited to 200 characters of plain text with no control characters (including `\x00` and newlines).
+- **Method Restrictions**: Only `/api/journal/entries` accepts non-GET methods. All other API
+  routes remain strictly GET-only (returning `405 Method Not Allowed` on mutations).
+- **Graceful Degradation**: If `HC_WEB_JOURNAL_DATABASE_URL` is unset, write attempts return
+  `503 Service Unavailable` (`{"error": "journal_writes_disabled"}`). `GET /api/journal` reports
+  `"can_write": false` whenever the write database URL is unset or `HC_WEB_ALLOWED_USERS` is empty,
+  hiding interactive controls in the UI.
+- **Service Worker**: The PWA service worker never caches or intercepts `PUT` or `DELETE` requests.
 
 ### Public Paths (Bypassing Auth)
 

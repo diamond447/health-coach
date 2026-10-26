@@ -14,6 +14,7 @@ from sqlalchemy import text
 from health_coach.analytics.journal import compute_journal_insights
 from health_coach.config import get_settings
 from health_coach.db.engine import Role, get_engine
+from health_coach.journal import BEHAVIOR_RE, KNOWN_BEHAVIORS
 from health_coach.mcp_server.common import (
     DESTRUCTIVE,
     READ,
@@ -31,25 +32,6 @@ from health_coach.profile import (
     valid_birth_year,
 )
 
-KNOWN_BEHAVIORS: tuple[tuple[str, str], ...] = (
-    ("alcohol", "Standard drinks consumed (amount = standard drinks)"),
-    ("caffeine_late", "Caffeine consumed after 14:00"),
-    ("late_meal", "Meal consumed less than 2 hours before bed"),
-    ("screen_in_bed", "Screen use while in bed"),
-    ("sauna", "Sauna session"),
-    ("cold_exposure", "Cold shower, plunge or ice bath"),
-    ("stretching", "Stretching or mobility work"),
-    ("meditation", "Meditation or breathwork"),
-    ("reading", "Reading before sleep"),
-    ("nap", "Daytime nap"),
-    ("high_stress", "Unusually high stress day"),
-    ("illness", "Acute illness, cold, or infection"),
-    ("travel", "Travel or significant time zone shift"),
-    ("sex", "Sexual activity"),
-    ("magnesium", "Magnesium supplement before bed"),
-)
-
-BEHAVIOR_RE = re.compile(r"^[a-z][a-z0-9_]{1,39}$")
 ALARM_RE = re.compile(r"^([01]?[0-9]|2[0-3]):[0-5][0-9]$")
 
 

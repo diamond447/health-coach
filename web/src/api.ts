@@ -8,6 +8,7 @@ export interface ApiResult<T> {
   asOf: string | null;
   isOffline: boolean;
   sessionExpired: boolean;
+  status?: number;
 }
 
 type Listener = () => void;
@@ -156,6 +157,107 @@ export async function apiFetch<T>(path: string): Promise<ApiResult<T>> {
     return {
       data: null,
       error: err instanceof Error ? err.message : "Chyba sítě",
+      asOf: null,
+      isOffline: true,
+      sessionExpired: false,
+    };
+  }
+}
+
+/**
+ * Send a JSON API request (PUT, DELETE, etc.) with session expiry and error handling.
+ * Never writes to offline cache.
+ */
+export async function apiSend<T>(
+  method: "PUT" | "DELETE" | "POST",
+  path: string,
+  body?: unknown
+): Promise<ApiResult<T>> {
+  try {
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      "X-Healthstats": "1",
+    };
+    if (body !== undefined && body !== null) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    const res = await fetch(path, {
+      method,
+      headers,
+      body: body !== undefined && body !== null ? JSON.stringify(body) : undefined,
+      redirect: "manual",
+    });
+
+    // 1. Session expired on opaqueredirect, 401, or 403
+    if (res.type === "opaqueredirect" || res.status === 401 || res.status === 403) {
+      apiState.setSessionExpired(true);
+      return {
+        data: null,
+        error: "Přihlášení vypršelo",
+        asOf: null,
+        isOffline: false,
+        sessionExpired: true,
+        status: res.status,
+      };
+    }
+
+    // 2. Any 5xx: return error (save error line), never session banner
+    if (res.status >= 500) {
+      apiState.setOffline(false);
+      return {
+        data: null,
+        error: "Nepodařilo se uložit, zkus to znovu",
+        asOf: null,
+        isOffline: false,
+        sessionExpired: false,
+        status: res.status,
+      };
+    }
+
+    // 3. Non-JSON 2xx/3xx: session expired
+    const contentType = res.headers.get("content-type") || "";
+    if (res.status < 400 && !contentType.includes("application/json")) {
+      apiState.setSessionExpired(true);
+      return {
+        data: null,
+        error: "Přihlášení vypršelo",
+        asOf: null,
+        isOffline: false,
+        sessionExpired: true,
+        status: res.status,
+      };
+    }
+
+    if (!res.ok) {
+      apiState.setOffline(false);
+      return {
+        data: null,
+        error: "Nepodařilo se uložit, zkus to znovu",
+        asOf: null,
+        isOffline: false,
+        sessionExpired: false,
+        status: res.status,
+      };
+    }
+
+    const json = (await res.json()) as T & { as_of?: string };
+    apiState.setOffline(false);
+
+    return {
+      data: json,
+      error: null,
+      asOf: json.as_of || null,
+      isOffline: false,
+      sessionExpired: false,
+      status: res.status,
+    };
+  } catch (_err: unknown) {
+    // Network failure or offline -> return error, never session banner
+    apiState.setOffline(true);
+    return {
+      data: null,
+      error: "Nepodařilo se uložit, zkus to znovu",
       asOf: null,
       isOffline: true,
       sessionExpired: false,

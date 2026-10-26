@@ -1,10 +1,10 @@
 """Runtime settings, read from the environment (and `.env` in development)."""
 
 from functools import lru_cache
-from typing import Literal
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,8 +21,16 @@ class Settings(BaseSettings):
     ro_database_url: SecretStr = SecretStr("postgresql+psycopg://coach_ro@localhost:5432/health")
     rw_database_url: SecretStr = SecretStr("postgresql+psycopg://coach_rw@localhost:5432/health")
     ingest_database_url: SecretStr = SecretStr("postgresql+psycopg://ingest@localhost:5432/health")
+    web_journal_database_url: SecretStr | None = None
     # Optional read-only login for Grafana; the role stays NOLOGIN when unset.
     grafana_db_password: SecretStr | None = None
+
+    @field_validator("web_journal_database_url", mode="before")
+    @classmethod
+    def _empty_web_journal_url_is_none(cls, v: Any) -> Any:
+        if v == "" or (isinstance(v, SecretStr) and v.get_secret_value() == ""):
+            return None
+        return v
 
     # Fernet key that encrypts OAuth tokens in the database.
     token_key: SecretStr | None = None
