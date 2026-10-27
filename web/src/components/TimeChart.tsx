@@ -280,7 +280,7 @@ export function TimeChart({
   }
 
   // X axis tick dates
-  const xAxisTicks: { index: number; label: string; x: number }[] = [];
+  const xAxisTicks: { index: number; label: string; x: number; anchor: string }[] = [];
   if (xAxis && points.length > 0) {
     let tickIndices: number[] = [];
     if (points.length <= 4) {
@@ -296,7 +296,7 @@ export function TimeChart({
       ];
     }
 
-    for (const idx of tickIndices) {
+    for (const [n, idx] of tickIndices.entries()) {
       const p = points[idx];
       let label = p.label || "";
       if (!label && p.date) {
@@ -311,6 +311,15 @@ export function TimeChart({
         index: idx,
         label,
         x: pointX(idx, points.length, plotLeft, plotRight),
+        // Align the outer labels inward so they stay inside the viewBox.
+        anchor:
+          tickIndices.length < 2
+            ? "middle"
+            : n === 0
+              ? "start"
+              : n === tickIndices.length - 1
+                ? "end"
+                : "middle",
       });
     }
   }
@@ -555,7 +564,7 @@ export function TimeChart({
               key={idx}
               x={t.x.toFixed(1)}
               y={(height - 4).toFixed(1)}
-              text-anchor="middle"
+              text-anchor={t.anchor}
               font-size="11"
               fill="#9BA3AF"
               font-family="inherit"
