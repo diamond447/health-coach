@@ -117,7 +117,7 @@ export function SleepScreen({ date, onDateChange }: SleepScreenProps) {
               value={data.performance}
               max={100}
               size={132}
-              strokeWidth={9}
+              stroke-width={9}
               unit="%"
               color={sleepColor(data.performance)}
               ariaLabel={`Výkon spánku ${data.performance ?? 0} procent`}

@@ -37,16 +37,16 @@ export function RingDial({
   return (
     <div style={{ position: "relative", width: `${size}px`, height: `${size}px`, flexShrink: 0 }}>
       <svg width={size} height={size} viewBox="0 0 120 120" role="img" aria-label={ariaLabel}>
-        <circle cx="60" cy="60" r={radius} fill="none" stroke={bgStroke} strokeWidth={strokeWidth} />
+        <circle cx="60" cy="60" r={radius} fill="none" stroke={bgStroke} stroke-width={strokeWidth} />
         <circle
           cx="60"
           cy="60"
           r={radius}
           fill="none"
           stroke={color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={dash}
+          stroke-width={strokeWidth}
+          stroke-linecap="round"
+          stroke-dasharray={dash}
           transform="rotate(-90 60 60)"
         />
       </svg>
