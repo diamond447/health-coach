@@ -105,7 +105,7 @@ export function RecoveryScreen({ date }: RecoveryScreenProps) {
               value={data.recovery}
               max={100}
               size={200}
-              strokeWidth={8}
+              stroke-width={8}
               unit="%"
               color={recoveryColor(data.recovery)}
               ariaLabel={`Recovery ${data.recovery} procent, ${recoveryZoneLabel(data.recovery).toLowerCase()}`}
@@ -436,9 +436,9 @@ export function RecoveryScreen({ date }: RecoveryScreenProps) {
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
                     aria-hidden="true"
                   >
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -476,9 +476,9 @@ export function RecoveryScreen({ date }: RecoveryScreenProps) {
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
                     aria-hidden="true"
                   >
                     <path d="M5 12l5 5 9-10" />

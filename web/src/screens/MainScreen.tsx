@@ -353,9 +353,9 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="#9BA3AF"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
                   aria-hidden="true"
                 >
                   <path d="M9 18l6-6-6-6" />
@@ -461,9 +461,9 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
                             aria-hidden="true"
                           >
                             <path d="M6.5 6.5v11M17.5 6.5v11M3 9v6M21 9v6M6.5 12h11" />
@@ -475,9 +475,9 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
                             aria-hidden="true"
                           >
                             <circle cx="13" cy="4" r="2" />
@@ -531,9 +531,9 @@ export function MainScreen({ date, onDateChange }: MainScreenProps) {
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="#9BA3AF"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
                 aria-hidden="true"
               >
                 <path d="M9 18l6-6-6-6" />

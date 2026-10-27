@@ -403,15 +403,15 @@ export function TimeChart({
                   x2={plotRight}
                   y2={y.toFixed(1)}
                   stroke="#23272E"
-                  strokeWidth="1"
+                  stroke-width="1"
                 />
                 <text
                   x={(plotLeft - 4).toFixed(1)}
                   y={(y + 3.5).toFixed(1)}
-                  textAnchor="end"
-                  fontSize="11"
+                  text-anchor="end"
+                  font-size="11"
                   fill="#9BA3AF"
-                  fontFamily="inherit"
+                  font-family="inherit"
                 >
                   {formatTick(t)}
                 </text>
@@ -427,8 +427,8 @@ export function TimeChart({
             x2={plotRight}
             y2={yOf(target).toFixed(1)}
             stroke={targetColor}
-            strokeDasharray="4 3"
-            strokeWidth="1.5"
+            stroke-dasharray="4 3"
+            stroke-width="1.5"
           />
         )}
 
@@ -537,10 +537,10 @@ export function TimeChart({
                       points={pts}
                       fill="none"
                       stroke={s.color}
-                      strokeWidth="2"
-                      strokeDasharray={s.strokeDasharray}
-                      strokeLinejoin="round"
-                      strokeLinecap="round"
+                      stroke-width="2"
+                      stroke-dasharray={s.strokeDasharray}
+                      stroke-linejoin="round"
+                      stroke-linecap="round"
                     />
                   );
                 })}
@@ -555,10 +555,10 @@ export function TimeChart({
               key={idx}
               x={t.x.toFixed(1)}
               y={(height - 4).toFixed(1)}
-              textAnchor="middle"
-              fontSize="11"
+              text-anchor="middle"
+              font-size="11"
               fill="#9BA3AF"
-              fontFamily="inherit"
+              font-family="inherit"
             >
               {t.label}
             </text>
@@ -566,15 +566,15 @@ export function TimeChart({
 
         {/* Scrub cursor line and dots */}
         {activePoint && points.length > 0 && (
-          <g pointerEvents="none">
+          <g pointer-events="none">
             <line
               x1={pointX(activeIndex, points.length, plotLeft, plotRight).toFixed(1)}
               y1={plotTop}
               x2={pointX(activeIndex, points.length, plotLeft, plotRight).toFixed(1)}
               y2={plotBottom}
               stroke="#5C636D"
-              strokeWidth="1"
-              strokeDasharray="3 3"
+              stroke-width="1"
+              stroke-dasharray="3 3"
             />
             {series.map((s, sIdx) => {
               const v = activePoint.values[sIdx];
@@ -589,7 +589,7 @@ export function TimeChart({
                   r="4"
                   fill={s.color}
                   stroke="#0B0D10"
-                  strokeWidth="1.5"
+                  stroke-width="1.5"
                 />
               );
             })}

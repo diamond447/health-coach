@@ -115,7 +115,7 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
                   value={data.cardio_strain}
                   max={21}
                   size={120}
-                  strokeWidth={8}
+                  stroke-width={8}
                   displayValue={data.cardio_strain !== null && data.cardio_strain !== undefined ? formatDecimal(data.cardio_strain, 1) : "–"}
                   color={strainColor()}
                   ariaLabel={`Kardio strain ${data.cardio_strain !== null && data.cardio_strain !== undefined ? formatDecimal(data.cardio_strain, 1) : 0} z 21`}
@@ -136,7 +136,7 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
                   value={data.muscular_score}
                   max={100}
                   size={120}
-                  strokeWidth={8}
+                  stroke-width={8}
                   displayValue={data.muscular_score !== null && data.muscular_score !== undefined ? `${data.muscular_score}` : "–"}
                   unit={data.muscular_score !== null && data.muscular_score !== undefined ? "%" : undefined}
                   color={muscularColor()}
@@ -341,9 +341,9 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
                           viewBox="0 0 24 24"
                           fill="none"
                           stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
                           aria-hidden="true"
                         >
                           <path d="M6.5 6.5v11M17.5 6.5v11M3 9v6M21 9v6M6.5 12h11" />
@@ -355,9 +355,9 @@ export function StrainScreen({ date, onDateChange }: StrainScreenProps) {
                           viewBox="0 0 24 24"
                           fill="none"
                           stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
                           aria-hidden="true"
                         >
                           <circle cx="13" cy="4" r="2" />

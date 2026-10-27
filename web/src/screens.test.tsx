@@ -36,6 +36,8 @@ vi.mock("./api", () => ({
 }));
 
 const DATE = "2026-10-25";
+// SVG attributes whose real names are camelCase.
+const SVG_CAMEL_CASE = new Set(["viewBox", "preserveAspectRatio"]);
 const noop = () => {};
 
 const screens: [string, ComponentChild, string][] = [
@@ -69,5 +71,11 @@ describe("screens render the API fixtures", () => {
     onError.mockRestore();
     expect(errors).toEqual([]);
     expect(root.textContent).toContain(expected);
+    // Preact passes attribute names through as written: strokeWidth would be an
+    // unknown attribute and the ring or line would fall back to a 1 px stroke.
+    const camelCase = [...root.querySelectorAll("svg, svg *")].flatMap((el) =>
+      el.getAttributeNames().filter((name) => /[A-Z]/.test(name) && !SVG_CAMEL_CASE.has(name)),
+    );
+    expect(camelCase).toEqual([]);
   });
 });

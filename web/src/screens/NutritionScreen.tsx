@@ -94,7 +94,7 @@ export function NutritionScreen({ date, onDateChange }: NutritionScreenProps) {
               value={currentKcal}
               max={targetKcal}
               size={132}
-              strokeWidth={9}
+              stroke-width={9}
               displayValue={formatNumber(currentKcal)}
               color={foodColor()}
               ariaLabel={`Příjem ${currentKcal} z ${targetKcal} kcal`}
