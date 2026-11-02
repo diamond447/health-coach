@@ -9,6 +9,9 @@ x-app: &app
   depends_on:
     migrate:
       condition: service_completed_successfully
+  # The app runs as an unprivileged user and needs no Linux capabilities.
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
 
 x-db-url: &db-url postgresql+psycopg://health:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/health
 
@@ -129,6 +132,8 @@ services:
     build: .
     restart: unless-stopped
     command: ["fit-mcp"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     environment:
       FIT_OPENGYM_URL: ${FIT_OPENGYM_URL:-}
       FIT_OPENGYM_VERSION: ${FIT_OPENGYM_VERSION:-1.4.1}
