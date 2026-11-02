@@ -460,3 +460,22 @@ async def test_log_exercise_session(owner: Engine) -> None:
         },
     )
     assert "activity_type cannot be empty" in msg
+
+
+def test_off_barcode_cannot_change_the_request_path() -> None:
+    seen: list[httpx.URL] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url)
+        return httpx.Response(404)
+
+    off = openfoodfacts.OpenFoodFactsClient(
+        base_url="https://off.example.test",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    assert off.search_by_barcode("../../../cgi/search.pl?search_terms=x&json=1#") == []
+    assert off.search_by_barcode(" 7310865004703 ") == []
+    assert seen[0].raw_path == (
+        b"/api/v2/product/..%2F..%2F..%2Fcgi%2Fsearch.pl%3Fsearch_terms%3Dx%26json%3D1%23.json"
+    )
+    assert str(seen[1]) == "https://off.example.test/api/v2/product/7310865004703.json"

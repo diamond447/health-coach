@@ -2,6 +2,7 @@
 
 import logging
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -77,7 +78,10 @@ class OpenFoodFactsClient:
         client = self._get_client()
         should_close = client is not self._injected_client and client is not _custom_client
         try:
-            resp = client.get(f"{self.base_url}/api/v2/product/{barcode}.json")
+            # The barcode comes from the assistant: encode it so that "/", "?" or ".."
+            # cannot steer the request to another Open Food Facts endpoint.
+            code = quote(barcode.strip(), safe="")
+            resp = client.get(f"{self.base_url}/api/v2/product/{code}.json")
             if resp.status_code == 404:
                 return []
             resp.raise_for_status()
