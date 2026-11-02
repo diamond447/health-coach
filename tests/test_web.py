@@ -519,6 +519,20 @@ def test_web_auth_and_public_routes(migrated_db: str, owner: Engine) -> None:
     assert "text/html" in res.headers["content-type"]
 
 
+def test_web_security_headers() -> None:
+    """Every response, including auth rejections, forbids framing and MIME sniffing."""
+    client = TestClient(create_app(Settings(web_allowed_users=["valid_user"])))
+    for path, status in (("/healthz", 200), ("/recovery", 200), ("/api/day", 403)):
+        res = client.get(path)
+        assert res.status_code == status
+        csp = res.headers["content-security-policy"]
+        assert "frame-ancestors 'none'" in csp
+        assert "script-src 'self';" in csp
+        assert res.headers["x-frame-options"] == "DENY"
+        assert res.headers["x-content-type-options"] == "nosniff"
+        assert res.headers["referrer-policy"] == "same-origin"
+
+
 def test_web_input_validation(migrated_db: str, owner: Engine) -> None:
     """Test 400 JSON errors for malformed date, month, period, and days clamping/validation."""
     today_d = dt.date(2026, 10, 25)

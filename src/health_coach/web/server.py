@@ -39,6 +39,29 @@ log = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
+# The built app is one same-origin module script plus an inline <style> in index.html.
+# No framing: the journal buttons write data, so clickjacking must not be possible.
+SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; "
+        "form-action 'self'; frame-ancestors 'none'"
+    ),
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "same-origin",
+}
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Browser hardening headers on every response."""
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        response = await call_next(request)
+        for name, value in SECURITY_HEADERS.items():
+            response.headers.setdefault(name, value)
+        return response
+
 
 class WebAuthMiddleware(BaseHTTPMiddleware):
     """Enforce defence-in-depth username header on /api/* routes."""
@@ -593,6 +616,7 @@ def create_app(settings: Settings | None = None) -> Starlette:
     ]
 
     middleware = [
+        Middleware(SecurityHeadersMiddleware),
         Middleware(WebAuthMiddleware, settings=app_settings),
     ]
 
