@@ -25,7 +25,7 @@ lists them with comments.
 | `HC_AUTH_DISABLED` | `false` | Disables auth. Loopback development only. |
 | `HC_MCP_ALLOWED_HOSTS` | loopback | Accepted `Host` headers (DNS rebinding protection). |
 | `HC_MCP_PUBLISH`, `HC_DB_PUBLISH` | `127.0.0.1:8080`, `127.0.0.1:5432` | Published host ports. |
-| `HC_NTFY_URL`, `HC_NTFY_TOPIC` | `https://ntfy.sh`, empty | Push notifications. |
+| `HC_NTFY_URL`, `HC_NTFY_TOPIC` | `https://ntfy.sh`, empty | Push notifications. They contain health data, and anyone who knows a ntfy.sh topic can read it: use a long random topic, or a self-hosted ntfy with access control. |
 | `HC_NTFY_TOKEN` | empty | ntfy access token, sent as `Authorization: Bearer`. |
 | `HC_NOTIFY_LANG` | `en` | Language for push notifications (`en` or `cs`). |
 | `HC_OFF_BASE_URL` | `https://world.openfoodfacts.org` | Open Food Facts for food search. |
