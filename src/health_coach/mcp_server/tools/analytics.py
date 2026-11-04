@@ -215,8 +215,8 @@ def get_recovery_snapshot(conn: Connection, day: dt.date) -> dict[str, Any]:
     start_28d = day - dt.timedelta(days=27)
     daily_loads_rows = conn.execute(
         text(
-            "SELECT local_date, hard_sets, exercise_min FROM v_daily "
-            "WHERE local_date BETWEEN :s AND :d ORDER BY local_date"
+            "SELECT local_date, hard_sets, exercise_min FROM daily_range(:s, :d) "
+            "ORDER BY local_date"
         ),
         {"s": start_28d, "d": day},
     ).all()
@@ -283,8 +283,8 @@ def get_recovery_status(date: DateArg = None) -> dict[str, Any]:
         start_28d = day - dt.timedelta(days=27)
         training_rows = conn.execute(
             text(
-                "SELECT local_date, hard_sets, tonnage_kg, exercise_min FROM v_daily "
-                "WHERE local_date BETWEEN :s AND :d ORDER BY local_date"
+                "SELECT local_date, hard_sets, tonnage_kg, exercise_min FROM daily_range(:s, :d) "
+                "ORDER BY local_date"
             ),
             {"s": start_28d, "d": day},
         ).all()
@@ -783,9 +783,7 @@ def compare_periods(
         f"round(avg({col})::numeric, 2) AS {col}_mean, count({col}) AS {col}_days"
         for col in metrics
     ]
-    query_sql = (
-        f"SELECT {', '.join(select_clauses)} FROM v_daily WHERE local_date BETWEEN :s AND :e"  # noqa: S608
-    )
+    query_sql = f"SELECT {', '.join(select_clauses)} FROM daily_range(:s, :e)"  # noqa: S608
 
     with get_engine(Role.ro).connect() as conn:
         row_a = conn.execute(text(query_sql), {"s": a_start, "e": a_end}).first()

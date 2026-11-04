@@ -288,8 +288,8 @@ def get_context_snapshot() -> dict[str, Any]:
         targets = current_targets(conn, day)
         daily = conn.execute(
             text(
-                f"SELECT {', '.join(SNAPSHOT_DAILY_COLUMNS)} FROM v_daily "  # noqa: S608
-                "WHERE local_date BETWEEN :s AND :e ORDER BY local_date"
+                f"SELECT {', '.join(SNAPSHOT_DAILY_COLUMNS)} FROM daily_range(:s, :e) "  # noqa: S608
+                "ORDER BY local_date"
             ),
             {"s": day - dt.timedelta(days=6), "e": day},
         ).all()

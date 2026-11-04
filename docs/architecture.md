@@ -44,7 +44,9 @@ Conventions:
 Views: `v_daily` (one row per day across all domains), `v_body_daily`, `v_weight_trend`
 (7-day average and weekly rate), `v_nutrition_daily`, `v_recovery_baseline` (30-day
 baselines for resting HR and HRV), `v_strength_volume_weekly` (hard sets per muscle),
-`v_exercise_e1rm`.
+`v_exercise_e1rm`. `daily_range(start, end)` returns the `v_daily` rows of a date range
+and is what the tools use: a filter on `v_daily` itself does not reach the aggregates
+behind its joins, so it always computes the whole history.
 
 ## Database roles
 

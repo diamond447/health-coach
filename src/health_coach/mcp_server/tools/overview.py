@@ -60,8 +60,8 @@ def get_daily_overview(start: DateArg = None, end: DateArg = None) -> dict[str, 
     with get_engine(Role.ro).connect() as conn:
         rows = conn.execute(
             text(
-                f"SELECT {', '.join(DAILY_COLUMNS)} FROM v_daily "  # noqa: S608
-                "WHERE local_date BETWEEN :s AND :e ORDER BY local_date"
+                f"SELECT {', '.join(DAILY_COLUMNS)} FROM daily_range(:s, :e) "  # noqa: S608
+                "ORDER BY local_date"
             ),
             {"s": s, "e": e},
         ).all()
@@ -136,7 +136,7 @@ SELECT count(*) FILTER (WHERE kcal_in IS NOT NULL) AS days_logged,
        count(*) FILTER (WHERE protein_g >= target_protein_g) AS days_protein_on_target,
        round(avg(energy), 1) AS energy_avg,
        round(avg(soreness), 1) AS soreness_avg
-FROM v_daily WHERE local_date BETWEEN :s AND :e
+FROM daily_range(:s, :e)
 """
 
 
