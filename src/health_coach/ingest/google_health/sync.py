@@ -2,10 +2,12 @@
 
 Every fetch stores the untouched response first; mappers turn it into rows. Mappers can
 be re-run over stored payloads (`health-coach remap google`) after a fix, so a wrong or
-missing mapper never loses data.
+missing mapper never loses data. Intraday heart rate is the exception: its samples go
+straight to heart_rate_samples and raw_payloads keeps a summary (see SUMMARY_ONLY).
 """
 
 import datetime as dt
+import hashlib
 import json
 import logging
 from collections.abc import Callable, Iterator, Sequence
@@ -79,373 +81,167 @@ def _iter_points(payload: dict[str, Any], key: str) -> list[dict[str, Any]]:
     return []
 
 
-def _map_steps(
-    conn: Connection,
-    payload: dict[str, Any],
-    spec: DataTypeSpec,
-    tz: ZoneInfo,
-    start: dt.date | None = None,
-    end: dt.date | None = None,
-) -> int:
-    count = 0
-    for dp in _iter_points(payload, "rollupDataPoints"):
-        c_start = dp.get("civilStartTime", {}).get("date")
-        if not c_start:
-            continue
-        local_date = _parse_date(c_start)
-        steps_val = dp.get("steps", {}).get("countSum")
-        steps = int(steps_val) if steps_val is not None else 0
-        conn.execute(
-            text(
-                "INSERT INTO daily_activity (local_date, steps, source) "
-                "VALUES (:local_date, :steps, :source) "
-                "ON CONFLICT (local_date) DO UPDATE SET "
-                "    steps = EXCLUDED.steps, updated_at = now()"
-            ),
-            {"local_date": local_date, "steps": steps, "source": SOURCE},
+# --- Daily values: one column of daily_activity or daily_vitals per data type ----------
+
+
+def _rollup_day(dp: dict[str, Any]) -> dict[str, Any] | None:
+    day: dict[str, Any] | None = dp.get("civilStartTime", {}).get("date")
+    return day
+
+
+def _decimal(value: Any, places: int) -> Decimal | None:
+    return Decimal(str(round(value, places))) if value is not None else None
+
+
+def _active_minutes(dp: dict[str, Any]) -> int:
+    levels = dp.get("activeMinutes", {}).get("activeMinutesRollupByActivityLevel", [])
+    if any(item.get("activityLevel") in ("MODERATE", "VIGOROUS") for item in levels):
+        return sum(
+            int(item.get("activeMinutesSum", 0))
+            for item in levels
+            if item.get("activityLevel") in ("MODERATE", "VIGOROUS")
         )
-        count += 1
-    return count
+    return sum(int(item.get("activeMinutesSum", 0)) for item in levels)
 
 
-def _map_distance(
-    conn: Connection,
-    payload: dict[str, Any],
-    spec: DataTypeSpec,
-    tz: ZoneInfo,
-    start: dt.date | None = None,
-    end: dt.date | None = None,
-) -> int:
-    count = 0
-    for dp in _iter_points(payload, "rollupDataPoints"):
-        c_start = dp.get("civilStartTime", {}).get("date")
-        if not c_start:
-            continue
-        local_date = _parse_date(c_start)
-        mm_val = dp.get("distance", {}).get("millimetersSum")
-        km = Decimal(str(round(int(mm_val) / 1_000_000, 3))) if mm_val is not None else None
-        conn.execute(
-            text(
-                "INSERT INTO daily_activity (local_date, distance_km, source) "
-                "VALUES (:local_date, :distance_km, :source) "
-                "ON CONFLICT (local_date) DO UPDATE SET "
-                "    distance_km = EXCLUDED.distance_km, updated_at = now()"
-            ),
-            {"local_date": local_date, "distance_km": km, "source": SOURCE},
+def _active_zone_minutes(dp: dict[str, Any]) -> int:
+    azm = dp.get("activeZoneMinutes", {})
+    return (
+        int(azm.get("sumInFatBurnHeartZone", 0))
+        + int(azm.get("sumInCardioHeartZone", 0))
+        + int(azm.get("sumInPeakHeartZone", 0))
+    )
+
+
+def _hrv(data: dict[str, Any]) -> Decimal | None:
+    val = data.get("averageHeartRateVariabilityMilliseconds")
+    if val is None:
+        val = data.get("deepSleepRootMeanSquareOfSuccessiveDifferencesMilliseconds")
+    return _decimal(val, 1)
+
+
+def _skin_temp_delta(data: dict[str, Any]) -> Decimal | None:
+    nightly = data.get("nightlyTemperatureCelsius")
+    baseline = data.get("baselineTemperatureCelsius")
+    if nightly is None or baseline is None:
+        return None
+    return Decimal(str(round(nightly - baseline, 2)))
+
+
+@dataclass(frozen=True)
+class DailyField:
+    """Where a daily data type comes from in the payload and which column it fills.
+
+    Rollups (activity) carry the day in civilStartTime and the value in the data point;
+    daily summaries (vitals) nest both under `key`."""
+
+    table: str
+    column: str
+    value: Callable[[dict[str, Any]], Any]
+    key: str | None = None  # daily summary object; None for rollups
+
+    def rows(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
+        out = []
+        points = "dataPoints" if self.key else "rollupDataPoints"
+        for dp in _iter_points(payload, points):
+            data = dp.get(self.key, {}) if self.key else dp
+            day = data.get("date") if self.key else _rollup_day(dp)
+            if not day:
+                continue
+            out.append({"local_date": _parse_date(day), "value": self.value(data)})
+        return out
+
+    def upsert(self) -> str:
+        # Identifiers come from DAILY_FIELDS below, never from input. Unchanged days are
+        # not rewritten, so updated_at (and as_of) only move when a value changes.
+        t, c = self.table, self.column
+        return (
+            f"INSERT INTO {t} (local_date, {c}, source) "  # noqa: S608
+            f"VALUES (:local_date, :value, '{SOURCE}') "
+            f"ON CONFLICT (local_date) DO UPDATE SET {c} = EXCLUDED.{c}, updated_at = now() "
+            f"WHERE {t}.{c} IS DISTINCT FROM EXCLUDED.{c}"
         )
-        count += 1
-    return count
 
 
-def _map_floors(
-    conn: Connection,
-    payload: dict[str, Any],
-    spec: DataTypeSpec,
-    tz: ZoneInfo,
-    start: dt.date | None = None,
-    end: dt.date | None = None,
-) -> int:
-    count = 0
-    for dp in _iter_points(payload, "rollupDataPoints"):
-        c_start = dp.get("civilStartTime", {}).get("date")
-        if not c_start:
-            continue
-        local_date = _parse_date(c_start)
-        floors_val = dp.get("floors", {}).get("countSum")
-        floors = int(floors_val) if floors_val is not None else 0
-        conn.execute(
-            text(
-                "INSERT INTO daily_activity (local_date, floors, source) "
-                "VALUES (:local_date, :floors, :source) "
-                "ON CONFLICT (local_date) DO UPDATE SET "
-                "    floors = EXCLUDED.floors, updated_at = now()"
-            ),
-            {"local_date": local_date, "floors": floors, "source": SOURCE},
-        )
-        count += 1
-    return count
+def _count(field: str, default: Any = 0) -> Callable[[dict[str, Any]], Any]:
+    def value(dp: dict[str, Any]) -> Any:
+        v = dp.get(field, {}).get("countSum")
+        return int(v) if v is not None else default
+
+    return value
 
 
-def _map_active_minutes(
-    conn: Connection,
-    payload: dict[str, Any],
-    spec: DataTypeSpec,
-    tz: ZoneInfo,
-    start: dt.date | None = None,
-    end: dt.date | None = None,
-) -> int:
-    count = 0
-    for dp in _iter_points(payload, "rollupDataPoints"):
-        c_start = dp.get("civilStartTime", {}).get("date")
-        if not c_start:
-            continue
-        local_date = _parse_date(c_start)
-        levels = dp.get("activeMinutes", {}).get("activeMinutesRollupByActivityLevel", [])
-        if any(item.get("activityLevel") in ("MODERATE", "VIGOROUS") for item in levels):
-            mins = sum(
-                int(item.get("activeMinutesSum", 0))
-                for item in levels
-                if item.get("activityLevel") in ("MODERATE", "VIGOROUS")
-            )
-        else:
-            mins = sum(int(item.get("activeMinutesSum", 0)) for item in levels)
-        conn.execute(
-            text(
-                "INSERT INTO daily_activity (local_date, active_minutes, source) "
-                "VALUES (:local_date, :active_minutes, :source) "
-                "ON CONFLICT (local_date) DO UPDATE SET "
-                "    active_minutes = EXCLUDED.active_minutes, updated_at = now()"
-            ),
-            {"local_date": local_date, "active_minutes": mins, "source": SOURCE},
-        )
-        count += 1
-    return count
+DAILY_FIELDS: dict[str, DailyField] = {
+    "steps": DailyField("daily_activity", "steps", _count("steps")),
+    "distance": DailyField(
+        "daily_activity",
+        "distance_km",
+        lambda dp: (
+            Decimal(str(round(int(mm) / 1_000_000, 3)))
+            if (mm := dp.get("distance", {}).get("millimetersSum")) is not None
+            else None
+        ),
+    ),
+    "floors": DailyField("daily_activity", "floors", _count("floors")),
+    "active-minutes": DailyField("daily_activity", "active_minutes", _active_minutes),
+    "active-zone-minutes": DailyField(
+        "daily_activity", "active_zone_minutes", _active_zone_minutes
+    ),
+    "total-calories": DailyField(
+        "daily_activity",
+        "calories_out",
+        lambda dp: (
+            round(kcal) if (kcal := dp.get("totalCalories", {}).get("kcalSum")) is not None else 0
+        ),
+    ),
+    "daily-resting-heart-rate": DailyField(
+        "daily_vitals",
+        "resting_hr",
+        lambda d: int(d["beatsPerMinute"]) if "beatsPerMinute" in d else None,
+        key="dailyRestingHeartRate",
+    ),
+    "daily-heart-rate-variability": DailyField(
+        "daily_vitals", "hrv_rmssd_ms", _hrv, key="dailyHeartRateVariability"
+    ),
+    "daily-oxygen-saturation": DailyField(
+        "daily_vitals",
+        "spo2_avg",
+        lambda d: _decimal(d.get("averagePercentage"), 1),
+        key="dailyOxygenSaturation",
+    ),
+    "daily-respiratory-rate": DailyField(
+        "daily_vitals",
+        "breathing_rate",
+        lambda d: _decimal(d.get("breathsPerMinute"), 1),
+        key="dailyRespiratoryRate",
+    ),
+    "daily-sleep-temperature-derivations": DailyField(
+        "daily_vitals", "skin_temp_delta", _skin_temp_delta, key="dailySleepTemperatureDerivations"
+    ),
+    "daily-vo2-max": DailyField(
+        "daily_vitals",
+        "cardio_fitness",
+        lambda d: _decimal(d.get("vo2Max"), 1),
+        key="dailyVo2Max",
+    ),
+}
 
 
-def _map_active_zone_minutes(
-    conn: Connection,
-    payload: dict[str, Any],
-    spec: DataTypeSpec,
-    tz: ZoneInfo,
-    start: dt.date | None = None,
-    end: dt.date | None = None,
-) -> int:
-    count = 0
-    for dp in _iter_points(payload, "rollupDataPoints"):
-        c_start = dp.get("civilStartTime", {}).get("date")
-        if not c_start:
-            continue
-        local_date = _parse_date(c_start)
-        azm = dp.get("activeZoneMinutes", {})
-        mins = (
-            int(azm.get("sumInFatBurnHeartZone", 0))
-            + int(azm.get("sumInCardioHeartZone", 0))
-            + int(azm.get("sumInPeakHeartZone", 0))
-        )
-        conn.execute(
-            text(
-                "INSERT INTO daily_activity (local_date, active_zone_minutes, source) "
-                "VALUES (:local_date, :active_zone_minutes, :source) "
-                "ON CONFLICT (local_date) DO UPDATE SET "
-                "    active_zone_minutes = EXCLUDED.active_zone_minutes, updated_at = now()"
-            ),
-            {"local_date": local_date, "active_zone_minutes": mins, "source": SOURCE},
-        )
-        count += 1
-    return count
+def _daily_mapper(field: DailyField) -> Mapper:
+    def mapper(
+        conn: Connection,
+        payload: dict[str, Any],
+        spec: DataTypeSpec,
+        tz: ZoneInfo,
+        start: dt.date | None = None,
+        end: dt.date | None = None,
+    ) -> int:
+        rows = field.rows(payload)
+        if rows:
+            conn.execute(text(field.upsert()), rows)
+        return len(rows)
 
-
-def _map_total_calories(
-    conn: Connection,
-    payload: dict[str, Any],
-    spec: DataTypeSpec,
-    tz: ZoneInfo,
-    start: dt.date | None = None,
-    end: dt.date | None = None,
-) -> int:
-    count = 0
-    for dp in _iter_points(payload, "rollupDataPoints"):
-        c_start = dp.get("civilStartTime", {}).get("date")
-        if not c_start:
-            continue
-        local_date = _parse_date(c_start)
-        kcal_val = dp.get("totalCalories", {}).get("kcalSum")
-        cals = round(kcal_val) if kcal_val is not None else 0
-        conn.execute(
-            text(
-                "INSERT INTO daily_activity (local_date, calories_out, source) "
-                "VALUES (:local_date, :calories_out, :source) "
-                "ON CONFLICT (local_date) DO UPDATE SET "
-                "    calories_out = EXCLUDED.calories_out, updated_at = now()"
-            ),
-            {"local_date": local_date, "calories_out": cals, "source": SOURCE},
-        )
-        count += 1
-    return count
-
-
-def _map_daily_resting_heart_rate(
-    conn: Connection,
-    payload: dict[str, Any],
-    spec: DataTypeSpec,
-    tz: ZoneInfo,
-    start: dt.date | None = None,
-    end: dt.date | None = None,
-) -> int:
-    count = 0
-    for dp in _iter_points(payload, "dataPoints"):
-        data = dp.get("dailyRestingHeartRate", {})
-        d_dict = data.get("date")
-        if not d_dict:
-            continue
-        local_date = _parse_date(d_dict)
-        rhr = int(data["beatsPerMinute"]) if "beatsPerMinute" in data else None
-        conn.execute(
-            text(
-                "INSERT INTO daily_vitals (local_date, resting_hr, source) "
-                "VALUES (:local_date, :resting_hr, :source) "
-                "ON CONFLICT (local_date) DO UPDATE SET "
-                "    resting_hr = EXCLUDED.resting_hr, updated_at = now()"
-            ),
-            {"local_date": local_date, "resting_hr": rhr, "source": SOURCE},
-        )
-        count += 1
-    return count
-
-
-def _map_daily_heart_rate_variability(
-    conn: Connection,
-    payload: dict[str, Any],
-    spec: DataTypeSpec,
-    tz: ZoneInfo,
-    start: dt.date | None = None,
-    end: dt.date | None = None,
-) -> int:
-    count = 0
-    for dp in _iter_points(payload, "dataPoints"):
-        data = dp.get("dailyHeartRateVariability", {})
-        d_dict = data.get("date")
-        if not d_dict:
-            continue
-        local_date = _parse_date(d_dict)
-        val = data.get("averageHeartRateVariabilityMilliseconds")
-        if val is None:
-            val = data.get("deepSleepRootMeanSquareOfSuccessiveDifferencesMilliseconds")
-        hrv = Decimal(str(round(val, 1))) if val is not None else None
-        conn.execute(
-            text(
-                "INSERT INTO daily_vitals (local_date, hrv_rmssd_ms, source) "
-                "VALUES (:local_date, :hrv_rmssd_ms, :source) "
-                "ON CONFLICT (local_date) DO UPDATE SET "
-                "    hrv_rmssd_ms = EXCLUDED.hrv_rmssd_ms, updated_at = now()"
-            ),
-            {"local_date": local_date, "hrv_rmssd_ms": hrv, "source": SOURCE},
-        )
-        count += 1
-    return count
-
-
-def _map_daily_oxygen_saturation(
-    conn: Connection,
-    payload: dict[str, Any],
-    spec: DataTypeSpec,
-    tz: ZoneInfo,
-    start: dt.date | None = None,
-    end: dt.date | None = None,
-) -> int:
-    count = 0
-    for dp in _iter_points(payload, "dataPoints"):
-        data = dp.get("dailyOxygenSaturation", {})
-        d_dict = data.get("date")
-        if not d_dict:
-            continue
-        local_date = _parse_date(d_dict)
-        val = data.get("averagePercentage")
-        spo2 = Decimal(str(round(val, 1))) if val is not None else None
-        conn.execute(
-            text(
-                "INSERT INTO daily_vitals (local_date, spo2_avg, source) "
-                "VALUES (:local_date, :spo2_avg, :source) "
-                "ON CONFLICT (local_date) DO UPDATE SET "
-                "    spo2_avg = EXCLUDED.spo2_avg, updated_at = now()"
-            ),
-            {"local_date": local_date, "spo2_avg": spo2, "source": SOURCE},
-        )
-        count += 1
-    return count
-
-
-def _map_daily_respiratory_rate(
-    conn: Connection,
-    payload: dict[str, Any],
-    spec: DataTypeSpec,
-    tz: ZoneInfo,
-    start: dt.date | None = None,
-    end: dt.date | None = None,
-) -> int:
-    count = 0
-    for dp in _iter_points(payload, "dataPoints"):
-        data = dp.get("dailyRespiratoryRate", {})
-        d_dict = data.get("date")
-        if not d_dict:
-            continue
-        local_date = _parse_date(d_dict)
-        val = data.get("breathsPerMinute")
-        br = Decimal(str(round(val, 1))) if val is not None else None
-        conn.execute(
-            text(
-                "INSERT INTO daily_vitals (local_date, breathing_rate, source) "
-                "VALUES (:local_date, :breathing_rate, :source) "
-                "ON CONFLICT (local_date) DO UPDATE SET "
-                "    breathing_rate = EXCLUDED.breathing_rate, updated_at = now()"
-            ),
-            {"local_date": local_date, "breathing_rate": br, "source": SOURCE},
-        )
-        count += 1
-    return count
-
-
-def _map_daily_sleep_temperature_derivations(
-    conn: Connection,
-    payload: dict[str, Any],
-    spec: DataTypeSpec,
-    tz: ZoneInfo,
-    start: dt.date | None = None,
-    end: dt.date | None = None,
-) -> int:
-    count = 0
-    for dp in _iter_points(payload, "dataPoints"):
-        data = dp.get("dailySleepTemperatureDerivations", {})
-        d_dict = data.get("date")
-        if not d_dict:
-            continue
-        local_date = _parse_date(d_dict)
-        nightly = data.get("nightlyTemperatureCelsius")
-        baseline = data.get("baselineTemperatureCelsius")
-        delta = None
-        if nightly is not None and baseline is not None:
-            delta = Decimal(str(round(nightly - baseline, 2)))
-        conn.execute(
-            text(
-                "INSERT INTO daily_vitals (local_date, skin_temp_delta, source) "
-                "VALUES (:local_date, :skin_temp_delta, :source) "
-                "ON CONFLICT (local_date) DO UPDATE SET "
-                "    skin_temp_delta = EXCLUDED.skin_temp_delta, updated_at = now()"
-            ),
-            {"local_date": local_date, "skin_temp_delta": delta, "source": SOURCE},
-        )
-        count += 1
-    return count
-
-
-def _map_daily_vo2_max(
-    conn: Connection,
-    payload: dict[str, Any],
-    spec: DataTypeSpec,
-    tz: ZoneInfo,
-    start: dt.date | None = None,
-    end: dt.date | None = None,
-) -> int:
-    count = 0
-    for dp in _iter_points(payload, "dataPoints"):
-        data = dp.get("dailyVo2Max", {})
-        d_dict = data.get("date")
-        if not d_dict:
-            continue
-        local_date = _parse_date(d_dict)
-        val = data.get("vo2Max")
-        cf = Decimal(str(round(val, 1))) if val is not None else None
-        conn.execute(
-            text(
-                "INSERT INTO daily_vitals (local_date, cardio_fitness, source) "
-                "VALUES (:local_date, :cardio_fitness, :source) "
-                "ON CONFLICT (local_date) DO UPDATE SET "
-                "    cardio_fitness = EXCLUDED.cardio_fitness, updated_at = now()"
-            ),
-            {"local_date": local_date, "cardio_fitness": cf, "source": SOURCE},
-        )
-        count += 1
-    return count
+    return mapper
 
 
 def _map_heart_rate(
@@ -459,25 +255,26 @@ def _map_heart_rate(
     # Samples are never removed on re-sync: the list filter selects them by the user's
     # civil time, which need not match a window in the configured zone (travel), and a
     # deleted sample is not something the watch does.
-    count = 0
+    rows = []
     for dp in _iter_points(payload, "dataPoints"):
         hr = dp.get("heartRate", {})
         pt = hr.get("sampleTime", {}).get("physicalTime")
         if not pt:
             continue
-        ts = _parse_iso(pt)
-        bpm = int(hr["beatsPerMinute"])
+        rows.append({"ts": _parse_iso(pt), "bpm": int(hr["beatsPerMinute"]), "source": SOURCE})
+    if rows:
+        # A day at 5-second sampling is ~17,000 samples: one pipelined executemany instead
+        # of a round trip each, and samples already stored are left alone.
         conn.execute(
             text(
                 "INSERT INTO heart_rate_samples (ts, bpm, source) "
                 "VALUES (:ts, :bpm, :source) "
-                "ON CONFLICT (ts) DO UPDATE SET bpm = EXCLUDED.bpm"
+                "ON CONFLICT (ts) DO UPDATE SET bpm = EXCLUDED.bpm "
+                "WHERE heart_rate_samples.bpm IS DISTINCT FROM EXCLUDED.bpm"
             ),
-            {"ts": ts, "bpm": bpm, "source": SOURCE},
+            rows,
         )
-        count += 1
-
-    return count
+    return len(rows)
 
 
 def _map_sleep(
@@ -563,6 +360,15 @@ def _map_sleep(
                 "    minutes_awake = EXCLUDED.minutes_awake,"
                 "    is_main = EXCLUDED.is_main,"
                 "    updated_at = now() "
+                "WHERE (sleep_sessions.start_ts, sleep_sessions.end_ts, sleep_sessions.local_date,"
+                "       sleep_sessions.duration_min, sleep_sessions.time_in_bed_min,"
+                "       sleep_sessions.efficiency, sleep_sessions.minutes_deep,"
+                "       sleep_sessions.minutes_light, sleep_sessions.minutes_rem,"
+                "       sleep_sessions.minutes_awake, sleep_sessions.is_main) "
+                "IS DISTINCT FROM (EXCLUDED.start_ts, EXCLUDED.end_ts, EXCLUDED.local_date,"
+                "       EXCLUDED.duration_min, EXCLUDED.time_in_bed_min, EXCLUDED.efficiency,"
+                "       EXCLUDED.minutes_deep, EXCLUDED.minutes_light, EXCLUDED.minutes_rem,"
+                "       EXCLUDED.minutes_awake, EXCLUDED.is_main) "
                 "RETURNING id"
             ),
             {
@@ -580,29 +386,40 @@ def _map_sleep(
                 "is_main": is_main,
                 "source": SOURCE,
             },
-        ).scalar_one()
+        ).scalar()
+        if session_id is None:  # unchanged, so the upsert returned nothing
+            session_id = conn.execute(
+                text("SELECT id FROM sleep_sessions WHERE source = :s AND external_id = :e"),
+                {"s": SOURCE, "e": ext_id},
+            ).scalar_one()
 
+        stages = [
+            {
+                "session_id": session_id,
+                "start_ts": _parse_iso(stg["startTime"]),
+                "end_ts": _parse_iso(stg["endTime"]),
+                "stage": stg.get("type", "").lower(),
+            }
+            for stg in s.get("stages", [])
+        ]
         conn.execute(
-            text("DELETE FROM sleep_stages WHERE session_id = :session_id"),
-            {"session_id": session_id},
+            text(
+                "DELETE FROM sleep_stages WHERE session_id = :session_id "
+                "AND start_ts <> ALL(:starts)"
+            ),
+            {"session_id": session_id, "starts": [st["start_ts"] for st in stages]},
         )
-        for stg in s.get("stages", []):
-            st_stage = _parse_iso(stg["startTime"])
-            et_stage = _parse_iso(stg["endTime"])
-            stage_name = stg.get("type", "").lower()
+        if stages:
             conn.execute(
                 text(
                     "INSERT INTO sleep_stages (session_id, start_ts, end_ts, stage) "
                     "VALUES (:session_id, :start_ts, :end_ts, :stage) "
                     "ON CONFLICT (session_id, start_ts) DO UPDATE SET "
-                    "    end_ts = EXCLUDED.end_ts, stage = EXCLUDED.stage"
+                    "    end_ts = EXCLUDED.end_ts, stage = EXCLUDED.stage "
+                    "WHERE (sleep_stages.end_ts, sleep_stages.stage) "
+                    "IS DISTINCT FROM (EXCLUDED.end_ts, EXCLUDED.stage)"
                 ),
-                {
-                    "session_id": session_id,
-                    "start_ts": st_stage,
-                    "end_ts": et_stage,
-                    "stage": stage_name,
-                },
+                stages,
             )
         count += 1
 
@@ -701,7 +518,17 @@ def _map_exercise(
                 "    hr_zone_minutes = EXCLUDED.hr_zone_minutes,"
                 "    notes = EXCLUDED.notes,"
                 "    deleted_at = NULL,"
-                "    updated_at = now()"
+                "    updated_at = now() "
+                "WHERE exercise_sessions.deleted_at IS NOT NULL "
+                "   OR (exercise_sessions.start_ts, exercise_sessions.end_ts,"
+                "       exercise_sessions.local_date, exercise_sessions.activity_type,"
+                "       exercise_sessions.duration_min, exercise_sessions.avg_hr,"
+                "       exercise_sessions.calories, exercise_sessions.distance_km,"
+                "       exercise_sessions.hr_zone_minutes, exercise_sessions.notes) "
+                "   IS DISTINCT FROM (EXCLUDED.start_ts, EXCLUDED.end_ts, EXCLUDED.local_date,"
+                "       EXCLUDED.activity_type, EXCLUDED.duration_min, EXCLUDED.avg_hr,"
+                "       EXCLUDED.calories, EXCLUDED.distance_km, EXCLUDED.hr_zone_minutes,"
+                "       EXCLUDED.notes)"
             ),
             {
                 "external_id": ext_id,
@@ -775,7 +602,10 @@ def _map_weight(
                 "    local_date = EXCLUDED.local_date,"
                 "    weight_kg = EXCLUDED.weight_kg,"
                 "    deleted_at = NULL,"
-                "    updated_at = now()"
+                "    updated_at = now() "
+                "WHERE body_metrics.deleted_at IS NOT NULL "
+                "   OR (body_metrics.ts, body_metrics.local_date, body_metrics.weight_kg) "
+                "   IS DISTINCT FROM (EXCLUDED.ts, EXCLUDED.local_date, EXCLUDED.weight_kg)"
             ),
             {
                 "source": SOURCE,
@@ -844,7 +674,10 @@ def _map_body_fat(
                 "    local_date = EXCLUDED.local_date,"
                 "    body_fat_pct = EXCLUDED.body_fat_pct,"
                 "    deleted_at = NULL,"
-                "    updated_at = now()"
+                "    updated_at = now() "
+                "WHERE body_metrics.deleted_at IS NOT NULL "
+                "   OR (body_metrics.ts, body_metrics.local_date, body_metrics.body_fat_pct) "
+                "   IS DISTINCT FROM (EXCLUDED.ts, EXCLUDED.local_date, EXCLUDED.body_fat_pct)"
             ),
             {
                 "source": SOURCE,
@@ -1046,7 +879,19 @@ def _map_nutrition_log(
                 "    confidence = EXCLUDED.confidence,"
                 "    micros = EXCLUDED.micros,"
                 "    deleted_at = NULL,"
-                "    updated_at = now()"
+                "    updated_at = now() "
+                "WHERE nutrition_entries.deleted_at IS NOT NULL "
+                "   OR (nutrition_entries.ts, nutrition_entries.local_date,"
+                "       nutrition_entries.meal, nutrition_entries.food_id,"
+                "       nutrition_entries.description, nutrition_entries.grams,"
+                "       nutrition_entries.kcal, nutrition_entries.protein_g,"
+                "       nutrition_entries.carbs_g, nutrition_entries.fat_g,"
+                "       nutrition_entries.fiber_g, nutrition_entries.confidence,"
+                "       nutrition_entries.micros) "
+                "   IS DISTINCT FROM (EXCLUDED.ts, EXCLUDED.local_date, EXCLUDED.meal,"
+                "       EXCLUDED.food_id, EXCLUDED.description, EXCLUDED.grams, EXCLUDED.kcal,"
+                "       EXCLUDED.protein_g, EXCLUDED.carbs_g, EXCLUDED.fat_g, EXCLUDED.fiber_g,"
+                "       EXCLUDED.confidence, EXCLUDED.micros)"
             ),
             {
                 "source": SOURCE,
@@ -1089,18 +934,7 @@ def _map_nutrition_log(
 
 
 MAPPERS: dict[str, Mapper] = {
-    "steps": _map_steps,
-    "distance": _map_distance,
-    "floors": _map_floors,
-    "active-minutes": _map_active_minutes,
-    "active-zone-minutes": _map_active_zone_minutes,
-    "total-calories": _map_total_calories,
-    "daily-resting-heart-rate": _map_daily_resting_heart_rate,
-    "daily-heart-rate-variability": _map_daily_heart_rate_variability,
-    "daily-oxygen-saturation": _map_daily_oxygen_saturation,
-    "daily-respiratory-rate": _map_daily_respiratory_rate,
-    "daily-sleep-temperature-derivations": _map_daily_sleep_temperature_derivations,
-    "daily-vo2-max": _map_daily_vo2_max,
+    **{name: _daily_mapper(field) for name, field in DAILY_FIELDS.items()},
     "heart-rate": _map_heart_rate,
     "sleep": _map_sleep,
     "exercise": _map_exercise,
@@ -1119,12 +953,35 @@ def chunks(start: dt.date, end: dt.date, max_days: int) -> Iterator[tuple[dt.dat
         cursor = nxt
 
 
+# A re-fetched payload that has not changed keeps its stored value (no new TOAST copy of
+# a large document) and its updated_at; fetched_at always records the fetch.
 _UPSERT_RAW = """
 INSERT INTO raw_payloads (source, data_type, range_start, range_end, payload, fetched_at)
 VALUES (:source, :data_type, :start, :end, CAST(:payload AS jsonb), now())
 ON CONFLICT (source, data_type, range_start, range_end) DO UPDATE SET
-    payload = EXCLUDED.payload, fetched_at = now(), updated_at = now()
+    payload = CASE WHEN raw_payloads.payload IS DISTINCT FROM EXCLUDED.payload
+                   THEN EXCLUDED.payload ELSE raw_payloads.payload END,
+    updated_at = CASE WHEN raw_payloads.payload IS DISTINCT FROM EXCLUDED.payload
+                      THEN now() ELSE raw_payloads.updated_at END,
+    fetched_at = now()
 """
+
+# Intraday heart rate is the bulk of all payloads (a day at one sample a minute is
+# ~170 kB of JSONB, re-fetched every 30 minutes) and heart_rate_samples already holds
+# every sample, so by default only a summary is kept (HC_GOOGLE_RAW_HEART_RATE=true keeps
+# the full payload). `remap` skips summaries.
+SUMMARY_ONLY = {"heart-rate"}
+
+
+def _stored_payload(spec: DataTypeSpec, payload: dict[str, Any], canonical: str) -> str:
+    if spec.name not in SUMMARY_ONLY or get_settings().google_raw_heart_rate:
+        return canonical
+    summary = {
+        "summary_only": True,
+        "points": len(_iter_points(payload, "dataPoints")),
+        "sha256": hashlib.sha256(canonical.encode()).hexdigest(),
+    }
+    return json.dumps(summary)
 
 
 def _bounds(day: dt.date, tz: ZoneInfo) -> dt.datetime:
@@ -1146,7 +1003,7 @@ def store_and_map(
             "data_type": spec.name,
             "start": _bounds(start, tz),
             "end": _bounds(end, tz),
-            "payload": json.dumps(payload),
+            "payload": _stored_payload(spec, payload, json.dumps(payload)),
         },
     )
     mapper = MAPPERS.get(spec.name)
@@ -1243,7 +1100,7 @@ def remap(engine: Engine, data_types: Sequence[str] | None = None) -> dict[str, 
                 continue
             spec = by_name.get(row.data_type)
             mapper = MAPPERS.get(row.data_type)
-            if spec is None or mapper is None:
+            if spec is None or mapper is None or row.payload.get("summary_only"):
                 continue
             start = row.range_start.astimezone(tz).date()
             end = row.range_end.astimezone(tz).date()

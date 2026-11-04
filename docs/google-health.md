@@ -5,8 +5,11 @@ document (revision 20261007, `https://health.googleapis.com/$discovery/rest?vers
 are tested against fixtures built from its schemas, and were checked against real
 payloads from one Fitbit device. Other devices may report fields differently: raw
 responses are kept in `raw_payloads`, so after fixing a mapper you can re-run
-`health-coach remap google` without fetching again. The API has no sleep score; sleep
-comes as durations and stages.
+`health-coach remap google` without fetching again. Intraday heart rate is the exception:
+its samples go straight to `heart_rate_samples` and `raw_payloads` keeps only the point
+count and a hash (set `HC_GOOGLE_RAW_HEART_RATE=true` to keep full responses). Re-syncs
+leave unchanged rows and payloads alone, so `updated_at` (and the tools' `as_of`) moves
+only when data changes. The API has no sleep score; sleep comes as durations and stages.
 
 How the client talks to the API:
 

@@ -51,6 +51,9 @@ class Settings(BaseSettings):
         ]
     )
     google_api_base: str = "https://health.googleapis.com/v4"
+    # Keep full intraday heart-rate payloads in raw_payloads (HC_GOOGLE_RAW_HEART_RATE).
+    # Off by default: heart_rate_samples holds every sample and the payloads are large.
+    google_raw_heart_rate: bool = False
 
     # openGym instance (HC_OPENGYM_URL, HC_OPENGYM_VERSION).
     opengym_url: str | None = None
