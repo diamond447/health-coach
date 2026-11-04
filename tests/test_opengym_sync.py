@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from pydantic import SecretStr
-from sqlalchemy import Engine, text
+from sqlalchemy import Connection, Engine, text
 
 from health_coach.config import Settings
 from health_coach.ingest.opengym import (
@@ -16,6 +16,7 @@ from health_coach.ingest.opengym import (
     sync_bodyweight,
     sync_catalogue,
     sync_workouts,
+    sync_workouts_changed,
 )
 from health_coach.opengym.client import OpenGymClient
 
@@ -309,3 +310,82 @@ def test_catalogue_refuses_an_authenticated_client() -> None:
     client = OpenGymClient("http://localhost:3000", token="tok")
     with pytest.raises(ValueError, match="authenticated"):
         fetch_catalogue(version="9.9.9", client=client._http, use_cache=False)
+
+
+def _row_versions(conn: Connection) -> list[tuple[str, int]]:
+    """xmin changes whenever a row is rewritten."""
+    return [
+        (r.external_id, r.xmin)
+        for r in conn.execute(
+            text(
+                "SELECT external_id, xmin::text::bigint AS xmin FROM strength_sets "
+                "UNION ALL SELECT external_id, xmin::text::bigint FROM strength_sessions "
+                "ORDER BY 1"
+            )
+        )
+    ]
+
+
+def test_unchanged_state_writes_nothing_and_changes_write_only_the_difference(
+    owner: Engine,
+) -> None:
+    client = OpenGymClient("http://localhost:3000")
+    state = {
+        "unit": "kg",
+        "workouts": [
+            {
+                "id": f"w{i}",
+                "d": f"2026-03-{i + 1:02d}",
+                "entries": [
+                    {
+                        "id": "bench-press",
+                        "sets": [
+                            {"id": f"s{i}-{k}", "w": 80, "r": 8, "done": True} for k in range(3)
+                        ],
+                    }
+                ],
+            }
+            for i in range(4)
+        ],
+    }
+    assert sync_workouts_changed(client, owner, tz=PRAGUE, state_doc=state) == (4, True)
+    with owner.connect() as conn:
+        first = _row_versions(conn)
+        cursor = conn.execute(
+            text("SELECT cursor FROM sync_state WHERE data_type = 'workouts'")
+        ).scalar_one()
+    assert cursor.startswith("sha256:")
+
+    # Same state: skipped before any write
+    assert sync_workouts_changed(client, owner, tz=PRAGUE, state_doc=state) == (4, False)
+    # An alias remap changes what would be written, so it is not skipped
+    remapped = sync_workouts_changed(
+        client, owner, tz=PRAGUE, state_doc=state, aliases={"bench-press": "bench"}
+    )
+    assert remapped == (4, True)
+    with owner.connect() as conn:
+        assert conn.execute(
+            text("SELECT DISTINCT exercise_id FROM strength_sets")
+        ).scalar_one() == ("bench")
+    sync_workouts_changed(client, owner, tz=PRAGUE, state_doc=state)
+    with owner.connect() as conn:
+        before_edit = _row_versions(conn)
+    assert [ext for ext, _ in before_edit] == [ext for ext, _ in first]
+
+    # One edited set: only that row gets a new version
+    state["workouts"][2]["entries"][0]["sets"][1]["r"] = 6  # type: ignore[index]
+    assert sync_workouts_changed(client, owner, tz=PRAGUE, state_doc=state) == (4, True)
+    with owner.connect() as conn:
+        after = dict(_row_versions(conn))
+        assert conn.execute(
+            text("SELECT reps FROM strength_sets WHERE external_id = 's2-1'")
+        ).scalar_one() == Decimal("6")
+    changed = {ext for ext, xmin in before_edit if after[ext] != xmin}
+    assert changed == {"s2-1"}
+
+    # Rows removed behind the sync's back are restored even though the state is the same
+    with owner.begin() as conn:
+        conn.execute(text("DELETE FROM strength_sets WHERE external_id = 's0-0'"))
+    assert sync_workouts_changed(client, owner, tz=PRAGUE, state_doc=state) == (4, True)
+    with owner.connect() as conn:
+        assert conn.execute(text("SELECT count(*) FROM strength_sets")).scalar_one() == 12

@@ -1,6 +1,9 @@
 """Mirror openGym into Postgres: exercise catalogue, workout sessions and sets, body weight."""
 
+import dataclasses
 import datetime as dt
+import hashlib
+import json
 import logging
 from decimal import Decimal
 from typing import Any
@@ -21,6 +24,7 @@ from health_coach.opengym.catalogue import (
 from health_coach.opengym.client import OpenGymClient, OpenGymError
 from health_coach.opengym.model import (
     LB_TO_KG,
+    NormalizedSession,
     normalize_workouts,
 )
 
@@ -147,7 +151,11 @@ def upsert_catalogue_entries(conn: Connection, entries: list[dict[str, Any]]) ->
                 "name = EXCLUDED.name, category = EXCLUDED.category, "
                 "primary_muscles = EXCLUDED.primary_muscles, "
                 "secondary_muscles = EXCLUDED.secondary_muscles, "
-                "equipment = EXCLUDED.equipment, updated_at = now()"
+                "equipment = EXCLUDED.equipment, updated_at = now() "
+                "WHERE (exercises.name, exercises.category, exercises.primary_muscles, "
+                "       exercises.secondary_muscles, exercises.equipment) "
+                "IS DISTINCT FROM (EXCLUDED.name, EXCLUDED.category, EXCLUDED.primary_muscles, "
+                "                  EXCLUDED.secondary_muscles, EXCLUDED.equipment)"
             ),
             rows,
         )
@@ -171,6 +179,7 @@ def sync_catalogue(
     return count
 
 
+# Upserts leave unchanged rows alone: no new row version, no updated_at bump.
 _UPSERT_SESSION = """
 INSERT INTO strength_sessions (
     external_id, local_date, start_ts, end_ts, routine_id, routine_name, notes, source
@@ -184,7 +193,10 @@ ON CONFLICT (external_id) DO UPDATE SET
     routine_name = EXCLUDED.routine_name,
     notes = EXCLUDED.notes,
     updated_at = now()
-RETURNING id
+WHERE (strength_sessions.local_date, strength_sessions.start_ts, strength_sessions.end_ts,
+       strength_sessions.routine_id, strength_sessions.routine_name, strength_sessions.notes)
+    IS DISTINCT FROM (EXCLUDED.local_date, EXCLUDED.start_ts, EXCLUDED.end_ts,
+                      EXCLUDED.routine_id, EXCLUDED.routine_name, EXCLUDED.notes)
 """
 
 _UPSERT_SET = """
@@ -202,7 +214,51 @@ ON CONFLICT (external_id) DO UPDATE SET
     rpe = EXCLUDED.rpe,
     is_warmup = EXCLUDED.is_warmup,
     updated_at = now()
+WHERE (strength_sets.session_id, strength_sets.exercise_id, strength_sets.set_no,
+       strength_sets.reps, strength_sets.weight_kg, strength_sets.rir, strength_sets.rpe,
+       strength_sets.is_warmup)
+    IS DISTINCT FROM (EXCLUDED.session_id, EXCLUDED.exercise_id, EXCLUDED.set_no,
+                      EXCLUDED.reps, EXCLUDED.weight_kg, EXCLUDED.rir, EXCLUDED.rpe,
+                      EXCLUDED.is_warmup)
 """
+
+# Bump when the mapping below changes, so the next run rewrites the mirror.
+_WORKOUTS_FINGERPRINT_VERSION = 1
+
+
+def _workouts_fingerprint(
+    sessions: list[NormalizedSession], has_workouts: bool, aliases: dict[str, str]
+) -> str:
+    """Hash of everything sync_workouts would write. It covers the time zone, the unit
+    conversion and the alias remapping, since they are applied by then."""
+    doc = {
+        "v": _WORKOUTS_FINGERPRINT_VERSION,
+        "has_workouts": has_workouts,
+        "sessions": [
+            {
+                **{k: v for k, v in dataclasses.asdict(s).items() if k != "sets"},
+                "sets": [
+                    {**dataclasses.asdict(st), "exercise_id": canonical_id(st.exercise_id, aliases)}
+                    for st in s.sets
+                ],
+            }
+            for s in sessions
+        ],
+    }
+    canonical = json.dumps(doc, sort_keys=True, separators=(",", ":"), default=str)
+    return "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def _mirror_is_complete(conn: Connection, sessions: list[NormalizedSession]) -> bool:
+    """Cheap check that nobody removed mirrored rows behind the sync's back."""
+    row = conn.execute(
+        text(
+            "SELECT (SELECT count(*) FROM strength_sessions WHERE source = 'opengym') AS s, "
+            "       (SELECT count(*) FROM strength_sets st JOIN strength_sessions ss "
+            "          ON ss.id = st.session_id WHERE ss.source = 'opengym') AS st"
+        )
+    ).one()
+    return bool(row.s == len(sessions) and row.st == sum(len(s.sets) for s in sessions))
 
 
 def sync_workouts(
@@ -216,93 +272,132 @@ def sync_workouts(
 
     Retired catalogue ids are mapped to their current id through `aliases`, so the same
     exercise is one series in the analytics. A document without a `workouts` list
-    (never synced, or not a real state) removes nothing."""
+    (never synced, or not a real state) removes nothing. Returns the number of sessions."""
+    count, _ = sync_workouts_changed(client, engine, tz, state_doc, aliases)
+    return count
+
+
+def sync_workouts_changed(
+    client: OpenGymClient,
+    engine: Engine,
+    tz: ZoneInfo,
+    state_doc: dict[str, Any] | None = None,
+    aliases: dict[str, str] | None = None,
+) -> tuple[int, bool]:
+    """sync_workouts, also saying whether anything had to be written. A state identical
+    to the one of the previous run (same fingerprint, mirror intact) writes nothing."""
     if state_doc is None:
         doc = client.get_data()
         state_doc = doc.get("state") or {}
     aliases = aliases or {}
 
     sessions = normalize_workouts(state_doc, tz=tz)
-    active_session_ids = {s.external_id for s in sessions}
     has_workouts = isinstance(state_doc.get("workouts"), list)
+    fingerprint = _workouts_fingerprint(sessions, has_workouts, aliases)
 
     with engine.begin() as conn:
-        # Mirror workout deletions
-        if not has_workouts:
-            pass
-        elif active_session_ids:
-            conn.execute(
-                text(
-                    "DELETE FROM strength_sessions WHERE source = 'opengym' "
-                    "AND external_id != ALL(:active_ids)"
-                ),
-                {"active_ids": list(active_session_ids)},
-            )
-        else:
-            conn.execute(text("DELETE FROM strength_sessions WHERE source = 'opengym'"))
+        previous = conn.execute(
+            text("SELECT cursor FROM sync_state WHERE source = :s AND data_type = 'workouts'"),
+            {"s": SOURCE},
+        ).scalar()
+        if previous == fingerprint and (not has_workouts or _mirror_is_complete(conn, sessions)):
+            state.mark_success(conn, SOURCE, "workouts")
+            return len(sessions), False
 
-        # Upsert sessions and sets
-        for s in sessions:
-            # Ensure referenced exercises exist in exercises table to satisfy FK
-            for st in s.sets:
-                conn.execute(
-                    text(
-                        "INSERT INTO exercises (id, name, source) "
-                        "VALUES (:id, :id, 'opengym') "
-                        "ON CONFLICT (id) DO NOTHING"
-                    ),
-                    {"id": canonical_id(st.exercise_id, aliases)},
-                )
+        _write_workouts(conn, sessions, has_workouts, aliases)
+        state.mark_success(conn, SOURCE, "workouts", cursor=fingerprint)
 
-            session_db_id = conn.execute(
-                text(_UPSERT_SESSION),
-                {
-                    "ext": s.external_id,
-                    "d": s.local_date,
-                    "start": s.start_ts,
-                    "end": s.end_ts,
-                    "rid": s.routine_id,
-                    "rname": s.routine_name,
-                    "notes": s.notes,
-                },
-            ).scalar_one()
+    return len(sessions), True
 
-            # Mirror set deletions for this session
-            active_set_ids = {st.external_id for st in s.sets}
-            if active_set_ids:
-                conn.execute(
-                    text(
-                        "DELETE FROM strength_sets WHERE session_id = :sid "
-                        "AND external_id != ALL(:active_set_ids)"
-                    ),
-                    {"sid": session_db_id, "active_set_ids": list(active_set_ids)},
-                )
-            else:
-                conn.execute(
-                    text("DELETE FROM strength_sets WHERE session_id = :sid"),
-                    {"sid": session_db_id},
-                )
 
-            # Upsert sets
-            for st in s.sets:
-                conn.execute(
-                    text(_UPSERT_SET),
-                    {
-                        "sid": session_db_id,
-                        "ext": st.external_id,
-                        "ex_id": canonical_id(st.exercise_id, aliases),
-                        "set_no": st.set_no,
-                        "reps": st.reps,
-                        "weight_kg": st.weight_kg,
-                        "rir": st.rir,
-                        "rpe": st.rpe,
-                        "warmup": st.is_warmup,
-                    },
-                )
+def _write_workouts(
+    conn: Connection,
+    sessions: list[NormalizedSession],
+    has_workouts: bool,
+    aliases: dict[str, str],
+) -> None:
+    active_session_ids = [s.external_id for s in sessions]
 
-        state.mark_success(conn, SOURCE, "workouts")
+    # Mirror workout deletions (sets go with their session)
+    if has_workouts:
+        conn.execute(
+            text(
+                "DELETE FROM strength_sessions WHERE source = 'opengym' "
+                "AND external_id <> ALL(:active_ids)"
+            ),
+            {"active_ids": active_session_ids},
+        )
+    if not sessions:
+        return
 
-    return len(sessions)
+    # Referenced exercises must exist (FK); the catalogue job fills in their details.
+    exercise_ids = sorted(
+        {canonical_id(st.exercise_id, aliases) for s in sessions for st in s.sets}
+    )
+    if exercise_ids:
+        conn.execute(
+            text(
+                "INSERT INTO exercises (id, name, source) "
+                "SELECT id, id, 'opengym' FROM unnest(CAST(:ids AS text[])) AS id "
+                "ON CONFLICT (id) DO NOTHING"
+            ),
+            {"ids": exercise_ids},
+        )
+
+    # One round trip per batch (psycopg pipelines executemany).
+    conn.execute(
+        text(_UPSERT_SESSION),
+        [
+            {
+                "ext": s.external_id,
+                "d": s.local_date,
+                "start": s.start_ts,
+                "end": s.end_ts,
+                "rid": s.routine_id,
+                "rname": s.routine_name,
+                "notes": s.notes,
+            }
+            for s in sessions
+        ],
+    )
+    session_ids: dict[str, int] = {
+        r.external_id: r.id
+        for r in conn.execute(
+            text("SELECT external_id, id FROM strength_sessions WHERE external_id = ANY(:ids)"),
+            {"ids": active_session_ids},
+        )
+    }
+
+    # Mirror set deletions within the synced sessions
+    conn.execute(
+        text(
+            "DELETE FROM strength_sets st USING strength_sessions ss "
+            "WHERE st.session_id = ss.id AND ss.external_id = ANY(:sessions) "
+            "AND st.external_id <> ALL(:sets)"
+        ),
+        {
+            "sessions": active_session_ids,
+            "sets": [st.external_id for s in sessions for st in s.sets],
+        },
+    )
+
+    set_rows = [
+        {
+            "sid": session_ids[s.external_id],
+            "ext": st.external_id,
+            "ex_id": canonical_id(st.exercise_id, aliases),
+            "set_no": st.set_no,
+            "reps": st.reps,
+            "weight_kg": st.weight_kg,
+            "rir": st.rir,
+            "rpe": st.rpe,
+            "warmup": st.is_warmup,
+        }
+        for s in sessions
+        for st in s.sets
+    ]
+    if set_rows:
+        conn.execute(text(_UPSERT_SET), set_rows)
 
 
 def sync_bodyweight(
@@ -368,7 +463,10 @@ def sync_bodyweight(
                     "VALUES ('opengym', :ext, :ts, :d, :kg) "
                     "ON CONFLICT (source, external_id) DO UPDATE SET "
                     "ts = EXCLUDED.ts, local_date = EXCLUDED.local_date, "
-                    "weight_kg = EXCLUDED.weight_kg, deleted_at = NULL, updated_at = now()"
+                    "weight_kg = EXCLUDED.weight_kg, deleted_at = NULL, updated_at = now() "
+                    "WHERE (body_metrics.ts, body_metrics.local_date, body_metrics.weight_kg) "
+                    "IS DISTINCT FROM (EXCLUDED.ts, EXCLUDED.local_date, EXCLUDED.weight_kg) "
+                    "OR body_metrics.deleted_at IS NOT NULL"
                 ),
                 rows,
             )
@@ -382,8 +480,9 @@ def sync_opengym_workouts(
     engine: Engine,
     settings: Settings | None = None,
     transport: httpx.BaseTransport | None = None,
-) -> None:
-    """High-level runner: renews token, syncs workouts and bodyweight."""
+) -> bool:
+    """High-level runner: renews token, syncs workouts and bodyweight. Returns whether
+    the workouts changed since the previous run."""
     settings = settings or get_settings()
     if not settings.opengym_url:
         raise OpenGymError("openGym is not configured (HC_OPENGYM_URL)")
@@ -401,13 +500,16 @@ def sync_opengym_workouts(
         except Exception:  # catalogue host down: keep ids as logged
             log.warning("openGym catalogue unavailable; exercise aliases not applied")
             aliases = {}
-        sync_workouts(client, engine, tz=settings.tz, state_doc=state_doc, aliases=aliases)
+        _, changed = sync_workouts_changed(
+            client, engine, tz=settings.tz, state_doc=state_doc, aliases=aliases
+        )
         sync_bodyweight(client, engine, tz=settings.tz, state_doc=state_doc)
         # Also sync user's custom exercises if present
         custom_ex = state_doc.get("customEx")
         if isinstance(custom_ex, list) and custom_ex:
             with engine.begin() as conn:
                 upsert_catalogue_entries(conn, custom_ex)
+    return changed
 
 
 def sync_opengym_catalogue(
