@@ -1,6 +1,7 @@
 import datetime as dt
 import json
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from mcp import Client
@@ -11,6 +12,7 @@ from health_coach.mcp_server.server import create_server
 from tests.mcp_result import json_result
 
 pytestmark = pytest.mark.anyio
+PRAGUE = ZoneInfo("Europe/Prague")
 
 
 @pytest.fixture
@@ -162,6 +164,26 @@ async def test_get_data_coverage(owner: Engine) -> None:
     by_type = {r[0]: r for r in cov["coverage"]["rows"]}
     assert by_type["weight"][3] == 21
     assert by_type["sleep"][1] is None
+    assert by_type["heart_rate"][1:] == [None, None, 0]
+
+
+async def test_heart_rate_coverage_uses_local_days(owner: Engine) -> None:
+    day = today()
+    old = day - dt.timedelta(days=100)
+    with owner.begin() as conn:
+        conn.execute(
+            text("INSERT INTO heart_rate_samples (ts, bpm) VALUES (:ts, 60)"),
+            [
+                # 00:30 local time on the first day, still the previous day in UTC
+                {"ts": dt.datetime.combine(old, dt.time(0, 30), PRAGUE)},
+                {"ts": dt.datetime.combine(day - dt.timedelta(days=2), dt.time(12), PRAGUE)},
+                {"ts": dt.datetime.combine(day - dt.timedelta(days=2), dt.time(13), PRAGUE)},
+                {"ts": dt.datetime.combine(day, dt.time(0, 5), PRAGUE)},
+            ],
+        )
+    cov = await call("get_data_coverage")
+    by_type = {r[0]: r for r in cov["coverage"]["rows"]}
+    assert by_type["heart_rate"][1:] == [old.isoformat(), day.isoformat(), 2]
 
 
 async def test_daily_overview_and_range_cap(owner: Engine) -> None:

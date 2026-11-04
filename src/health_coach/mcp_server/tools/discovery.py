@@ -6,8 +6,9 @@ from typing import Annotated, Any
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
-from sqlalchemy import text
+from sqlalchemy import Connection, text
 
+from health_coach.config import get_settings
 from health_coach.db.engine import Role, get_engine
 from health_coach.mcp_server import quality
 from health_coach.mcp_server.common import DATA_NOTE, READ, add_tool, jsonable, rnd, tabular, today
@@ -158,7 +159,7 @@ def get_schema(
 _COVERAGE = {
     "activity": ("daily_activity", "local_date", ""),
     "vitals": ("daily_vitals", "local_date", ""),
-    "heart_rate": ("heart_rate_samples", "(ts AT TIME ZONE current_setting('TimeZone'))::date", ""),
+    "heart_rate": ("heart_rate_samples", "", ""),  # see _heart_rate_coverage
     "sleep": ("sleep_sessions", "local_date", ""),
     "exercise": ("exercise_sessions", "local_date", "deleted_at IS NULL"),
     "weight": ("body_metrics", "local_date", "deleted_at IS NULL AND weight_kg IS NOT NULL"),
@@ -168,6 +169,28 @@ _COVERAGE = {
 }
 
 
+def _heart_rate_coverage(conn: Connection, since: dt.date) -> dict[str, Any]:
+    """Coverage of the intraday samples (a million rows a year or more): first and last
+    sample through the primary key, and only the last 30 days scanned for the day count,
+    instead of converting every timestamp to a local date."""
+    tz = get_settings().tz
+    r = conn.execute(
+        text(
+            "SELECT (SELECT min(ts) FROM heart_rate_samples) AS first, "
+            "       (SELECT max(ts) FROM heart_rate_samples) AS last, "
+            "       (SELECT count(DISTINCT (ts AT TIME ZONE current_setting('TimeZone'))::date) "
+            "        FROM heart_rate_samples WHERE ts >= :since_ts) AS days_30"
+        ),
+        {"since_ts": dt.datetime.combine(since, dt.time(), tz)},
+    ).one()
+    return {
+        "data_type": "heart_rate",
+        "first": r.first.astimezone(tz).date() if r.first else None,
+        "last": r.last.astimezone(tz).date() if r.last else None,
+        "days_30": r.days_30,
+    }
+
+
 def get_data_coverage() -> dict[str, Any]:
     """Per data type: first and last date, days with data in the last 30 days, plus
     the sync status per source. Use it to judge how much to trust an analysis."""
@@ -175,6 +198,9 @@ def get_data_coverage() -> dict[str, Any]:
     rows = []
     with get_engine(Role.ro).connect() as conn:
         for name, (tbl, day_expr, where) in _COVERAGE.items():
+            if name == "heart_rate":
+                rows.append(_heart_rate_coverage(conn, since))
+                continue
             cond = f"WHERE {where}" if where else ""
             # Identifiers come from the constant above, never from input.
             r = conn.execute(
