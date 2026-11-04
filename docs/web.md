@@ -227,7 +227,7 @@ Healthstats is optimized for iOS Safari PWA standalone mode:
 
 ### Prerequisites
 
-- Node.js 20+ and npm
+- Node.js 24 (LTS) and npm
 - Python 3.12+ and `uv`
 
 ### 1. Build Frontend
