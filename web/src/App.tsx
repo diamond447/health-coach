@@ -5,18 +5,44 @@ import { ScreenBoundary } from "./components/ScreenBoundary";
 import { SessionExpiryBanner } from "./components/SessionExpiryBanner";
 import { TabBar } from "./components/TabBar";
 import { getTodayString } from "./helpers";
-import { ActivityScreen } from "./screens/ActivityScreen";
-import { CalendarScreen } from "./screens/CalendarScreen";
-import { HealthspanScreen } from "./screens/HealthspanScreen";
-import { JournalScreen } from "./screens/JournalScreen";
+import { lazyScreen } from "./lazyScreen";
 import { MainScreen } from "./screens/MainScreen";
-import { NightScreen } from "./screens/NightScreen";
-import { NutritionScreen } from "./screens/NutritionScreen";
-import { RecoveryScreen } from "./screens/RecoveryScreen";
-import { ReportScreen } from "./screens/ReportScreen";
-import { SleepScreen } from "./screens/SleepScreen";
-import { StrainScreen } from "./screens/StrainScreen";
-import { TrendsScreen } from "./screens/TrendsScreen";
+
+// The start screen ships in the main bundle; the others are chunks loaded on first use
+// (and precached by the service worker).
+const ActivityScreen = lazyScreen(() =>
+  import("./screens/ActivityScreen").then((m) => m.ActivityScreen),
+);
+const CalendarScreen = lazyScreen(() =>
+  import("./screens/CalendarScreen").then((m) => m.CalendarScreen),
+);
+const HealthspanScreen = lazyScreen(() =>
+  import("./screens/HealthspanScreen").then((m) => m.HealthspanScreen),
+);
+const JournalScreen = lazyScreen(() =>
+  import("./screens/JournalScreen").then((m) => m.JournalScreen),
+);
+const NightScreen = lazyScreen(() =>
+  import("./screens/NightScreen").then((m) => m.NightScreen),
+);
+const NutritionScreen = lazyScreen(() =>
+  import("./screens/NutritionScreen").then((m) => m.NutritionScreen),
+);
+const RecoveryScreen = lazyScreen(() =>
+  import("./screens/RecoveryScreen").then((m) => m.RecoveryScreen),
+);
+const ReportScreen = lazyScreen(() =>
+  import("./screens/ReportScreen").then((m) => m.ReportScreen),
+);
+const SleepScreen = lazyScreen(() =>
+  import("./screens/SleepScreen").then((m) => m.SleepScreen),
+);
+const StrainScreen = lazyScreen(() =>
+  import("./screens/StrainScreen").then((m) => m.StrainScreen),
+);
+const TrendsScreen = lazyScreen(() =>
+  import("./screens/TrendsScreen").then((m) => m.TrendsScreen),
+);
 
 export interface RouteLocation {
   path: string;

@@ -24,6 +24,9 @@ lists them with comments.
 | `HC_AUTH_ALLOWED_SUBJECTS` | `[]` | JSON list of token subjects allowed to use the health server. |
 | `HC_AUTH_DISABLED` | `false` | Disables auth. Loopback development only. |
 | `HC_MCP_ALLOWED_HOSTS` | loopback | Accepted `Host` headers (DNS rebinding protection). |
+| `HC_DB_MEM_LIMIT`, `HC_DB_SHM_SIZE` | `1g`, `128m` | Memory limit and `/dev/shm` size of the Postgres container. |
+| `HC_DB_SHARED_BUFFERS`, `HC_DB_EFFECTIVE_CACHE_SIZE` | `256MB`, `768MB` | Postgres memory settings; keep them at about 1/4 and 3/4 of `HC_DB_MEM_LIMIT`. |
+| `HC_DB_MAINTENANCE_WORK_MEM`, `HC_DB_MAX_PARALLEL_WORKERS_PER_GATHER` | `64MB`, `1` | Vacuum/index memory and parallel workers per query (the query roles use none). |
 | `HC_MCP_PUBLISH`, `HC_DB_PUBLISH` | `127.0.0.1:8080`, `127.0.0.1:5432` | Published host ports. |
 | `HC_NTFY_URL`, `HC_NTFY_TOPIC` | `https://ntfy.sh`, empty | Push notifications. They contain health data, and anyone who knows a ntfy.sh topic can read it: use a long random topic, or a self-hosted ntfy with access control. |
 | `HC_NTFY_TOKEN` | empty | ntfy access token, sent as `Authorization: Bearer`. |
@@ -39,3 +42,9 @@ lists them with comments.
 | `HC_WEB_USER_HEADER` | `X-authentik-username` | Header containing the authenticated username from the proxy. |
 | `HC_WEB_JOURNAL_DATABASE_URL` | empty | Optional connection URL for `Role.web_journal`; enables journal logging from the web app. |
 | `FIT_*` | | Same meaning for the fit server; see [fit.md](fit.md). |
+
+Database roles have their own guard rails (migrations `0001`, `0002`, `0012`): `coach_ro`
+(read tools and `query_sql`) runs with a 5 s statement timeout, 30 s idle-in-transaction
+timeout, 2 s lock timeout, `work_mem` 32 MB, a 256 MB temp file limit, no parallel workers
+and at most 20 connections; `grafana_ro` with 15 s, 60 s, 32 MB, 512 MB, no parallel
+workers and 10 connections.

@@ -16,6 +16,7 @@ from health_coach.jobs.healthspan import (
     refresh_healthspan,
 )
 from health_coach.mcp_server.server import create_server
+from tests.mcp_result import json_result
 
 PRAGUE = ZoneInfo("Europe/Prague")
 pytestmark = pytest.mark.anyio
@@ -29,10 +30,7 @@ def anyio_backend() -> str:
 async def call(tool: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
     async with Client(create_server()) as client:
         result = await client.call_tool(tool, args or {})
-    assert not result.is_error, result.content
-    content: dict[str, Any] | None = result.structured_content
-    assert content is not None
-    return content
+    return json_result(result)
 
 
 def _seed_synthetic_healthspan_data(conn: Any, week_start: dt.date) -> None:

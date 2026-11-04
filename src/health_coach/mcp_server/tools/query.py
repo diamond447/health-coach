@@ -1,6 +1,7 @@
 """Group 2: free-form read-only SQL."""
 
 import json
+import logging
 import time
 from collections.abc import Sequence
 from typing import Annotated, Any, cast
@@ -11,8 +12,10 @@ from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
 from health_coach.db.engine import Role, get_engine
-from health_coach.mcp_server.common import DATA_NOTE, READ, audited, jsonable
+from health_coach.mcp_server.common import DATA_NOTE, READ, add_tool, jsonable
 from health_coach.mcp_server.sql_guard import SqlRejected, check_sql
+
+log = logging.getLogger(__name__)
 
 DEFAULT_ROWS = 200
 MAX_ROWS = 2000
@@ -55,12 +58,18 @@ def query_sql(
             message = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
             raise ToolError(f"query failed: {message}") from exc
         finally:
-            raw.rollback()
-            # Session-level advisory locks survive a rollback; never leave one on a
-            # pooled connection.
-            setup.execute("SELECT pg_advisory_unlock_all()")
-            raw.rollback()
-            setup.close()
+            try:
+                raw.rollback()
+                # Session-level advisory locks survive a rollback; never leave one on a
+                # pooled connection.
+                setup.execute("SELECT pg_advisory_unlock_all()")
+                raw.rollback()
+                setup.close()
+            except psycopg.Error:
+                # The connection broke (server restart, terminated backend): drop it from
+                # the pool and let the caller see the query error, not this one.
+                log.warning("query_sql: discarding a broken connection", exc_info=True)
+                conn.invalidate()
 
     out_rows, truncated = _bounded(rows, max_rows)
     return {
@@ -93,4 +102,4 @@ def _bounded(rows: Sequence[Sequence[object]], max_rows: int) -> tuple[list[list
 
 
 def register(server: MCPServer) -> None:
-    server.tool(annotations=READ)(audited(query_sql))
+    add_tool(server, query_sql, READ)

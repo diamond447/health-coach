@@ -721,3 +721,107 @@ def test_backfill_limits_heart_rate_history(owner: Engine) -> None:
     assert fetcher.calls[0][1] == today + dt.timedelta(days=1) - dt.timedelta(days=30)
     assert len(fetcher.calls) == 30
     assert DATA_TYPES[-1].name == "heart-rate"  # never holds up the other types
+
+
+_TYPED_TABLES = (
+    "daily_activity",
+    "daily_vitals",
+    "heart_rate_samples",
+    "sleep_sessions",
+    "sleep_stages",
+    "exercise_sessions",
+    "body_metrics",
+    "nutrition_entries",
+    "raw_payloads",
+)
+
+
+def _versions(conn: Connection) -> dict[str, list[tuple[str, str]]]:
+    """Row versions (xmin) and updated_at, which change whenever a row is rewritten."""
+    out = {}
+    for table in _TYPED_TABLES:
+        stamp = "updated_at::text" if table not in ("heart_rate_samples", "sleep_stages") else "''"
+        key = "data_type" if table == "raw_payloads" else "xmin::text"
+        sql = f"SELECT {key}, {stamp} FROM {table} ORDER BY 1, 2"
+        out[table] = [(r[0], r[1]) for r in conn.execute(text(sql))]
+    return out
+
+
+def test_resync_of_unchanged_payloads_rewrites_nothing(owner: Engine) -> None:
+    engine = get_engine(Role.ingest)
+    tz = settings().tz
+    d1, d2 = dt.date(2026, 10, 1), dt.date(2026, 10, 2)
+    specs = [s for s in DATA_TYPES if (FIXTURES_DIR / f"{s.name}.json").exists()]
+    assert len(specs) >= 15
+
+    def sync_all() -> None:
+        for spec in specs:
+            with engine.begin() as conn:
+                gh_sync.store_and_map(conn, spec, d1, d2, _load_fixture(spec.name), tz)
+
+    sync_all()
+    with owner.connect() as conn:
+        first = _versions(conn)
+    sync_all()
+    with owner.connect() as conn:
+        second = _versions(conn)
+        fetched = conn.execute(text("SELECT count(DISTINCT fetched_at) FROM raw_payloads")).one()
+    assert sum(len(rows) for rows in first.values()) > 20
+    for table in _TYPED_TABLES:
+        if table == "raw_payloads":
+            # fetched_at records every fetch; payload and updated_at stay as they were
+            assert dict(second[table]) == dict(first[table])
+        else:
+            assert second[table] == first[table], table
+    assert fetched[0] >= 1
+
+
+def test_heart_rate_payload_is_kept_as_summary(
+    owner: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    engine = get_engine(Role.ingest)
+    tz = settings().tz
+    d1, d2 = dt.date(2026, 10, 1), dt.date(2026, 10, 2)
+    payload = {
+        "dataPoints": [
+            {
+                "heartRate": {
+                    "sampleTime": {
+                        "physicalTime": f"2026-10-01T08:{i // 12:02d}:{i % 12 * 5:02d}Z"
+                    },
+                    "beatsPerMinute": 60 + i % 30,
+                }
+            }
+            for i in range(600)
+        ]
+    }
+    with engine.begin() as conn:
+        assert gh_sync.store_and_map(conn, BY_NAME["heart-rate"], d1, d2, payload, tz) == 600
+    with owner.connect() as conn:
+        stored = conn.execute(
+            text("SELECT payload FROM raw_payloads WHERE data_type = 'heart-rate'")
+        ).scalar_one()
+        assert conn.execute(text("SELECT count(*) FROM heart_rate_samples")).scalar_one() == 600
+    assert stored["summary_only"] is True
+    assert stored["points"] == 600
+    assert len(stored["sha256"]) == 64
+    # remap leaves summaries alone instead of wiping samples
+    assert "heart-rate" not in gh_sync.remap(engine)
+
+    # Opt-in: the full payload is kept and can be remapped
+    monkeypatch.setenv("HC_GOOGLE_RAW_HEART_RATE", "true")
+    from health_coach.config import get_settings
+
+    get_settings.cache_clear()
+    try:
+        with engine.begin() as conn:
+            gh_sync.store_and_map(conn, BY_NAME["heart-rate"], d1, d2, payload, tz)
+        with owner.connect() as conn:
+            stored = conn.execute(
+                text("SELECT payload FROM raw_payloads WHERE data_type = 'heart-rate'")
+            ).scalar_one()
+        assert len(stored["dataPoints"]) == 600
+        assert gh_sync.remap(engine)["heart-rate"] == 600
+    finally:
+        monkeypatch.delenv("HC_GOOGLE_RAW_HEART_RATE")
+        get_settings.cache_clear()

@@ -10,6 +10,7 @@ from sqlalchemy import Engine, text
 from health_coach.jobs.derived import snapshot_tdee
 from health_coach.mcp_server.common import today
 from health_coach.mcp_server.server import create_server
+from tests.mcp_result import json_result
 
 pytestmark = pytest.mark.anyio
 
@@ -22,10 +23,7 @@ def anyio_backend() -> str:
 async def call(tool: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
     async with Client(create_server()) as client:
         result = await client.call_tool(tool, args or {})
-    assert not result.is_error, result.content
-    content: dict[str, Any] | None = result.structured_content
-    assert content is not None
-    return content
+    return json_result(result)
 
 
 async def call_error(tool: str, args: dict[str, Any]) -> str:

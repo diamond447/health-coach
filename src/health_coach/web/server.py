@@ -24,6 +24,7 @@ from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.requests import Request
 from starlette.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from starlette.routing import Route
@@ -618,6 +619,9 @@ def create_app(settings: Settings | None = None) -> Starlette:
     middleware = [
         Middleware(SecurityHeadersMiddleware),
         Middleware(WebAuthMiddleware, settings=app_settings),
+        # API JSON and the JS bundle shrink 4-7x; tiny responses are not worth it.
+        # Innermost, so it sees whole bodies (the middlewares above re-stream them).
+        Middleware(GZipMiddleware, minimum_size=1000),
     ]
 
     app = Starlette(routes=routes, middleware=middleware)

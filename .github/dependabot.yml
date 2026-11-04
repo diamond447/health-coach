@@ -40,3 +40,7 @@ updates:
       interval: monthly
     cooldown:
       default-days: 7
+    ignore:
+      # Odd Node.js majors never become LTS; stay on the even (LTS) line.
+      - dependency-name: "node"
+        versions: ["25.x", "27.x"]

@@ -2,14 +2,15 @@
 
 import datetime as dt
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Annotated, Any
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
-from sqlalchemy import Connection, text
+from sqlalchemy import Connection, Row, text
 
 from health_coach.analytics.compare import V_DAILY_NUMERIC_COLUMNS, compare_period_metrics
 from health_coach.analytics.nutrition import (
@@ -18,6 +19,7 @@ from health_coach.analytics.nutrition import (
     calculate_nutrition_averages,
 )
 from health_coach.analytics.recovery import (
+    ReadinessResult,
     calculate_acute_chronic,
     evaluate_readiness,
 )
@@ -33,7 +35,7 @@ from health_coach.db.engine import Role, get_engine
 from health_coach.mcp_server import quality
 from health_coach.mcp_server.common import (
     READ,
-    audited,
+    add_tool,
     date_range,
     rnd,
     tabular,
@@ -194,8 +196,23 @@ def get_nutrition_summary(
 # --- 3. get_recovery_status -----------------------------------------------------------
 
 
-def get_recovery_snapshot(conn: Connection, day: dt.date) -> dict[str, Any]:
-    """Compute compact recovery readiness for get_context_snapshot."""
+@dataclass(frozen=True)
+class RecoveryInputs:
+    """What readiness is computed from, shared by get_recovery_status and the snapshot."""
+
+    baseline: Row[Any] | None
+    checkin: Row[Any] | None
+    training: Sequence[Row[Any]]  # last 28 days of daily_range()
+    acute_chronic: float | None
+    readiness: ReadinessResult
+
+
+def _num(row: Row[Any] | None, field: str, cast: type[float] | type[int] = float) -> Any:
+    value = getattr(row, field) if row is not None else None
+    return cast(value) if value is not None else None
+
+
+def load_recovery_inputs(conn: Connection, day: dt.date) -> RecoveryInputs:
     baseline = conn.execute(
         text(
             "SELECT local_date, resting_hr, rhr_mean_30d, rhr_sd_30d, rhr_z, "
@@ -205,47 +222,51 @@ def get_recovery_snapshot(conn: Connection, day: dt.date) -> dict[str, Any]:
         ),
         {"d": day},
     ).first()
-
     checkin = conn.execute(
-        text("SELECT energy, soreness FROM checkins WHERE local_date = :d"),
+        text(
+            "SELECT energy, soreness, stress, motivation, notes FROM checkins WHERE local_date = :d"
+        ),
         {"d": day},
     ).first()
 
-    # Acute:chronic training load
+    # Acute:chronic training load over 28 days; daily load = hard sets + exercise min / 10
     start_28d = day - dt.timedelta(days=27)
-    daily_loads_rows = conn.execute(
+    training = conn.execute(
         text(
-            "SELECT local_date, hard_sets, exercise_min FROM v_daily "
-            "WHERE local_date BETWEEN :s AND :d ORDER BY local_date"
+            "SELECT local_date, hard_sets, tonnage_kg, exercise_min FROM daily_range(:s, :d) "
+            "ORDER BY local_date"
         ),
         {"s": start_28d, "d": day},
     ).all()
-
-    if not daily_loads_rows:
-        acute_chronic = None
-    else:
-        loads_by_date = {
-            r.local_date: float(r.hard_sets or 0) * 1.0 + float(r.exercise_min or 0) / 10.0
-            for r in daily_loads_rows
+    acute_chronic = None
+    if training:
+        loads = {
+            r.local_date: float(r.hard_sets or 0) + float(r.exercise_min or 0) / 10.0
+            for r in training
         }
-        loads_28d = [loads_by_date.get(start_28d + dt.timedelta(days=i), 0.0) for i in range(28)]
-        acute_chronic = calculate_acute_chronic(loads_28d)
+        acute_chronic = calculate_acute_chronic(
+            [loads.get(start_28d + dt.timedelta(days=i), 0.0) for i in range(28)]
+        )
 
     readiness = evaluate_readiness(
-        sleep_min=float(baseline.sleep_min)
-        if (baseline and baseline.sleep_min is not None)
-        else None,
-        rhr_z=float(baseline.rhr_z) if (baseline and baseline.rhr_z is not None) else None,
-        hrv_z=float(baseline.hrv_z) if (baseline and baseline.hrv_z is not None) else None,
-        soreness=int(checkin.soreness) if (checkin and checkin.soreness is not None) else None,
-        energy=int(checkin.energy) if (checkin and checkin.energy is not None) else None,
+        sleep_min=_num(baseline, "sleep_min"),
+        rhr_z=_num(baseline, "rhr_z"),
+        hrv_z=_num(baseline, "hrv_z"),
+        soreness=_num(checkin, "soreness", int),
+        energy=_num(checkin, "energy", int),
         acute_chronic_ratio=acute_chronic,
     )
+    return RecoveryInputs(baseline, checkin, training, acute_chronic, readiness)
 
+
+def get_recovery_snapshot(conn: Connection, day: dt.date) -> dict[str, Any]:
+    """Compute compact recovery readiness for get_context_snapshot."""
+    inputs = load_recovery_inputs(conn, day)
+    baseline = inputs.baseline
     return {
-        "flag": readiness.flag,
-        "readiness": readiness.flag,
-        "reasons": readiness.reasons,
+        "flag": inputs.readiness.flag,
+        "readiness": inputs.readiness.flag,
+        "reasons": inputs.readiness.reasons,
         "rhr_z": rnd(baseline.rhr_z, 0.01) if baseline else None,
         "hrv_z": rnd(baseline.hrv_z, 0.01) if baseline else None,
         "sleep_z": rnd(baseline.sleep_z, 0.01) if baseline else None,
@@ -262,44 +283,9 @@ def get_recovery_status(date: DateArg = None) -> dict[str, Any]:
     day = date or today()
 
     with get_engine(Role.ro).connect() as conn:
-        baseline = conn.execute(
-            text(
-                "SELECT local_date, resting_hr, rhr_mean_30d, rhr_sd_30d, rhr_z, "
-                "       hrv_rmssd_ms, hrv_mean_30d, hrv_sd_30d, hrv_z, "
-                "       sleep_min, sleep_mean_30d, sleep_sd_30d, sleep_z "
-                "FROM v_recovery_baseline WHERE local_date = :d"
-            ),
-            {"d": day},
-        ).first()
-
-        checkin = conn.execute(
-            text(
-                "SELECT energy, soreness, stress, motivation, notes FROM checkins "
-                "WHERE local_date = :d"
-            ),
-            {"d": day},
-        ).first()
-
-        start_28d = day - dt.timedelta(days=27)
-        training_rows = conn.execute(
-            text(
-                "SELECT local_date, hard_sets, tonnage_kg, exercise_min FROM v_daily "
-                "WHERE local_date BETWEEN :s AND :d ORDER BY local_date"
-            ),
-            {"s": start_28d, "d": day},
-        ).all()
-
-        if not training_rows:
-            acute_chronic = None
-        else:
-            daily_loads_map = {
-                r.local_date: float(r.hard_sets or 0) * 1.0 + float(r.exercise_min or 0) / 10.0
-                for r in training_rows
-            }
-            loads_28d = [
-                daily_loads_map.get(start_28d + dt.timedelta(days=i), 0.0) for i in range(28)
-            ]
-            acute_chronic = calculate_acute_chronic(loads_28d)
+        inputs = load_recovery_inputs(conn, day)
+        baseline, checkin, training_rows = inputs.baseline, inputs.checkin, inputs.training
+        acute_chronic, readiness = inputs.acute_chronic, inputs.readiness
 
         # 3-day and 7-day training loads
         last_3_start = day - dt.timedelta(days=2)
@@ -318,17 +304,6 @@ def get_recovery_status(date: DateArg = None) -> dict[str, Any]:
             "tonnage_kg": rnd(sum(float(r.tonnage_kg or 0) for r in rows_7d), 10),
             "exercise_min": sum(int(r.exercise_min or 0) for r in rows_7d),
         }
-
-        readiness = evaluate_readiness(
-            sleep_min=float(baseline.sleep_min)
-            if (baseline and baseline.sleep_min is not None)
-            else None,
-            rhr_z=float(baseline.rhr_z) if (baseline and baseline.rhr_z is not None) else None,
-            hrv_z=float(baseline.hrv_z) if (baseline and baseline.hrv_z is not None) else None,
-            soreness=int(checkin.soreness) if (checkin and checkin.soreness is not None) else None,
-            energy=int(checkin.energy) if (checkin and checkin.energy is not None) else None,
-            acute_chronic_ratio=acute_chronic,
-        )
 
         return {
             "date": day.isoformat(),
@@ -783,9 +758,7 @@ def compare_periods(
         f"round(avg({col})::numeric, 2) AS {col}_mean, count({col}) AS {col}_days"
         for col in metrics
     ]
-    query_sql = (
-        f"SELECT {', '.join(select_clauses)} FROM v_daily WHERE local_date BETWEEN :s AND :e"  # noqa: S608
-    )
+    query_sql = f"SELECT {', '.join(select_clauses)} FROM daily_range(:s, :e)"  # noqa: S608
 
     with get_engine(Role.ro).connect() as conn:
         row_a = conn.execute(text(query_sql), {"s": a_start, "e": a_end}).first()
@@ -823,11 +796,11 @@ def compare_periods(
 
 
 def register(server: MCPServer) -> None:
-    server.tool(annotations=READ)(audited(estimate_tdee))
-    server.tool(annotations=READ)(audited(get_nutrition_summary))
-    server.tool(annotations=READ)(audited(get_recovery_status))
-    server.tool(annotations=READ)(audited(get_sleep_analysis))
-    server.tool(annotations=READ)(audited(get_training_load))
-    server.tool(annotations=READ)(audited(get_exercise_progress))
-    server.tool(annotations=READ)(audited(get_personal_records))
-    server.tool(annotations=READ)(audited(compare_periods))
+    add_tool(server, estimate_tdee, READ)
+    add_tool(server, get_nutrition_summary, READ)
+    add_tool(server, get_recovery_status, READ)
+    add_tool(server, get_sleep_analysis, READ)
+    add_tool(server, get_training_load, READ)
+    add_tool(server, get_exercise_progress, READ)
+    add_tool(server, get_personal_records, READ)
+    add_tool(server, compare_periods, READ)

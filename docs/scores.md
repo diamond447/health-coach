@@ -3,6 +3,8 @@
 `health-coach` computes daily WHOOP-style scores to track physiological readiness, training
 exertion, and sleep need. These are computed by the worker daemon, stored in the `daily_scores`
 table, and exposed to the assistant through MCP tools (`get_scores`, `get_context_snapshot`).
+`get_scores` returns one row per day (`columns` + `rows`); the recovery component breakdown
+and the day's activities are added for a single day or with `detail=true`.
 
 ```
                     ┌───────────────────────────┐

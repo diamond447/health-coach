@@ -1,6 +1,7 @@
 import datetime as dt
 import json
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from mcp import Client
@@ -8,8 +9,10 @@ from sqlalchemy import Engine, text
 
 from health_coach.mcp_server.common import today
 from health_coach.mcp_server.server import create_server
+from tests.mcp_result import json_result
 
 pytestmark = pytest.mark.anyio
+PRAGUE = ZoneInfo("Europe/Prague")
 
 
 @pytest.fixture
@@ -20,10 +23,7 @@ def anyio_backend() -> str:
 async def call(tool: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
     async with Client(create_server()) as client:
         result = await client.call_tool(tool, args or {})
-    assert not result.is_error, result.content
-    content: dict[str, Any] | None = result.structured_content
-    assert content is not None
-    return content
+    return json_result(result)
 
 
 async def call_error(tool: str, args: dict[str, Any]) -> str:
@@ -164,6 +164,26 @@ async def test_get_data_coverage(owner: Engine) -> None:
     by_type = {r[0]: r for r in cov["coverage"]["rows"]}
     assert by_type["weight"][3] == 21
     assert by_type["sleep"][1] is None
+    assert by_type["heart_rate"][1:] == [None, None, 0]
+
+
+async def test_heart_rate_coverage_uses_local_days(owner: Engine) -> None:
+    day = today()
+    old = day - dt.timedelta(days=100)
+    with owner.begin() as conn:
+        conn.execute(
+            text("INSERT INTO heart_rate_samples (ts, bpm) VALUES (:ts, 60)"),
+            [
+                # 00:30 local time on the first day, still the previous day in UTC
+                {"ts": dt.datetime.combine(old, dt.time(0, 30), PRAGUE)},
+                {"ts": dt.datetime.combine(day - dt.timedelta(days=2), dt.time(12), PRAGUE)},
+                {"ts": dt.datetime.combine(day - dt.timedelta(days=2), dt.time(13), PRAGUE)},
+                {"ts": dt.datetime.combine(day, dt.time(0, 5), PRAGUE)},
+            ],
+        )
+    cov = await call("get_data_coverage")
+    by_type = {r[0]: r for r in cov["coverage"]["rows"]}
+    assert by_type["heart_rate"][1:] == [old.isoformat(), day.isoformat(), 2]
 
 
 async def test_daily_overview_and_range_cap(owner: Engine) -> None:
@@ -218,3 +238,64 @@ async def test_query_sql_streams_and_bounds_large_results(owner: Engine) -> None
 async def test_query_sql_keeps_percent_signs(owner: Engine) -> None:
     res = await call("query_sql", {"sql": "SELECT 'a%b' LIKE 'a%' AS ok"})
     assert res["rows"] == [[True]]
+
+
+async def test_query_sql_survives_a_terminated_backend(owner: Engine) -> None:
+    import anyio
+
+    killed = 0
+
+    def terminate() -> int:
+        with owner.connect() as conn:
+            n: int = conn.execute(
+                text(
+                    "SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity "
+                    "WHERE usename = 'coach_ro' AND state = 'active' "
+                    "AND query LIKE '%hc_query_sql%' AND pid <> pg_backend_pid()"
+                )
+            ).scalar_one()
+        return n
+
+    async def killer() -> None:
+        nonlocal killed
+        for _ in range(40):
+            await anyio.sleep(0.1)
+            killed += await anyio.to_thread.run_sync(terminate)
+            if killed:
+                return
+
+    slow = (
+        "WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM r WHERE n < 300000000) "
+        "SELECT count(*) FROM r"
+    )
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(killer)
+        msg = await call_error("query_sql", {"sql": slow})
+    assert killed == 1
+    assert "query failed: terminating connection" in msg, msg
+    # The broken connection left the pool; the next query works.
+    res = await call("query_sql", {"sql": "SELECT 1 AS one"})
+    assert res["rows"] == [[1]]
+
+
+def test_query_roles_have_resource_limits(owner: Engine) -> None:
+    with owner.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT r.rolname, r.rolconnlimit, s.setconfig FROM pg_roles r "
+                "LEFT JOIN pg_db_role_setting s ON s.setrole = r.oid AND s.setdatabase = 0 "
+                "WHERE r.rolname IN ('coach_ro', 'grafana_ro', 'coach_rw')"
+            )
+        ).all()
+    roles = {r.rolname: (r.rolconnlimit, set(r.setconfig or [])) for r in rows}
+    assert roles["coach_ro"][0] == 20
+    assert {
+        "max_parallel_workers_per_gather=0",
+        "statement_timeout=5s",
+        "idle_in_transaction_session_timeout=30s",
+        "work_mem=32MB",
+        "lock_timeout=2s",
+    } <= roles["coach_ro"][1]
+    assert roles["grafana_ro"][0] == 10
+    assert "idle_in_transaction_session_timeout=60s" in roles["grafana_ro"][1]
+    assert "idle_in_transaction_session_timeout=30s" in roles["coach_rw"][1]

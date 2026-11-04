@@ -16,6 +16,9 @@
 
 Prompts: `coach_instructions`, `weekly_review`.
 
+Every health-coach tool answers with one text block holding compact JSON (no indentation,
+no duplicate `structuredContent`). Lists of days come as `{"columns": [...], "rows": [[...]]}`.
+
 **fit**: `link_opengym`, `unlink_opengym`, `get_account`, `search_exercises`,
 `get_training_history`, `get_routines`, `get_routine`, `get_planned`, `plan_session`,
 `update_routine`, `schedule_week`, `delete_planned`, `log_session`.

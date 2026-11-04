@@ -69,16 +69,31 @@ def migrated_db(database_url: str) -> Iterator[str]:
         mp.undo()
 
 
+# Emptying ~30 tables with TRUNCATE costs ~100 ms per test (it swaps every relation
+# file); DELETE without FK triggers plus a sequence reset takes a few ms on test-sized
+# data. One round trip.
+_RESET_SQL = """
+DO $$
+DECLARE r record;
+BEGIN
+    SET LOCAL session_replication_role = replica;
+    FOR r IN SELECT tablename FROM pg_tables
+             WHERE schemaname = 'public' AND tablename <> 'alembic_version' LOOP
+        EXECUTE format('DELETE FROM %I', r.tablename);
+    END LOOP;
+    FOR r IN SELECT schemaname, sequencename FROM pg_sequences
+             WHERE schemaname = 'public' AND last_value IS NOT NULL LOOP
+        PERFORM setval(format('%I.%I', r.schemaname, r.sequencename), 1, false);
+    END LOOP;
+END
+$$
+"""
+
+
 @pytest.fixture
 def owner(migrated_db: str) -> Iterator[Engine]:
-    """Owner engine; every table is emptied after the test."""
+    """Owner engine; every table is emptied and identities restart after the test."""
     engine = get_engine(Role.owner)
     yield engine
     with engine.begin() as conn:
-        tables = conn.execute(
-            text(
-                "SELECT string_agg(quote_ident(tablename), ', ') FROM pg_tables "
-                "WHERE schemaname = 'public' AND tablename <> 'alembic_version'"
-            )
-        ).scalar_one()
-        conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+        conn.execute(text(_RESET_SQL))

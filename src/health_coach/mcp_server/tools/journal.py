@@ -19,7 +19,7 @@ from health_coach.mcp_server.common import (
     DESTRUCTIVE,
     READ,
     UPSERT,
-    audited,
+    add_tool,
     date_range,
     jsonable,
     today,
@@ -410,11 +410,11 @@ def get_profile() -> dict[str, Any]:
 
 
 def register(server: MCPServer) -> None:
-    server.tool(annotations=UPSERT)(audited(log_journal))
-    server.tool(annotations=READ)(audited(get_journal))
-    server.tool(annotations=DESTRUCTIVE)(audited(delete_journal_entry))
-    server.tool(annotations=READ)(audited(get_journal_insights))
-    server.tool(annotations=UPSERT)(audited(set_sleep_settings))
-    server.tool(annotations=READ)(audited(get_sleep_settings))
-    server.tool(annotations=UPSERT)(audited(set_profile))
-    server.tool(annotations=READ)(audited(get_profile))
+    add_tool(server, log_journal, UPSERT)
+    add_tool(server, get_journal, READ)
+    add_tool(server, delete_journal_entry, DESTRUCTIVE)
+    add_tool(server, get_journal_insights, READ)
+    add_tool(server, set_sleep_settings, UPSERT)
+    add_tool(server, get_sleep_settings, READ)
+    add_tool(server, set_profile, UPSERT)
+    add_tool(server, get_profile, READ)

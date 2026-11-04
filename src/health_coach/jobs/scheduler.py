@@ -14,11 +14,27 @@ from health_coach.jobs.runner import run_job
 log = logging.getLogger(__name__)
 
 
+# Scores are recomputed right after an ingest that brought data, instead of waiting for
+# the next scores_recent run (which stays as a safety net). At most a week back: about
+# 25 ms a day.
+SCORES_AFTER_INGEST_MAX_DAYS = 7
+
+
+def _scores_after_ingest(days_back: int) -> None:
+    from health_coach.jobs.scores import refresh_scores
+
+    refresh_scores(get_engine(Role.ingest), days_back=min(days_back, SCORES_AFTER_INGEST_MAX_DAYS))
+
+
 def opengym_workouts() -> None:
     from health_coach.ingest.opengym import sync_opengym_workouts
 
     engine = get_engine(Role.ingest)
-    run_job("opengym", "workouts", lambda: sync_opengym_workouts(engine))
+    changed: list[bool] = []
+    run_job("opengym", "workouts", lambda: changed.append(sync_opengym_workouts(engine)))
+    if any(changed):
+        # Muscular load comes from the strength sets; history edits are rare, a week is plenty.
+        _scores_after_ingest(SCORES_AFTER_INGEST_MAX_DAYS)
 
 
 def opengym_catalogue() -> None:
@@ -36,6 +52,7 @@ def google_health(days_back: int, only: tuple[str, ...] = ()) -> None:
 
     engine = get_engine(Role.ingest)
     start, end = window(days_back)
+    rows: list[int] = []
     with GoogleHealthClient(engine, get_settings()) as client:
         for spec in DATA_TYPES:
             if only and spec.name not in only:
@@ -43,9 +60,13 @@ def google_health(days_back: int, only: tuple[str, ...] = ()) -> None:
             run_job(
                 SOURCE,
                 spec.name,
-                lambda spec=spec: sync_type(client, engine, spec, start, end),  # type: ignore[misc]
+                lambda spec=spec: rows.append(  # type: ignore[misc]
+                    sync_type(client, engine, spec, start, end).rows
+                ),
                 alert_now=(ReauthRequired,),
             )
+    if any(rows):
+        _scores_after_ingest(days_back)
 
 
 def derived_snapshot() -> None:

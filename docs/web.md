@@ -162,6 +162,13 @@ The write exception adheres to strict defense-in-depth principles:
   `"can_write": false` whenever the write database URL is unset or `HC_WEB_ALLOWED_USERS` is empty,
   hiding interactive controls in the UI.
 - **Service Worker**: The PWA service worker never caches or intercepts `PUT` or `DELETE` requests.
+  On install it precaches the app shell (`/`, every hashed chunk of the build, manifest and
+  icons), skipping anything that is not a plain 200 (an expired session redirects to the
+  login page), so every screen opens offline from the first visit. API calls are
+  network-first; a copy of each JSON response is kept only as an offline fallback, for at
+  most 12 hours and 60 responses, and expired copies are deleted, never served.
+- **Code splitting**: the start screen is in the main bundle (about 16 kB gzipped); the
+  other screens are separate chunks loaded on first use.
 
 ### Public Paths (Bypassing Auth)
 
@@ -227,7 +234,7 @@ Healthstats is optimized for iOS Safari PWA standalone mode:
 
 ### Prerequisites
 
-- Node.js 20+ and npm
+- Node.js 24 (LTS) and npm
 - Python 3.12+ and `uv`
 
 ### 1. Build Frontend

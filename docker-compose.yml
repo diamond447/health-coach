@@ -19,6 +19,19 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    # Memory settings sized to mem_limit below (defaults of postgres are for 128 MB).
+    # One user and a handful of connections: parallel plans gain little and each worker
+    # gets its own work_mem, so allow at most one.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=${HC_DB_SHARED_BUFFERS:-256MB}
+      - -c
+      - effective_cache_size=${HC_DB_EFFECTIVE_CACHE_SIZE:-768MB}
+      - -c
+      - maintenance_work_mem=${HC_DB_MAINTENANCE_WORK_MEM:-64MB}
+      - -c
+      - max_parallel_workers_per_gather=${HC_DB_MAX_PARALLEL_WORKERS_PER_GATHER:-1}
     environment:
       POSTGRES_DB: health
       POSTGRES_USER: health
@@ -33,7 +46,9 @@ services:
       interval: 5s
       timeout: 5s
       retries: 12
-    mem_limit: 512m
+    mem_limit: ${HC_DB_MEM_LIMIT:-1g}
+    # Parallel hash joins and sorts use /dev/shm (Docker's default is 64 MB).
+    shm_size: ${HC_DB_SHM_SIZE:-128m}
 
   # Applies migrations and role logins, then exits. Other services wait for it.
   migrate:
@@ -64,6 +79,7 @@ services:
       HC_GOOGLE_CLIENT_ID: ${HC_GOOGLE_CLIENT_ID:-}
       HC_GOOGLE_CLIENT_SECRET: ${HC_GOOGLE_CLIENT_SECRET:-}
       HC_GOOGLE_REDIRECT_URI: ${HC_GOOGLE_REDIRECT_URI:-http://localhost:8765/callback}
+      HC_GOOGLE_RAW_HEART_RATE: ${HC_GOOGLE_RAW_HEART_RATE:-false}
       HC_OPENGYM_URL: ${HC_OPENGYM_URL:-}
       HC_OPENGYM_VERSION: ${HC_OPENGYM_VERSION:-1.4.1}
       HC_NTFY_URL: ${HC_NTFY_URL:-https://ntfy.sh}

@@ -13,7 +13,7 @@ from health_coach.db.engine import Role, get_engine
 from health_coach.mcp_server import quality
 from health_coach.mcp_server.common import (
     READ,
-    audited,
+    add_tool,
     date_range,
     jsonable,
     rnd,
@@ -60,8 +60,8 @@ def get_daily_overview(start: DateArg = None, end: DateArg = None) -> dict[str, 
     with get_engine(Role.ro).connect() as conn:
         rows = conn.execute(
             text(
-                f"SELECT {', '.join(DAILY_COLUMNS)} FROM v_daily "  # noqa: S608
-                "WHERE local_date BETWEEN :s AND :e ORDER BY local_date"
+                f"SELECT {', '.join(DAILY_COLUMNS)} FROM daily_range(:s, :e) "  # noqa: S608
+                "ORDER BY local_date"
             ),
             {"s": s, "e": e},
         ).all()
@@ -136,20 +136,20 @@ SELECT count(*) FILTER (WHERE kcal_in IS NOT NULL) AS days_logged,
        count(*) FILTER (WHERE protein_g >= target_protein_g) AS days_protein_on_target,
        round(avg(energy), 1) AS energy_avg,
        round(avg(soreness), 1) AS soreness_avg
-FROM v_daily WHERE local_date BETWEEN :s AND :e
+FROM daily_range(:s, :e)
 """
 
 
 def _week_stats(conn: Connection, start: dt.date, end: dt.date) -> dict[str, Any]:
     agg = dict(conn.execute(text(_WEEK_AGG), {"s": start, "e": end}).one()._mapping)
+    # One pass over the view instead of one per value.
     trend = conn.execute(
         text(
-            "SELECT (SELECT trend_kg FROM v_weight_trend WHERE local_date <= :e "
-            "        ORDER BY local_date DESC LIMIT 1) AS end_trend, "
-            "       (SELECT trend_kg FROM v_weight_trend WHERE local_date < :s "
-            "        ORDER BY local_date DESC LIMIT 1) AS start_trend, "
-            "       (SELECT count(*) FROM v_weight_trend WHERE local_date BETWEEN :s AND :e) "
-            "        AS weigh_ins"
+            "SELECT (array_agg(trend_kg ORDER BY local_date DESC))[1] AS end_trend, "
+            "       (array_agg(trend_kg ORDER BY local_date DESC) "
+            "            FILTER (WHERE local_date < :s))[1] AS start_trend, "
+            "       count(*) FILTER (WHERE local_date >= :s) AS weigh_ins "
+            "FROM v_weight_trend WHERE local_date <= :e"
         ),
         {"s": start, "e": end},
     ).one()
@@ -226,23 +226,56 @@ def get_weekly_summary(
     }
 
 
-def _fmt_duration(minutes: int | None) -> str | None:
-    if minutes is None:
-        return None
-    h, m = divmod(minutes, 60)
-    return f"{h}h {m:02d}m"
+SCORE_COLUMNS = [
+    "local_date",
+    "recovery",
+    "recovery_zone",
+    "recovery_z",
+    "flags",
+    "strain",
+    "cardio_strain",
+    "muscular_score",
+    "strain_target",
+    "cardio_load",
+    "muscular_load",
+    "zone_minutes",
+    "sleep_performance",
+    "sleep_need_min",
+    "sleep_actual_min",
+    "sleep_debt_min",
+    "sleep_efficiency",
+    "sleep_consistency",
+    "planned_bedtime",
+    "planned_wake",
+    "algo_version",
+]
+# Per-day breakdowns, several hundred bytes a row: only on request or for a single day.
+SCORE_DETAIL_COLUMNS = ["recovery_components", "activities"]
 
 
-def get_scores(start: DateArg = None, end: DateArg = None) -> dict[str, Any]:
+def get_scores(
+    start: DateArg = None,
+    end: DateArg = None,
+    detail: Annotated[
+        bool | None,
+        Field(
+            description="Add recovery_components and activities per day "
+            "(default: only when start = end)"
+        ),
+    ] = None,
+) -> dict[str, Any]:
     """Daily WHOOP-style recovery score (0-100), day strain (0-21, cardio strain 0-21 and
     muscular load 0-100%) and sleep need/performance.
 
-    Default: last 7 days. Returns rows with recovery score, zone ('green' >= 67, 'yellow' 34-66,
-    'red' <= 33), z-score, component breakdown, flags, strain, cardio strain, muscular score,
-    target range, cardio/muscular loads, zone minutes, activities, and
-    sleep need/actual/debt/performance/efficiency/consistency.
+    Default: last 7 days, one row per day: recovery score, zone ('green' >= 67,
+    'yellow' 34-66, 'red' <= 33), z-score, flags, strain, cardio strain, muscular score,
+    target range, cardio/muscular loads, zone minutes and sleep need/actual/debt (minutes),
+    performance, efficiency and consistency. With detail, also the recovery component
+    breakdown and the day's activities.
     """
     s, e = date_range(start, end)
+    if detail is None:
+        detail = s == e
     from health_coach.analytics.scores import calculate_strain_from_load, recovery_zone
 
     with get_engine(Role.ro).connect() as conn:
@@ -254,58 +287,34 @@ def get_scores(start: DateArg = None, end: DateArg = None) -> dict[str, Any]:
                 "       strain_target_low, strain_target_high, sleep_need_min, "
                 "       sleep_actual_min, sleep_debt_min, sleep_performance, "
                 "       sleep_efficiency, sleep_consistency, planned_bedtime, "
-                "       planned_wake, inputs, algo_version "
+                "       planned_wake, algo_version "
                 "FROM daily_scores WHERE local_date BETWEEN :s AND :e "
                 "ORDER BY local_date"
             ),
             {"s": s, "e": e},
         ).all()
 
-        formatted_rows: list[dict[str, Any]] = []
+        days: list[dict[str, Any]] = []
         for r in rows:
-            formatted_rows.append(
-                {
-                    "local_date": r.local_date.isoformat(),
-                    "recovery": r.recovery,
-                    "recovery_zone": recovery_zone(r.recovery),
-                    "recovery_z": jsonable(r.recovery_z),
-                    "recovery_components": r.recovery_components,
-                    "flags": r.flags,
-                    "strain": jsonable(r.strain),
-                    "cardio_strain": (
-                        calculate_strain_from_load(float(r.cardio_load))
-                        if r.cardio_load is not None
-                        else None
-                    ),
-                    "muscular_score": r.muscular_score,
-                    "strain_target": (
-                        [jsonable(r.strain_target_low), jsonable(r.strain_target_high)]
-                        if r.strain_target_low is not None
-                        else None
-                    ),
-                    "cardio_load": jsonable(r.cardio_load),
-                    "muscular_load": jsonable(r.muscular_load),
-                    "zone_minutes": r.zone_minutes,
-                    "activities": r.activities,
-                    "sleep_performance": r.sleep_performance,
-                    "sleep_need_min": r.sleep_need_min,
-                    "sleep_need": _fmt_duration(r.sleep_need_min),
-                    "sleep_actual_min": r.sleep_actual_min,
-                    "sleep_actual": _fmt_duration(r.sleep_actual_min),
-                    "sleep_debt_min": r.sleep_debt_min,
-                    "sleep_debt": _fmt_duration(r.sleep_debt_min),
-                    "sleep_efficiency": r.sleep_efficiency,
-                    "sleep_consistency": r.sleep_consistency,
-                    "planned_bedtime": jsonable(r.planned_bedtime),
-                    "planned_wake": jsonable(r.planned_wake),
-                    "algo_version": r.algo_version,
-                }
+            day = dict(r._mapping)
+            day["recovery_zone"] = recovery_zone(r.recovery)
+            day["cardio_strain"] = (
+                calculate_strain_from_load(float(r.cardio_load))
+                if r.cardio_load is not None
+                else None
             )
+            day["strain_target"] = (
+                [r.strain_target_low, r.strain_target_high]
+                if r.strain_target_low is not None
+                else None
+            )
+            days.append(day)
 
+        columns = SCORE_COLUMNS + (SCORE_DETAIL_COLUMNS if detail else [])
         return {
             "start": s.isoformat(),
             "end": e.isoformat(),
-            "rows": formatted_rows,
+            **tabular(days, columns),
             "as_of": quality.as_of(conn),
             "warnings": quality.all_warnings(conn),
         }
@@ -371,8 +380,8 @@ def get_healthspan(
 
 
 def register(server: MCPServer) -> None:
-    server.tool(annotations=READ)(audited(get_daily_overview))
-    server.tool(annotations=READ)(audited(get_weekly_summary))
-    server.tool(annotations=READ)(audited(get_weight_trend))
-    server.tool(annotations=READ)(audited(get_scores))
-    server.tool(annotations=READ)(audited(get_healthspan))
+    add_tool(server, get_daily_overview, READ)
+    add_tool(server, get_weekly_summary, READ)
+    add_tool(server, get_weight_trend, READ)
+    add_tool(server, get_scores, READ)
+    add_tool(server, get_healthspan, READ)

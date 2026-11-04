@@ -127,7 +127,11 @@ HC_TEST_DATABASE_URL=postgresql+psycopg://health:health@127.0.0.1:55433/postgres
 cd web && npm ci && npm test
 ```
 
-Database tests are skipped without `HC_TEST_DATABASE_URL`. CI runs all checks on every
+`make check` runs the same checks (lint, types, tests, web) in one go. Database tests are
+skipped without `HC_TEST_DATABASE_URL`. Use a Postgres server of its own for them: the
+tests create the app roles and reset their passwords, and roles are shared by every
+database on the server, so running them against a server another local copy uses breaks
+that copy's logins. CI runs all checks on every
 pull request and publishes `ghcr.io/diamond447/health-coach` from `main` and `v*` tags.
 
 ## Security

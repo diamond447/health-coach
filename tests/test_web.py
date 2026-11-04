@@ -533,6 +533,27 @@ def test_web_security_headers() -> None:
         assert res.headers["referrer-policy"] == "same-origin"
 
 
+def test_web_compresses_larger_responses(migrated_db: str, owner: Engine) -> None:
+    today_d = dt.date(2026, 10, 25)
+    with get_engine(Role.owner).connect() as conn:
+        _seed_test_data(conn, today_d)
+        conn.commit()
+    client = TestClient(create_app(Settings(timezone="Europe/Prague")))
+    gz = {"accept-encoding": "gzip"}
+    res = client.get("/api/trends?days=90", headers=gz)
+    assert res.status_code == 200
+    assert res.headers["content-encoding"] == "gzip"
+    assert res.headers["vary"] == "Accept-Encoding"
+    assert res.num_bytes_downloaded < len(res.content)
+    assert res.headers["x-content-type-options"] == "nosniff"  # headers survive
+    assert res.json()  # TestClient decodes it like a browser
+    # Small responses and clients without gzip get the plain body
+    assert "content-encoding" not in client.get("/healthz", headers=gz).headers
+    plain = client.get("/api/trends?days=90", headers={"accept-encoding": "identity"})
+    assert "content-encoding" not in plain.headers
+    assert plain.content == res.content
+
+
 def test_web_input_validation(migrated_db: str, owner: Engine) -> None:
     """Test 400 JSON errors for malformed date, month, period, and days clamping/validation."""
     today_d = dt.date(2026, 10, 25)
