@@ -61,6 +61,7 @@ mypy_path = "src"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+markers = ["perf: performance smoke tests on a seeded multi-year history"]
 
 [[tool.mypy.overrides]]
 module = ["apscheduler.*"]
