@@ -121,3 +121,27 @@ def test_all_jobs_with_full_configuration() -> None:
     assert jobs["google_recent"].args == (1,)
     assert jobs["google_week"].args == (7,)
     assert jobs["google_month"].args[0] == 30
+
+
+def test_all_jobs_registered_when_fully_configured() -> None:
+    settings = Settings(
+        opengym_url="http://localhost:3000",
+        token_key=SecretStr("MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="),
+        ntfy_topic=SecretStr("test-topic"),
+        google_client_id="client-id",
+        google_client_secret=SecretStr("client-secret"),
+    )
+    assert {j.id for j in build_scheduler(settings).get_jobs()} == {
+        "derived_snapshot",
+        "scores_recent",
+        "scores_week",
+        "healthspan_recent",
+        "opengym_workouts",
+        "opengym_catalogue",
+        "data_quality",
+        "morning_recovery",
+        "bedtime_reminder",
+        "google_recent",
+        "google_week",
+        "google_month",
+    }
