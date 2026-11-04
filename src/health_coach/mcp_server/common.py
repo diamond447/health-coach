@@ -10,9 +10,11 @@ from collections.abc import Callable, Mapping, Sequence
 from decimal import Decimal
 from typing import Any
 
+import pydantic_core
 from mcp.server.auth.middleware.auth_context import get_access_token
+from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
-from mcp.types import ToolAnnotations
+from mcp.types import TextContent, ToolAnnotations
 from sqlalchemy import Row, text
 
 from health_coach.config import get_settings
@@ -149,3 +151,22 @@ def audited[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
         return result
 
     return wrapper
+
+
+def compact_json(value: Any) -> str:
+    """JSON without indentation or spaces; non-ASCII text is kept as is."""
+    return pydantic_core.to_json(value, fallback=str).decode()
+
+
+def add_tool(server: MCPServer, fn: Callable[..., Any], annotations: ToolAnnotations) -> None:
+    """Register an audited tool whose result is one compact JSON text block.
+
+    The SDK would serialise a dict result with indent=2 and send it a second time as
+    structuredContent; both roughly double what the model reads for tabular results."""
+    audited_fn = audited(fn)
+
+    @functools.wraps(fn)
+    def wrapper(*args: Any, **kwargs: Any) -> TextContent:
+        return TextContent(type="text", text=compact_json(audited_fn(*args, **kwargs)))
+
+    server.add_tool(wrapper, annotations=annotations, structured_output=False)

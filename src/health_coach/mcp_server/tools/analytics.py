@@ -33,7 +33,7 @@ from health_coach.db.engine import Role, get_engine
 from health_coach.mcp_server import quality
 from health_coach.mcp_server.common import (
     READ,
-    audited,
+    add_tool,
     date_range,
     rnd,
     tabular,
@@ -823,11 +823,11 @@ def compare_periods(
 
 
 def register(server: MCPServer) -> None:
-    server.tool(annotations=READ)(audited(estimate_tdee))
-    server.tool(annotations=READ)(audited(get_nutrition_summary))
-    server.tool(annotations=READ)(audited(get_recovery_status))
-    server.tool(annotations=READ)(audited(get_sleep_analysis))
-    server.tool(annotations=READ)(audited(get_training_load))
-    server.tool(annotations=READ)(audited(get_exercise_progress))
-    server.tool(annotations=READ)(audited(get_personal_records))
-    server.tool(annotations=READ)(audited(compare_periods))
+    add_tool(server, estimate_tdee, READ)
+    add_tool(server, get_nutrition_summary, READ)
+    add_tool(server, get_recovery_status, READ)
+    add_tool(server, get_sleep_analysis, READ)
+    add_tool(server, get_training_load, READ)
+    add_tool(server, get_exercise_progress, READ)
+    add_tool(server, get_personal_records, READ)
+    add_tool(server, compare_periods, READ)

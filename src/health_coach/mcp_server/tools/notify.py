@@ -6,7 +6,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
-from health_coach.mcp_server.common import WRITE_EXTERNAL, audited
+from health_coach.mcp_server.common import WRITE_EXTERNAL, add_tool
 from health_coach.notify.ntfy import NotifyError
 from health_coach.notify.ntfy import send_notification as _send_notification
 
@@ -33,4 +33,4 @@ def send_notification(
 
 
 def register(server: MCPServer) -> None:
-    server.tool(annotations=WRITE_EXTERNAL)(audited(send_notification))
+    add_tool(server, send_notification, WRITE_EXTERNAL)

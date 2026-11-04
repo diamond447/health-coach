@@ -10,7 +10,7 @@ from sqlalchemy import text
 
 from health_coach.db.engine import Role, get_engine
 from health_coach.mcp_server import quality
-from health_coach.mcp_server.common import DATA_NOTE, READ, audited, jsonable, rnd, tabular, today
+from health_coach.mcp_server.common import DATA_NOTE, READ, add_tool, jsonable, rnd, tabular, today
 
 # One-line descriptions for get_schema. Views carry their own COMMENT in the database.
 TABLE_DOCS: dict[str, str] = {
@@ -343,6 +343,6 @@ def get_context_snapshot() -> dict[str, Any]:
 
 
 def register(server: MCPServer) -> None:
-    server.tool(annotations=READ)(audited(get_context_snapshot))
-    server.tool(annotations=READ)(audited(get_schema))
-    server.tool(annotations=READ)(audited(get_data_coverage))
+    add_tool(server, get_context_snapshot, READ)
+    add_tool(server, get_schema, READ)
+    add_tool(server, get_data_coverage, READ)

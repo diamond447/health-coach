@@ -13,7 +13,7 @@ from health_coach.db.engine import Role, get_engine
 from health_coach.mcp_server import quality
 from health_coach.mcp_server.common import (
     READ,
-    audited,
+    add_tool,
     date_range,
     jsonable,
     rnd,
@@ -371,8 +371,8 @@ def get_healthspan(
 
 
 def register(server: MCPServer) -> None:
-    server.tool(annotations=READ)(audited(get_daily_overview))
-    server.tool(annotations=READ)(audited(get_weekly_summary))
-    server.tool(annotations=READ)(audited(get_weight_trend))
-    server.tool(annotations=READ)(audited(get_scores))
-    server.tool(annotations=READ)(audited(get_healthspan))
+    add_tool(server, get_daily_overview, READ)
+    add_tool(server, get_weekly_summary, READ)
+    add_tool(server, get_weight_trend, READ)
+    add_tool(server, get_scores, READ)
+    add_tool(server, get_healthspan, READ)

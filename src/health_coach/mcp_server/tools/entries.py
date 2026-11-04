@@ -19,7 +19,7 @@ from health_coach.mcp_server.common import (
     READ_EXTERNAL,
     UPSERT,
     WRITE,
-    audited,
+    add_tool,
     jsonable,
     rnd,
     tabular,
@@ -695,11 +695,11 @@ def log_exercise_session(
 
 
 def register(server: MCPServer) -> None:
-    server.tool(annotations=READ_EXTERNAL)(audited(search_food))
-    server.tool(annotations=WRITE)(audited(save_food))
-    server.tool(annotations=WRITE)(audited(log_meal))
-    server.tool(annotations=UPSERT)(audited(update_nutrition_entry))
-    server.tool(annotations=DESTRUCTIVE)(audited(delete_nutrition_entry))
-    server.tool(annotations=WRITE)(audited(log_body_metric))
-    server.tool(annotations=UPSERT)(audited(log_checkin))
-    server.tool(annotations=WRITE)(audited(log_exercise_session))
+    add_tool(server, search_food, READ_EXTERNAL)
+    add_tool(server, save_food, WRITE)
+    add_tool(server, log_meal, WRITE)
+    add_tool(server, update_nutrition_entry, UPSERT)
+    add_tool(server, delete_nutrition_entry, DESTRUCTIVE)
+    add_tool(server, log_body_metric, WRITE)
+    add_tool(server, log_checkin, UPSERT)
+    add_tool(server, log_exercise_session, WRITE)

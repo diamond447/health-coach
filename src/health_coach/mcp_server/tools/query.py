@@ -11,7 +11,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
 from health_coach.db.engine import Role, get_engine
-from health_coach.mcp_server.common import DATA_NOTE, READ, audited, jsonable
+from health_coach.mcp_server.common import DATA_NOTE, READ, add_tool, jsonable
 from health_coach.mcp_server.sql_guard import SqlRejected, check_sql
 
 DEFAULT_ROWS = 200
@@ -93,4 +93,4 @@ def _bounded(rows: Sequence[Sequence[object]], max_rows: int) -> tuple[list[list
 
 
 def register(server: MCPServer) -> None:
-    server.tool(annotations=READ)(audited(query_sql))
+    add_tool(server, query_sql, READ)

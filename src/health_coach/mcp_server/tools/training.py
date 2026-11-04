@@ -11,7 +11,7 @@ from sqlalchemy import text
 from health_coach.db.engine import Role, get_engine
 from health_coach.mcp_server.common import (
     READ,
-    audited,
+    add_tool,
     date_range,
     tabular,
 )
@@ -70,5 +70,5 @@ def get_workout_log(
 
 
 def register(server: MCPServer) -> None:
-    server.tool(annotations=READ)(audited(search_exercises))
-    server.tool(annotations=READ)(audited(get_workout_log))
+    add_tool(server, search_exercises, READ)
+    add_tool(server, get_workout_log, READ)

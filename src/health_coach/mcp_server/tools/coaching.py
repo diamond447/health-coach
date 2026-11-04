@@ -15,7 +15,7 @@ from health_coach.mcp_server.common import (
     READ,
     UPSERT,
     WRITE,
-    audited,
+    add_tool,
     jsonable,
     tabular,
     today,
@@ -377,8 +377,8 @@ def manage_goal(
 
 
 def register(server: MCPServer) -> None:
-    server.tool(annotations=READ)(audited(get_targets))
-    server.tool(annotations=WRITE)(audited(set_targets))
-    server.tool(annotations=READ)(audited(read_coach_log))
-    server.tool(annotations=WRITE)(audited(write_coach_log))
-    server.tool(annotations=UPSERT)(audited(manage_goal))
+    add_tool(server, get_targets, READ)
+    add_tool(server, set_targets, WRITE)
+    add_tool(server, read_coach_log, READ)
+    add_tool(server, write_coach_log, WRITE)
+    add_tool(server, manage_goal, UPSERT)

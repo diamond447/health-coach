@@ -150,7 +150,7 @@ def test_valid_token_reaches_tools_and_is_audited(http_client: TestClient, owner
     }
     response = http_client.post("/mcp", json=call, headers=headers)
     assert response.status_code == 200, response.text
-    assert '"one"' in response.text
+    assert '\\"columns\\":[\\"one\\"]' in response.text  # JSON inside the text block
     with owner.connect() as conn:
         subject = conn.execute(text("SELECT subject FROM mcp_audit")).scalar_one()
     assert subject == "owner"
