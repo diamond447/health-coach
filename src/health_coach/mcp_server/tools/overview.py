@@ -226,23 +226,56 @@ def get_weekly_summary(
     }
 
 
-def _fmt_duration(minutes: int | None) -> str | None:
-    if minutes is None:
-        return None
-    h, m = divmod(minutes, 60)
-    return f"{h}h {m:02d}m"
+SCORE_COLUMNS = [
+    "local_date",
+    "recovery",
+    "recovery_zone",
+    "recovery_z",
+    "flags",
+    "strain",
+    "cardio_strain",
+    "muscular_score",
+    "strain_target",
+    "cardio_load",
+    "muscular_load",
+    "zone_minutes",
+    "sleep_performance",
+    "sleep_need_min",
+    "sleep_actual_min",
+    "sleep_debt_min",
+    "sleep_efficiency",
+    "sleep_consistency",
+    "planned_bedtime",
+    "planned_wake",
+    "algo_version",
+]
+# Per-day breakdowns, several hundred bytes a row: only on request or for a single day.
+SCORE_DETAIL_COLUMNS = ["recovery_components", "activities"]
 
 
-def get_scores(start: DateArg = None, end: DateArg = None) -> dict[str, Any]:
+def get_scores(
+    start: DateArg = None,
+    end: DateArg = None,
+    detail: Annotated[
+        bool | None,
+        Field(
+            description="Add recovery_components and activities per day "
+            "(default: only when start = end)"
+        ),
+    ] = None,
+) -> dict[str, Any]:
     """Daily WHOOP-style recovery score (0-100), day strain (0-21, cardio strain 0-21 and
     muscular load 0-100%) and sleep need/performance.
 
-    Default: last 7 days. Returns rows with recovery score, zone ('green' >= 67, 'yellow' 34-66,
-    'red' <= 33), z-score, component breakdown, flags, strain, cardio strain, muscular score,
-    target range, cardio/muscular loads, zone minutes, activities, and
-    sleep need/actual/debt/performance/efficiency/consistency.
+    Default: last 7 days, one row per day: recovery score, zone ('green' >= 67,
+    'yellow' 34-66, 'red' <= 33), z-score, flags, strain, cardio strain, muscular score,
+    target range, cardio/muscular loads, zone minutes and sleep need/actual/debt (minutes),
+    performance, efficiency and consistency. With detail, also the recovery component
+    breakdown and the day's activities.
     """
     s, e = date_range(start, end)
+    if detail is None:
+        detail = s == e
     from health_coach.analytics.scores import calculate_strain_from_load, recovery_zone
 
     with get_engine(Role.ro).connect() as conn:
@@ -254,58 +287,34 @@ def get_scores(start: DateArg = None, end: DateArg = None) -> dict[str, Any]:
                 "       strain_target_low, strain_target_high, sleep_need_min, "
                 "       sleep_actual_min, sleep_debt_min, sleep_performance, "
                 "       sleep_efficiency, sleep_consistency, planned_bedtime, "
-                "       planned_wake, inputs, algo_version "
+                "       planned_wake, algo_version "
                 "FROM daily_scores WHERE local_date BETWEEN :s AND :e "
                 "ORDER BY local_date"
             ),
             {"s": s, "e": e},
         ).all()
 
-        formatted_rows: list[dict[str, Any]] = []
+        days: list[dict[str, Any]] = []
         for r in rows:
-            formatted_rows.append(
-                {
-                    "local_date": r.local_date.isoformat(),
-                    "recovery": r.recovery,
-                    "recovery_zone": recovery_zone(r.recovery),
-                    "recovery_z": jsonable(r.recovery_z),
-                    "recovery_components": r.recovery_components,
-                    "flags": r.flags,
-                    "strain": jsonable(r.strain),
-                    "cardio_strain": (
-                        calculate_strain_from_load(float(r.cardio_load))
-                        if r.cardio_load is not None
-                        else None
-                    ),
-                    "muscular_score": r.muscular_score,
-                    "strain_target": (
-                        [jsonable(r.strain_target_low), jsonable(r.strain_target_high)]
-                        if r.strain_target_low is not None
-                        else None
-                    ),
-                    "cardio_load": jsonable(r.cardio_load),
-                    "muscular_load": jsonable(r.muscular_load),
-                    "zone_minutes": r.zone_minutes,
-                    "activities": r.activities,
-                    "sleep_performance": r.sleep_performance,
-                    "sleep_need_min": r.sleep_need_min,
-                    "sleep_need": _fmt_duration(r.sleep_need_min),
-                    "sleep_actual_min": r.sleep_actual_min,
-                    "sleep_actual": _fmt_duration(r.sleep_actual_min),
-                    "sleep_debt_min": r.sleep_debt_min,
-                    "sleep_debt": _fmt_duration(r.sleep_debt_min),
-                    "sleep_efficiency": r.sleep_efficiency,
-                    "sleep_consistency": r.sleep_consistency,
-                    "planned_bedtime": jsonable(r.planned_bedtime),
-                    "planned_wake": jsonable(r.planned_wake),
-                    "algo_version": r.algo_version,
-                }
+            day = dict(r._mapping)
+            day["recovery_zone"] = recovery_zone(r.recovery)
+            day["cardio_strain"] = (
+                calculate_strain_from_load(float(r.cardio_load))
+                if r.cardio_load is not None
+                else None
             )
+            day["strain_target"] = (
+                [r.strain_target_low, r.strain_target_high]
+                if r.strain_target_low is not None
+                else None
+            )
+            days.append(day)
 
+        columns = SCORE_COLUMNS + (SCORE_DETAIL_COLUMNS if detail else [])
         return {
             "start": s.isoformat(),
             "end": e.isoformat(),
-            "rows": formatted_rows,
+            **tabular(days, columns),
             "as_of": quality.as_of(conn),
             "warnings": quality.all_warnings(conn),
         }

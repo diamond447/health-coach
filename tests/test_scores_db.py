@@ -141,16 +141,27 @@ async def test_compute_scores_and_mcp_tools(owner: Engine) -> None:
     assert row.planned_wake is not None
     assert row.algo_version == 2
 
-    # Test MCP tool get_scores
+    # Test MCP tool get_scores: one row per day, details for a single day
     scores_res = await call("get_scores", {"start": day.isoformat(), "end": day.isoformat()})
     assert len(scores_res["rows"]) == 1
-    scored_day = scores_res["rows"][0]
+    scored_day = dict(zip(scores_res["columns"], scores_res["rows"][0], strict=True))
     assert scored_day["local_date"] == day.isoformat()
     assert scored_day["recovery_zone"] == "green"
     assert scored_day["cardio_strain"] is not None and scored_day["cardio_strain"] > 0
     assert scored_day["muscular_score"] is None
-    assert scored_day["sleep_need"] is not None  # e.g. "8h 00m"
-    assert scored_day["sleep_actual"] == "7h 30m"  # 450 min
+    assert scored_day["sleep_need_min"] is not None
+    assert scored_day["sleep_actual_min"] == 450
+    assert isinstance(scored_day["recovery_components"], dict | list)
+    assert "activities" in scored_day
+
+    # A range leaves the per-day breakdowns out unless asked for
+    week = {"start": (day - dt.timedelta(days=6)).isoformat(), "end": day.isoformat()}
+    brief = await call("get_scores", week)
+    assert "recovery_components" not in brief["columns"]
+    assert "sleep_actual_min" in brief["columns"]
+    full = await call("get_scores", {**week, "detail": True})
+    assert full["columns"][-2:] == ["recovery_components", "activities"]
+    assert len(full["rows"]) == len(brief["rows"]) == 1
 
     # Test get_context_snapshot includes scores_today with cardio_strain and muscular_score
     snap = await call("get_context_snapshot")
