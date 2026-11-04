@@ -142,14 +142,14 @@ FROM v_daily WHERE local_date BETWEEN :s AND :e
 
 def _week_stats(conn: Connection, start: dt.date, end: dt.date) -> dict[str, Any]:
     agg = dict(conn.execute(text(_WEEK_AGG), {"s": start, "e": end}).one()._mapping)
+    # One pass over the view instead of one per value.
     trend = conn.execute(
         text(
-            "SELECT (SELECT trend_kg FROM v_weight_trend WHERE local_date <= :e "
-            "        ORDER BY local_date DESC LIMIT 1) AS end_trend, "
-            "       (SELECT trend_kg FROM v_weight_trend WHERE local_date < :s "
-            "        ORDER BY local_date DESC LIMIT 1) AS start_trend, "
-            "       (SELECT count(*) FROM v_weight_trend WHERE local_date BETWEEN :s AND :e) "
-            "        AS weigh_ins"
+            "SELECT (array_agg(trend_kg ORDER BY local_date DESC))[1] AS end_trend, "
+            "       (array_agg(trend_kg ORDER BY local_date DESC) "
+            "            FILTER (WHERE local_date < :s))[1] AS start_trend, "
+            "       count(*) FILTER (WHERE local_date >= :s) AS weigh_ins "
+            "FROM v_weight_trend WHERE local_date <= :e"
         ),
         {"s": start, "e": end},
     ).one()
