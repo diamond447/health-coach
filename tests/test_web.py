@@ -419,12 +419,31 @@ def test_web_endpoints(migrated_db: str, owner: Engine) -> None:
     assert len(data["cells"]) >= 31
     assert data["stats"]["avg_recovery"] is not None
 
-    # 9. /api/journal
+    # 9. /api/journal: yesterday's evening by default, any other day of the edit window
+    # on request, with the same insights
     res = client.get(f"/api/journal?date={today_d.isoformat()}&days=60")
     assert res.status_code == 200
     data = res.json()
-    assert "yesterday" in data
-    assert len(data["yesterday"]) > 0
+    assert data["log_date"] == "2026-10-24"
+    assert data["min_log_date"] == "2026-10-11"
+    assert data["max_log_date"] == "2026-10-25"
+    assert {e["behavior"] for e in data["entries"]} == {"sauna", "alcohol"}
+
+    res = client.get(f"/api/journal?date={today_d.isoformat()}&days=60&log_date=2026-10-22")
+    assert res.status_code == 200
+    other = res.json()
+    assert other["log_date"] == "2026-10-22"
+    assert [e["behavior"] for e in other["entries"]] == ["alcohol"]
+    assert other["insights"] == data["insights"]
+
+    for log_date, status in [
+        ("2026-10-25", 200),
+        ("2026-10-11", 200),
+        ("2026-10-26", 400),
+        ("2026-10-10", 400),
+    ]:
+        res = client.get(f"/api/journal?date={today_d.isoformat()}&log_date={log_date}")
+        assert res.status_code == status, log_date
 
     # 10. /api/report
     res = client.get(f"/api/report?period=week&end={today_d.isoformat()}")
@@ -580,6 +599,7 @@ def test_web_input_validation(migrated_db: str, owner: Engine) -> None:
         "/api/nutrition?date=bad-date",
         "/api/trends?date=bad",
         "/api/journal?date=bad",
+        "/api/journal?log_date=bad",
         "/api/report?end=bad",
         "/api/activity?date=bad",
         "/api/night?date=bad",
@@ -979,7 +999,8 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     assert res.status_code == 200
     assert res.headers["cache-control"] == "no-store"
     data = res.json()
-    assert any(y["behavior"] == "alcohol" and y["amount"] == 2.0 for y in data["yesterday"])
+    assert data["log_date"] == log_day
+    assert any(e["behavior"] == "alcohol" and e["amount"] == 2.0 for e in data["entries"])
 
     with owner.connect() as conn:
         row = (
@@ -1059,6 +1080,24 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
             .one()
         )
         assert row["deleted_at"] is not None
+
+    # 6b. An older evening of the window: the reply shows that evening, the insights still
+    # end today
+    older_day = (today() - dt.timedelta(days=5)).isoformat()
+    res = client.put(
+        "/api/journal/entries",
+        json={"date": older_day, "behavior": "sauna", "amount": None},
+        headers=csrf_headers,
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["date"] == today().isoformat()
+    assert data["log_date"] == older_day
+    assert [e["behavior"] for e in data["entries"]] == ["sauna"]
+
+    res = client.get(f"/api/journal?log_date={older_day}", headers=user_header)
+    assert res.status_code == 200
+    assert [e["behavior"] for e in res.json()["entries"]] == ["sauna"]
 
     # 7. Delete 404 (already deleted or nonexistent)
     res = client.delete(

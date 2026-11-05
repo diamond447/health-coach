@@ -24,7 +24,9 @@ describe("JournalScreen interactive writing", () => {
     ...fixtures.journal,
     can_write: true,
     log_date: "2026-10-24",
-    yesterday: [
+    min_log_date: "2026-10-11",
+    max_log_date: "2026-10-25",
+    entries: [
       {
         behavior: "sauna",
         name: "Sauna",
@@ -87,8 +89,8 @@ describe("JournalScreen interactive writing", () => {
       .mockImplementation(async (_method, _url, body: any) => ({
         data: {
           ...baseJournal,
-          yesterday: [
-            ...baseJournal.yesterday,
+          entries: [
+            ...baseJournal.entries,
             {
               behavior: body.behavior,
               name: "Jídlo < 2 h před spaním",
@@ -452,5 +454,185 @@ describe("JournalScreen interactive writing", () => {
     // 404 treated as success: no error line, sauna marked inactive
     expect(root.textContent).not.toContain("Nepodařilo se uložit, zkus to znovu");
     expect(saunaBtn?.getAttribute("aria-pressed")).toBe("false");
+  });
+});
+
+describe("JournalScreen day switching", () => {
+  const root = document.createElement("div");
+  beforeEach(() => {
+    document.body.appendChild(root);
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    render(null, root);
+    root.remove();
+    vi.restoreAllMocks();
+  });
+
+  const day24: JournalResponse = {
+    ...fixtures.journal,
+    can_write: true,
+    log_date: "2026-10-24",
+    min_log_date: "2026-10-11",
+    max_log_date: "2026-10-25",
+    entries: [{ behavior: "alcohol", name: "Alkohol", amount: 2, note: null, active: true }],
+  };
+  const day23: JournalResponse = { ...day24, log_date: "2026-10-23", entries: [] };
+
+  const ok = <T,>(data: T) => ({
+    data,
+    error: null,
+    asOf: null,
+    isOffline: false,
+    sessionExpired: false,
+  });
+
+  // Serves the evening the URL asks for; without log_date, yesterday's.
+  const serveDays = (...days: JournalResponse[]) =>
+    vi.spyOn(api, "apiFetch").mockImplementation(async (path: string) => {
+      const asked = new URLSearchParams(path.split("?")[1]).get("log_date") ?? days[0].log_date;
+      const day = days.find((d) => d.log_date === asked);
+      return day ? ok(day) : { ...ok(null), error: "Not found" };
+    });
+
+  const settle = async () => {
+    await act(async () => {
+      await Promise.resolve();
+    });
+  };
+  const button = (label: string) =>
+    root.querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement;
+  const chip = (name: string) =>
+    Array.from(root.querySelectorAll("button")).find((b) => b.textContent === name);
+
+  it("goes to the previous evening and logs there", async () => {
+    const fetchSpy = serveDays(day24, day23);
+    const sendSpy = vi.spyOn(api, "apiSend").mockResolvedValue(ok({ ...day23, entries: [] }));
+
+    await act(async () => {
+      render(<JournalScreen date="2026-10-25" />, root);
+    });
+    await settle();
+    expect(root.textContent).toContain("Včera, so 24. 10.");
+
+    await act(async () => {
+      button("Předchozí den").click();
+    });
+    await settle();
+
+    expect(fetchSpy).toHaveBeenLastCalledWith("/api/journal?days=60&log_date=2026-10-23");
+    expect(root.textContent).toContain("Pá 23. 10.");
+    expect(root.textContent).toContain("Klepnutím zapíšeš večer pá 23. 10. Jiné věci");
+    expect(button("Zvýšit Alkohol")).toBeNull();
+
+    await act(async () => {
+      chip("Sauna")?.click();
+    });
+    expect(sendSpy).toHaveBeenCalledWith("PUT", "/api/journal/entries", {
+      date: "2026-10-23",
+      behavior: "sauna",
+      amount: null,
+      note: null,
+    });
+  });
+
+  it("stops at today and at the oldest day of the window", async () => {
+    serveDays({ ...day24, log_date: "2026-10-25" });
+    await act(async () => {
+      render(<JournalScreen date="2026-10-25" />, root);
+    });
+    await settle();
+    expect(root.textContent).toContain("Dnes, ne 25. 10.");
+    expect(root.textContent).toContain("Klepnutím zapíšeš dnešní večer.");
+    expect(button("Další den").disabled).toBe(true);
+    expect(button("Předchozí den").disabled).toBe(false);
+
+    render(null, root);
+    vi.restoreAllMocks();
+    serveDays({ ...day24, log_date: "2026-10-11" });
+    await act(async () => {
+      render(<JournalScreen date="2026-10-25" />, root);
+    });
+    await settle();
+    expect(button("Předchozí den").disabled).toBe(true);
+    expect(button("Další den").disabled).toBe(false);
+  });
+
+  it("saves a pending stepper change for its own evening when switching", async () => {
+    serveDays(day24, day23);
+    let finishPut: (value: ReturnType<typeof ok<JournalResponse>>) => void = () => {};
+    const sendSpy = vi.spyOn(api, "apiSend").mockImplementation(
+      () => new Promise((resolve) => (finishPut = resolve))
+    );
+
+    await act(async () => {
+      render(<JournalScreen date="2026-10-25" />, root);
+    });
+    await settle();
+
+    await act(async () => {
+      button("Zvýšit Alkohol").click();
+    });
+    await act(async () => {
+      button("Předchozí den").click();
+    });
+    await settle();
+
+    // Sent at once, for the 24th, without waiting for the debounce
+    expect(sendSpy).toHaveBeenCalledWith("PUT", "/api/journal/entries", {
+      date: "2026-10-24",
+      behavior: "alcohol",
+      amount: 3,
+      note: null,
+    });
+    expect(root.textContent).toContain("Pá 23. 10.");
+
+    // The reply for the 24th does not replace the 23rd on screen
+    await act(async () => {
+      finishPut(ok({ ...day24, entries: [{ ...day24.entries[0], amount: 3 }] }));
+    });
+    await settle();
+    expect(root.textContent).toContain("Pá 23. 10.");
+    expect(button("Zvýšit Alkohol")).toBeNull();
+  });
+
+  it("keeps the shown evening when the other day fails to load", async () => {
+    serveDays(day24);
+    await act(async () => {
+      render(<JournalScreen date="2026-10-25" />, root);
+    });
+    await settle();
+
+    await act(async () => {
+      button("Předchozí den").click();
+    });
+    await settle();
+
+    expect(root.textContent).toContain("Včera, so 24. 10.");
+    expect(chip("Alkohol")?.disabled).toBe(false);
+  });
+
+  it("saves a pending stepper change when leaving the screen", async () => {
+    serveDays(day24);
+    const sendSpy = vi.spyOn(api, "apiSend").mockResolvedValue(ok(day24));
+    await act(async () => {
+      render(<JournalScreen date="2026-10-25" />, root);
+    });
+    await settle();
+
+    await act(async () => {
+      button("Zvýšit Alkohol").click();
+    });
+    await act(async () => {
+      render(null, root);
+    });
+
+    expect(sendSpy).toHaveBeenCalledWith("PUT", "/api/journal/entries", {
+      date: "2026-10-24",
+      behavior: "alcohol",
+      amount: 3,
+      note: null,
+    });
   });
 });

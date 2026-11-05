@@ -32,7 +32,7 @@ from starlette.routing import Route
 from health_coach import __version__
 from health_coach.config import Settings, get_settings
 from health_coach.db.engine import Role, get_engine
-from health_coach.journal import BEHAVIOR_RE
+from health_coach.journal import BEHAVIOR_RE, WEB_LOG_WINDOW_DAYS
 from health_coach.mcp_server.common import jsonable, today
 from health_coach.web import queries
 
@@ -192,8 +192,8 @@ def _validate_journal_date(date_str: Any) -> dt.date:
     today_val = today()
     if parsed > today_val:
         raise ValueError("Date cannot be in the future")
-    if parsed < today_val - dt.timedelta(days=14):
-        raise ValueError("Date cannot be older than 14 days")
+    if parsed < today_val - dt.timedelta(days=WEB_LOG_WINDOW_DAYS):
+        raise ValueError(f"Date cannot be older than {WEB_LOG_WINDOW_DAYS} days")
     return parsed
 
 
@@ -392,18 +392,23 @@ def api_calendar(request: Request) -> Response:
 def api_journal(request: Request) -> Response:
     try:
         date_param = _parse_date(request.query_params.get("date"))
+        log_date_param = _parse_date(request.query_params.get("log_date"))
         days = _parse_days(request.query_params.get("days"), default=60)
     except ValueError as e:
         return _bad_request(str(e))
     settings = getattr(request.app.state, "settings", None) or get_settings()
     can_write = settings.web_journal_database_url is not None and bool(settings.web_allowed_users)
-    with get_engine(Role.ro).connect() as conn:
-        data = queries.query_journal(
-            conn,
-            days=days,
-            date_str=date_param,
-            can_write=can_write,
-        )
+    try:
+        with get_engine(Role.ro).connect() as conn:
+            data = queries.query_journal(
+                conn,
+                days=days,
+                date_str=date_param,
+                can_write=can_write,
+                log_date_str=log_date_param,
+            )
+    except ValueError as e:
+        return _bad_request(str(e))
     return JSONResponse(jsonable(data))
 
 
@@ -479,13 +484,12 @@ async def api_journal_entries(request: Request) -> Response:
                     ),
                     {"d": entry_date, "b": behavior, "amt": amount, "note": note},
                 )
-            screen_date = entry_date + dt.timedelta(days=1)
             with get_engine(Role.ro).connect() as conn:
                 return queries.query_journal(
                     conn,
                     days=60,
-                    date_str=screen_date.isoformat(),
                     can_write=True,
+                    log_date_str=entry_date.isoformat(),
                 )
 
         data = await run_in_threadpool(_do_write)

@@ -1,9 +1,10 @@
 {
   "date": "2026-10-25",
-  "yesterday_date": "2026-10-24",
-  "yesterday_weekday": "so",
+  "log_date": "2026-10-24",
+  "min_log_date": "2026-10-11",
+  "max_log_date": "2026-10-25",
   "logged_time": "15:45",
-  "yesterday": [
+  "entries": [
     {
       "behavior": "sauna",
       "name": "Sauna",
@@ -44,7 +45,6 @@
     }
   ],
   "can_write": false,
-  "log_date": "2026-10-24",
   "options": [
     {
       "behavior": "alcohol",

@@ -9,9 +9,9 @@ from sqlalchemy import Connection, text
 
 from health_coach.analytics.journal import compute_journal_insights
 from health_coach.config import get_settings
-from health_coach.journal import BEHAVIOR_LABELS, JOURNAL_OPTIONS
+from health_coach.journal import BEHAVIOR_LABELS, JOURNAL_OPTIONS, WEB_LOG_WINDOW_DAYS
 from health_coach.mcp_server import quality
-from health_coach.web.queries._common import CZECH_WEEKDAYS, _parse_date
+from health_coach.web.queries._common import _parse_date
 
 
 def query_journal(
@@ -19,13 +19,28 @@ def query_journal(
     days: int = 60,
     date_str: str | None = None,
     can_write: bool | None = None,
+    log_date_str: str | None = None,
 ) -> dict[str, Any]:
-    target_date = _parse_date(date_str)
-    yesterday_date = target_date - dt.timedelta(days=1)
-    start_date = target_date - dt.timedelta(days=days)
+    """Entries of one evening plus the habit insights.
 
-    # 1. Yesterday's entries
-    y_rows = (
+    date_str is the screen's today, where the insights end. log_date_str picks the evening
+    shown, yesterday's by default; it must lie between date_str and WEB_LOG_WINDOW_DAYS
+    before it (the days the app can edit), otherwise ValueError.
+    """
+    target_date = _parse_date(date_str)
+    start_date = target_date - dt.timedelta(days=days)
+    min_log_date = target_date - dt.timedelta(days=WEB_LOG_WINDOW_DAYS)
+    if log_date_str:
+        log_date = _parse_date(log_date_str)
+        if log_date > target_date:
+            raise ValueError("log_date cannot be in the future")
+        if log_date < min_log_date:
+            raise ValueError(f"log_date cannot be older than {WEB_LOG_WINDOW_DAYS} days")
+    else:
+        log_date = target_date - dt.timedelta(days=1)
+
+    # 1. Entries of the evening shown
+    day_rows = (
         conn.execute(
             text(
                 "SELECT behavior, amount, note, source, created_at "
@@ -33,17 +48,17 @@ def query_journal(
                 "WHERE local_date = :d AND deleted_at IS NULL "
                 "ORDER BY id"
             ),
-            {"d": yesterday_date},
+            {"d": log_date},
         )
         .mappings()
         .all()
     )
 
     logged_time: str | None = None
-    y_map: dict[str, dict[str, Any]] = {}
-    for r in y_rows:
+    entries: dict[str, dict[str, Any]] = {}
+    for r in day_rows:
         b = r["behavior"]
-        y_map[b] = {
+        entries[b] = {
             "behavior": b,
             "name": BEHAVIOR_LABELS.get(b, b.replace("_", " ").capitalize()),
             "amount": float(r["amount"]) if r["amount"] is not None else None,
@@ -54,9 +69,6 @@ def query_journal(
             tz = get_settings().tz
             local_ts = r["created_at"].astimezone(tz)
             logged_time = f"{local_ts.hour:02d}:{local_ts.minute:02d}"
-
-    # Build yesterday list with active + some known inactive behaviors for chip display
-    yesterday_chips: list[dict[str, Any]] = list(y_map.values())
 
     # 2. Insights over lookback days
     entry_rows = conn.execute(
@@ -115,14 +127,14 @@ def query_journal(
 
     return {
         "date": target_date.isoformat(),
-        "yesterday_date": yesterday_date.isoformat(),
-        "yesterday_weekday": CZECH_WEEKDAYS[yesterday_date.weekday()],
+        "log_date": log_date.isoformat(),
+        "min_log_date": min_log_date.isoformat(),
+        "max_log_date": target_date.isoformat(),
         "logged_time": logged_time,
-        "yesterday": yesterday_chips,
+        "entries": list(entries.values()),
         "insights": insights_formatted,
         "insufficient": insufficient_formatted,
         "can_write": can_write,
-        "log_date": yesterday_date.isoformat(),
         "options": JOURNAL_OPTIONS,
         "as_of": quality.as_of(conn),
     }

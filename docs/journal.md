@@ -108,7 +108,11 @@ Settings stored in the `app_settings` table override default environment configu
 Instead of typing yesterday's evening habits to the coach in Claude, you can tap them directly
 in the Healthstats PWA on the **Deník (`/denik`)** screen:
 
-- **Quick Toggles**: Tapping a habit chip toggles it on or off for yesterday's date.
+- **Quick Toggles**: Tapping a habit chip toggles it on or off for the evening shown,
+  yesterday's by default.
+- **Day Switching**: The `‹` / `›` arrows step through the evenings the app can edit, from
+  today back 14 days (the same window the write API accepts), to log a forgotten evening or
+  tonight's habits before bed.
 - **Inline Stepper**: For countable habits (`alcohol` in drinks, `caffeine_late` in cups),
   activating the chip displays an inline stepper (`−` / value / `+`, step 1, min 1). Changes
   are debounced and saved automatically after ~600 ms.

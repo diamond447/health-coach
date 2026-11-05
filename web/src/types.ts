@@ -402,18 +402,23 @@ export interface JournalOption {
   unit: string | null;
 }
 
+export interface JournalEntry {
+  behavior: string;
+  name: string;
+  amount: number | null;
+  note: string | null;
+  active: boolean;
+}
+
 export interface JournalResponse {
   date: string;
-  yesterday_date: string;
-  yesterday_weekday: string;
+  /** The evening shown; entries belong to it. */
+  log_date: string;
+  /** Oldest and newest evening the app can show and edit. */
+  min_log_date: string;
+  max_log_date: string;
   logged_time: string | null;
-  yesterday: {
-    behavior: string;
-    name: string;
-    amount: number | null;
-    note: string | null;
-    active: boolean;
-  }[];
+  entries: JournalEntry[];
   insights: {
     behavior: string;
     name: string;
@@ -429,7 +434,6 @@ export interface JournalResponse {
     without_count: number;
   }[];
   can_write: boolean;
-  log_date: string;
   options: JournalOption[];
   as_of: string | null;
 }
