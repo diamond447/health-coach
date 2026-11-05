@@ -7,6 +7,9 @@ from typing import Any
 
 BEHAVIOR_RE = re.compile(r"^[a-z][a-z0-9_]{1,39}$")
 
+# The web app can show, log and remove entries for today and this many days back.
+WEB_LOG_WINDOW_DAYS = 14
+
 KNOWN_BEHAVIORS: tuple[tuple[str, str], ...] = (
     ("alcohol", "Standard drinks consumed (amount = standard drinks)"),
     ("caffeine_late", "Caffeine consumed after 14:00"),

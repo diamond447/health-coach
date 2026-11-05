@@ -61,9 +61,10 @@ durations (`7 h 12 min`), and standard WHOOP-style color coding:
 - **Kalendář (`/kalendar`)**: Interactive month calendar with metric toggle (Recovery,
   Spánek, Strain), color-coded daily tiles, month statistics (average recovery, green/yellow/red
   counts, average sleep, ending sleep debt, total workouts).
-- **Deník (`/denik`)**: Habit impact analysis over the last 60 days. Shows yesterday's
-  habits (tappable to log or remove when write access is enabled) and two-sided recovery
-  impact bars showing the difference in next-day recovery with and without each habit.
+- **Deník (`/denik`)**: Habit impact analysis over the last 60 days. Shows one evening's
+  habits, yesterday's by default, with "‹" and "›" to switch between today and 14 days back
+  (tappable to log or remove when write access is enabled), and two-sided recovery impact
+  bars showing the difference in next-day recovery with and without each habit.
 - **Týdenní přehled (`/prehled`)**: Weekly or monthly review card comparing metrics to the
   previous period (including total strain, cardio and muscular averages), daily recovery bars, best
   and worst days, volume of hard sets per muscle group, and the weekly coaching review text from the
@@ -115,8 +116,8 @@ All daily time-series and intraday charts use a shared SVG component (`TimeChart
 - `GET /api/trends?date=YYYY-MM-DD&days=30`: trends over 7, 30, or 90 days for recovery, HRV, RHR,
   sleep, strain, weight, and calories.
 - `GET /api/calendar?month=YYYY-MM`: monthly calendar cells with recovery/sleep/strain data.
-- `GET /api/journal?date=YYYY-MM-DD&days=60`: habit impact on next-day recovery, tappable options, and write status.
-- `PUT /api/journal/entries`: upsert a journal entry for `date` (body: `{"date": "YYYY-MM-DD", "behavior": "alcohol", "amount": 2 | null, "note": "..." | null}`). Returns the refreshed `/api/journal` payload for the date shown.
+- `GET /api/journal?date=YYYY-MM-DD&days=60&log_date=YYYY-MM-DD`: habit impact on next-day recovery, the entries of one evening (`log_date`, yesterday by default; at most 14 days before `date`, else 400), the editable range (`min_log_date`, `max_log_date`), tappable options, and write status.
+- `PUT /api/journal/entries`: upsert a journal entry for `date` (body: `{"date": "YYYY-MM-DD", "behavior": "alcohol", "amount": 2 | null, "note": "..." | null}`). Returns the refreshed `/api/journal` payload for that evening.
 - `DELETE /api/journal/entries?date=YYYY-MM-DD&behavior=alcohol`: soft-delete an entry.
 - `GET /api/report?period=week|month&end=YYYY-MM-DD`: weekly/monthly comparative review and coaching note.
 - `GET /api/healthspan?weeks=26`: biological age and pace of aging factor breakdown.

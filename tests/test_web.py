@@ -419,12 +419,31 @@ def test_web_endpoints(migrated_db: str, owner: Engine) -> None:
     assert len(data["cells"]) >= 31
     assert data["stats"]["avg_recovery"] is not None
 
-    # 9. /api/journal
+    # 9. /api/journal: yesterday's evening by default, any other day of the edit window
+    # on request, with the same insights
     res = client.get(f"/api/journal?date={today_d.isoformat()}&days=60")
     assert res.status_code == 200
     data = res.json()
-    assert "yesterday" in data
-    assert len(data["yesterday"]) > 0
+    assert data["log_date"] == "2026-10-24"
+    assert data["min_log_date"] == "2026-10-11"
+    assert data["max_log_date"] == "2026-10-25"
+    assert {e["behavior"] for e in data["entries"]} == {"sauna", "alcohol"}
+
+    res = client.get(f"/api/journal?date={today_d.isoformat()}&days=60&log_date=2026-10-22")
+    assert res.status_code == 200
+    other = res.json()
+    assert other["log_date"] == "2026-10-22"
+    assert [e["behavior"] for e in other["entries"]] == ["alcohol"]
+    assert other["insights"] == data["insights"]
+
+    for log_date, status in [
+        ("2026-10-25", 200),
+        ("2026-10-11", 200),
+        ("2026-10-26", 400),
+        ("2026-10-10", 400),
+    ]:
+        res = client.get(f"/api/journal?date={today_d.isoformat()}&log_date={log_date}")
+        assert res.status_code == status, log_date
 
     # 10. /api/report
     res = client.get(f"/api/report?period=week&end={today_d.isoformat()}")
@@ -580,6 +599,7 @@ def test_web_input_validation(migrated_db: str, owner: Engine) -> None:
         "/api/nutrition?date=bad-date",
         "/api/trends?date=bad",
         "/api/journal?date=bad",
+        "/api/journal?log_date=bad",
         "/api/report?end=bad",
         "/api/activity?date=bad",
         "/api/night?date=bad",
@@ -790,6 +810,9 @@ def test_api_healthspan(migrated_db: str, owner: Engine) -> None:
 
 
 def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> None:
+    # Writes only accept the last 14 days, so the test logs relative to today.
+    log_day = (today() - dt.timedelta(days=1)).isoformat()
+
     # Dev mode: web_allowed_users is empty -> write routes return 403
     dev_settings = Settings(
         database_url=migrated_db,
@@ -806,14 +829,14 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     }
     res = dev_client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol"},
+        json={"date": log_day, "behavior": "alcohol"},
         headers=dev_csrf_headers,
     )
     assert res.status_code == 403
     assert res.json()["error"] == "forbidden"
 
     res = dev_client.delete(
-        "/api/journal/entries?date=2026-10-25&behavior=alcohol",
+        f"/api/journal/entries?date={log_day}&behavior=alcohol",
         headers={"Origin": "http://testserver", "X-Healthstats": "1"},
     )
     assert res.status_code == 403
@@ -855,7 +878,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Missing Origin and Referer
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 2},
+        json={"date": log_day, "behavior": "alcohol", "amount": 2},
         headers={"X-Healthstats": "1", "Content-Type": "application/json"},
     )
     assert res.status_code == 403
@@ -864,7 +887,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Foreign Origin
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 2},
+        json={"date": log_day, "behavior": "alcohol", "amount": 2},
         headers={
             "Origin": "http://evil.com",
             "X-Healthstats": "1",
@@ -877,7 +900,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Foreign Referer when Origin is absent
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 2},
+        json={"date": log_day, "behavior": "alcohol", "amount": 2},
         headers={
             "Referer": "http://evil.com/page",
             "X-Healthstats": "1",
@@ -889,7 +912,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Missing custom header X-Healthstats
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 2},
+        json={"date": log_day, "behavior": "alcohol", "amount": 2},
         headers={"Origin": "http://testserver", "Content-Type": "application/json"},
     )
     assert res.status_code == 403
@@ -905,7 +928,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Referer matching Host when Origin is absent passes CSRF
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 2},
+        json={"date": log_day, "behavior": "alcohol", "amount": 2},
         headers={
             "Referer": "http://testserver/denik",
             "X-Healthstats": "1",
@@ -918,7 +941,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Scheme mismatch: expected http, received https
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 2},
+        json={"date": log_day, "behavior": "alcohol", "amount": 2},
         headers={**csrf_headers, "Origin": "https://testserver"},
     )
     assert res.status_code == 403
@@ -927,7 +950,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Scheme match with X-Forwarded-Proto
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 2},
+        json={"date": log_day, "behavior": "alcohol", "amount": 2},
         headers={
             **csrf_headers,
             "Origin": "https://testserver",
@@ -939,7 +962,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Scheme mismatch with X-Forwarded-Proto
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 2},
+        json={"date": log_day, "behavior": "alcohol", "amount": 2},
         headers={
             **csrf_headers,
             "Origin": "http://testserver",
@@ -951,14 +974,14 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # 3. CSRF checks on DELETE
     # Missing custom header
     res = client.delete(
-        "/api/journal/entries?date=2026-10-25&behavior=alcohol",
+        f"/api/journal/entries?date={log_day}&behavior=alcohol",
         headers={"Origin": "http://testserver", "X-authentik-username": "testuser"},
     )
     assert res.status_code == 403
 
     # Foreign Origin
     res = client.delete(
-        "/api/journal/entries?date=2026-10-25&behavior=alcohol",
+        f"/api/journal/entries?date={log_day}&behavior=alcohol",
         headers={
             "Origin": "http://evil.com",
             "X-Healthstats": "1",
@@ -970,20 +993,21 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # 4. Upsert (PUT) and verify source is 'web'
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 2, "note": "beer"},
+        json={"date": log_day, "behavior": "alcohol", "amount": 2, "note": "beer"},
         headers=csrf_headers,
     )
     assert res.status_code == 200
     assert res.headers["cache-control"] == "no-store"
     data = res.json()
-    assert any(y["behavior"] == "alcohol" and y["amount"] == 2.0 for y in data["yesterday"])
+    assert data["log_date"] == log_day
+    assert any(e["behavior"] == "alcohol" and e["amount"] == 2.0 for e in data["entries"])
 
     with owner.connect() as conn:
         row = (
             conn.execute(
                 text(
                     "SELECT source, amount, note, deleted_at FROM journal_entries "
-                    "WHERE local_date = '2026-10-25' AND behavior = 'alcohol'"
+                    f"WHERE local_date = '{log_day}' AND behavior = 'alcohol'"
                 )
             )
             .mappings()
@@ -997,7 +1021,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # 5. Update amount (PUT again)
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 4, "note": "wine"},
+        json={"date": log_day, "behavior": "alcohol", "amount": 4, "note": "wine"},
         headers=csrf_headers,
     )
     assert res.status_code == 200
@@ -1006,7 +1030,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
             conn.execute(
                 text(
                     "SELECT source, amount, note FROM journal_entries "
-                    "WHERE local_date = '2026-10-25' AND behavior = 'alcohol'"
+                    f"WHERE local_date = '{log_day}' AND behavior = 'alcohol'"
                 )
             )
             .mappings()
@@ -1019,7 +1043,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # 5b. The app's stepper sends note null: an existing note is kept
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 5, "note": None},
+        json={"date": log_day, "behavior": "alcohol", "amount": 5, "note": None},
         headers=csrf_headers,
     )
     assert res.status_code == 200
@@ -1027,7 +1051,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
         kept = conn.execute(
             text(
                 "SELECT amount, note FROM journal_entries "
-                "WHERE local_date = '2026-10-25' AND behavior = 'alcohol'"
+                f"WHERE local_date = '{log_day}' AND behavior = 'alcohol'"
             )
         ).one()
         assert (kept.amount, kept.note) == (5, "wine")
@@ -1039,7 +1063,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
         "X-authentik-username": "testuser",
     }
     res = client.delete(
-        "/api/journal/entries?date=2026-10-25&behavior=alcohol",
+        f"/api/journal/entries?date={log_day}&behavior=alcohol",
         headers=delete_headers,
     )
     assert res.status_code == 200
@@ -1049,7 +1073,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
             conn.execute(
                 text(
                     "SELECT deleted_at FROM journal_entries "
-                    "WHERE local_date = '2026-10-25' AND behavior = 'alcohol'"
+                    f"WHERE local_date = '{log_day}' AND behavior = 'alcohol'"
                 )
             )
             .mappings()
@@ -1057,16 +1081,34 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
         )
         assert row["deleted_at"] is not None
 
+    # 6b. An older evening of the window: the reply shows that evening, the insights still
+    # end today
+    older_day = (today() - dt.timedelta(days=5)).isoformat()
+    res = client.put(
+        "/api/journal/entries",
+        json={"date": older_day, "behavior": "sauna", "amount": None},
+        headers=csrf_headers,
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["date"] == today().isoformat()
+    assert data["log_date"] == older_day
+    assert [e["behavior"] for e in data["entries"]] == ["sauna"]
+
+    res = client.get(f"/api/journal?log_date={older_day}", headers=user_header)
+    assert res.status_code == 200
+    assert [e["behavior"] for e in res.json()["entries"]] == ["sauna"]
+
     # 7. Delete 404 (already deleted or nonexistent)
     res = client.delete(
-        "/api/journal/entries?date=2026-10-25&behavior=alcohol",
+        f"/api/journal/entries?date={log_day}&behavior=alcohol",
         headers=delete_headers,
     )
     assert res.status_code == 404
     assert res.json()["error"] == "not_found"
 
     res = client.delete(
-        "/api/journal/entries?date=2026-10-25&behavior=sauna",
+        f"/api/journal/entries?date={log_day}&behavior=sauna",
         headers=delete_headers,
     )
     assert res.status_code == 404
@@ -1075,7 +1117,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Bad behavior
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "Invalid-Behavior!"},
+        json={"date": log_day, "behavior": "Invalid-Behavior!"},
         headers=csrf_headers,
     )
     assert res.status_code == 400
@@ -1084,7 +1126,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Bad amount (< 0)
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": -1},
+        json={"date": log_day, "behavior": "alcohol", "amount": -1},
         headers=csrf_headers,
     )
     assert res.status_code == 400
@@ -1092,7 +1134,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Bad amount (> 9999.99)
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 10000},
+        json={"date": log_day, "behavior": "alcohol", "amount": 10000},
         headers=csrf_headers,
     )
     assert res.status_code == 400
@@ -1100,7 +1142,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Amount as string "2"
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": "2"},
+        json={"date": log_day, "behavior": "alcohol", "amount": "2"},
         headers=csrf_headers,
     )
     assert res.status_code == 400
@@ -1108,7 +1150,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Amount as string "NaN"
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": "NaN"},
+        json={"date": log_day, "behavior": "alcohol", "amount": "NaN"},
         headers=csrf_headers,
     )
     assert res.status_code == 400
@@ -1116,7 +1158,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # NaN literal in JSON body
     res = client.put(
         "/api/journal/entries",
-        content=b'{"date": "2026-10-25", "behavior": "alcohol", "amount": NaN}',
+        content=f'{{"date": "{log_day}", "behavior": "alcohol", "amount": NaN}}'.encode(),
         headers=csrf_headers,
     )
     assert res.status_code == 400
@@ -1124,7 +1166,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Amount 9999.995 (quantizes to 10000.00 / has > 2 decimals)
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 9999.995},
+        json={"date": log_day, "behavior": "alcohol", "amount": 9999.995},
         headers=csrf_headers,
     )
     assert res.status_code == 400
@@ -1132,7 +1174,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Amount 1.234 (> 2 decimals)
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "amount": 1.234},
+        json={"date": log_day, "behavior": "alcohol", "amount": 1.234},
         headers=csrf_headers,
     )
     assert res.status_code == 400
@@ -1140,7 +1182,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Bad note (> 200 chars)
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "note": "x" * 201},
+        json={"date": log_day, "behavior": "alcohol", "note": "x" * 201},
         headers=csrf_headers,
     )
     assert res.status_code == 400
@@ -1148,21 +1190,21 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     # Note with control characters (\x00, \n, \x1f)
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "note": "hello\x00world"},
+        json={"date": log_day, "behavior": "alcohol", "note": "hello\x00world"},
         headers=csrf_headers,
     )
     assert res.status_code == 400
 
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "note": "hello\nworld"},
+        json={"date": log_day, "behavior": "alcohol", "note": "hello\nworld"},
         headers=csrf_headers,
     )
     assert res.status_code == 400
 
     res = client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol", "note": "hello\x1fworld"},
+        json={"date": log_day, "behavior": "alcohol", "note": "hello\x1fworld"},
         headers=csrf_headers,
     )
     assert res.status_code == 400
@@ -1216,7 +1258,7 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     auth_client = TestClient(create_app(auth_settings), base_url="http://testserver")
     res = auth_client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol"},
+        json={"date": log_day, "behavior": "alcohol"},
         headers={**csrf_headers, "X-authentik-username": "disallowed_user"},
     )
     assert res.status_code == 403
@@ -1233,14 +1275,14 @@ def test_web_journal_writes_and_security(migrated_db: str, owner: Engine) -> Non
     disabled_client = TestClient(create_app(disabled_settings), base_url="http://testserver")
     res = disabled_client.put(
         "/api/journal/entries",
-        json={"date": "2026-10-25", "behavior": "alcohol"},
+        json={"date": log_day, "behavior": "alcohol"},
         headers={**csrf_headers, "X-authentik-username": "allowed_user"},
     )
     assert res.status_code == 503
     assert res.json()["error"] == "journal_writes_disabled"
 
     res = disabled_client.delete(
-        "/api/journal/entries?date=2026-10-25&behavior=alcohol",
+        f"/api/journal/entries?date={log_day}&behavior=alcohol",
         headers={**delete_headers, "X-authentik-username": "allowed_user"},
     )
     assert res.status_code == 503
