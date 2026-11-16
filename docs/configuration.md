@@ -30,6 +30,7 @@ lists them with comments.
 | `HC_MCP_PUBLISH`, `HC_DB_PUBLISH` | `127.0.0.1:8080`, `127.0.0.1:5432` | Published host ports. |
 | `HC_NTFY_URL`, `HC_NTFY_TOPIC` | `https://ntfy.sh`, empty | Push notifications. They contain health data, and anyone who knows a ntfy.sh topic can read it: use a long random topic, or a self-hosted ntfy with access control. |
 | `HC_NTFY_TOKEN` | empty | ntfy access token, sent as `Authorization: Bearer`. |
+| `HC_NTFY_TAGS` | `[]` | Tags put in front of every notification's own, as a JSON list, e.g. `["heart"]`. ntfy shows emoji tags before the title. |
 | `HC_NOTIFY_LANG` | `en` | Language for push notifications (`en` or `cs`). |
 | `HC_OFF_BASE_URL` | `https://world.openfoodfacts.org` | Open Food Facts for food search. |
 | `HC_HR_MAX` | empty | Maximum heart rate. Fallback: Tanaka 208 - 0.7*age; if age unknown, 190. Overridden by `set_profile`. |

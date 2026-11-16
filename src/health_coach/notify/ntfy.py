@@ -62,8 +62,10 @@ class NtfyClient:
             "message": body,
             "priority": priority,
         }
-        if tags:
-            payload["tags"] = tags
+        # Configured tags first, then the message's own; each tag once.
+        all_tags = list(dict.fromkeys([*settings.ntfy_tags, *(tags or [])]))
+        if all_tags:
+            payload["tags"] = all_tags
 
         headers = {}
         if settings.ntfy_token and settings.ntfy_token.get_secret_value():

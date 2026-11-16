@@ -87,7 +87,12 @@ jobs:
           cache-to: type=gha,mode=max
 
   # On main and on version tags, pushes the image to ghcr.io/<owner>/health-coach once
-  # the checks passed. The build is a cache hit from the image job.
+  # the checks passed. The build is a cache hit from the image job. The pushed digest is
+  # signed keyless with cosign (GitHub's OIDC identity of this workflow, recorded in
+  # Sigstore's transparency log), so a deployment can check that a build came from here:
+  #   cosign verify ghcr.io/<owner>/health-coach@<digest> \
+  #     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  #     --certificate-identity https://github.com/<owner>/health-coach/.github/workflows/ci.yml@refs/heads/main
   publish:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -95,6 +100,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -113,10 +119,16 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+      - id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
+      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+      - name: Sign the pushed image
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "ghcr.io/${GITHUB_REPOSITORY}@${DIGEST}"
