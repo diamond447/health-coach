@@ -10,13 +10,13 @@
     "test": "TZ=Europe/Prague vitest run"
   },
   "dependencies": {
-    "preact": "10.25.4"
+    "preact": "11.1.0"
   },
   "devDependencies": {
-    "@preact/preset-vite": "2.9.4",
+    "@preact/preset-vite": "2.10.6",
     "happy-dom": "21.0.4",
-    "typescript": "5.7.3",
-    "vite": "6.4.5",
-    "vitest": "4.1.12"
+    "typescript": "7.0.2",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
   }
 }
