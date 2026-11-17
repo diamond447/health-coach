@@ -100,6 +100,9 @@ class Settings(BaseSettings):
     ntfy_topic: SecretStr | None = None
     # Access token for servers that require auth (HC_NTFY_TOKEN), sent as a bearer token.
     ntfy_token: SecretStr | None = None
+    # Tags put in front of every notification's own (HC_NTFY_TAGS, a JSON list). ntfy shows
+    # emoji tags before the title, which tells this app's pushes apart from others.
+    ntfy_tags: list[str] = Field(default_factory=list)
     notify_lang: Literal["en", "cs"] = "en"
 
     # Healthstats web app

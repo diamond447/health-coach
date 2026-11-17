@@ -1125,7 +1125,7 @@ async def test_lb_profiles_read_all_weights_in_kg(
         st["workouts"].append(
             {
                 "id": "w_lb",
-                "d": "2026-10-10",
+                "d": (dt.datetime.now(settings.tz).date() - dt.timedelta(days=7)).isoformat(),
                 "name": "LB Workout",
                 "entries": [
                     {

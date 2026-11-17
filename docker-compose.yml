@@ -85,6 +85,7 @@ services:
       HC_NTFY_URL: ${HC_NTFY_URL:-https://ntfy.sh}
       HC_NTFY_TOPIC: ${HC_NTFY_TOPIC:-}
       HC_NTFY_TOKEN: ${HC_NTFY_TOKEN:-}
+      HC_NTFY_TAGS: ${HC_NTFY_TAGS:-[]}
       HC_NOTIFY_LANG: ${HC_NOTIFY_LANG:-en}
       HC_HR_MAX: ${HC_HR_MAX:-}
       HC_BIRTH_YEAR: ${HC_BIRTH_YEAR:-}
@@ -112,6 +113,7 @@ services:
       HC_NTFY_URL: ${HC_NTFY_URL:-https://ntfy.sh}
       HC_NTFY_TOPIC: ${HC_NTFY_TOPIC:-}
       HC_NTFY_TOKEN: ${HC_NTFY_TOKEN:-}
+      HC_NTFY_TAGS: ${HC_NTFY_TAGS:-[]}
       HC_OFF_BASE_URL: ${HC_OFF_BASE_URL:-https://world.openfoodfacts.org}
     ports:
       - ${HC_MCP_PUBLISH:-127.0.0.1:8080}:8080
